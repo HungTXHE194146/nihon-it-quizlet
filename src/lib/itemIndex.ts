@@ -1,13 +1,14 @@
 /**
- * Chỉ mục phẳng toàn bộ câu hỏi / thẻ từ vựng của mọi môn học.
+ * Sổ đăng ký phẳng các câu hỏi / thẻ từ vựng đã được nạp.
  *
- * Tiến độ SRS và sổ tay câu sai cần tra ngược từ một khoá đã lưu về nội dung câu hỏi,
- * kể cả khi người dùng đang không mở môn đó. Id trong dữ liệu chỉ duy nhất trong phạm vi
- * từng môn, nên khoá lưu trữ luôn là composite `subjectId::itemId`.
+ * Tiến độ SRS và sổ tay câu sai cần tra ngược từ khoá đã lưu về nội dung câu hỏi.
+ * Dữ liệu từng môn được nạp động nên chỉ mục này lớn dần: `subjectLoader` gọi
+ * `registerSubjectItems` mỗi khi một môn được tải xong.
+ *
+ * Id chỉ duy nhất trong phạm vi từng môn, nên khoá lưu trữ luôn là `subjectId::itemId`.
  */
 
-import { subjects } from '../data/subjects';
-import type { StudyItem } from '../data/lessons';
+import type { Lesson, StudyItem } from '../data/lessons';
 
 export interface IndexedItem {
   key: string;
@@ -25,29 +26,47 @@ export function cardKey(subjectId: string, itemId: string): string {
   return `${subjectId}::${itemId}`;
 }
 
-export const allItems: IndexedItem[] = [];
+/** Tách phần mã môn ra khỏi khoá thẻ, dùng khi chưa nạp dữ liệu của môn đó. */
+export function subjectIdFromKey(key: string): string {
+  const idx = key.indexOf('::');
+  return idx === -1 ? '' : key.slice(0, idx);
+}
+
 export const itemByKey = new Map<string, IndexedItem>();
 
-for (const subject of subjects) {
-  for (const lesson of subject.lessons) {
+const registered = new Set<string>();
+
+/** Đưa toàn bộ mục của một môn vào chỉ mục. Gọi lại nhiều lần là vô hại. */
+export function registerSubjectItems(
+  subjectId: string,
+  subjectTitle: string,
+  lessons: Lesson[]
+): void {
+  if (registered.has(subjectId)) return;
+  registered.add(subjectId);
+
+  for (const lesson of lessons) {
     for (const section of lesson.sections) {
       for (const item of section.items) {
         const entry: IndexedItem = {
-          key: cardKey(subject.id, item.id),
+          key: cardKey(subjectId, item.id),
           item,
-          subjectId: subject.id,
-          subjectTitle: subject.title,
+          subjectId,
+          subjectTitle,
           lessonId: lesson.id,
           lessonTitle: lesson.title,
           sectionId: section.id,
           sectionTitle: section.title,
           sectionType: section.type,
         };
-        allItems.push(entry);
         itemByKey.set(entry.key, entry);
       }
     }
   }
+}
+
+export function isSubjectIndexed(subjectId: string): boolean {
+  return registered.has(subjectId);
 }
 
 /** Ngôn ngữ đọc của một môn: dùng cho phát âm và cho nhãn giao diện. */

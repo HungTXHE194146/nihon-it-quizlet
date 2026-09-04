@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useProgress } from '../hooks/useProgress';
 import { itemByKey } from '../lib/itemIndex';
 import { isLeech, formatInterval, LEECH_THRESHOLD } from '../lib/srs';
-import { subjects } from '../data/subjects';
+import { subjectMeta } from '../data/subjectMeta';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -64,7 +64,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
   const leechCount = useMemo(() => rows.filter((r) => isLeech(r.card)).length, [rows]);
 
   const subjectOptions = useMemo(
-    () => [{ id: 'all', title: 'Tất cả môn' }, ...subjects.map((s) => ({ id: s.id, title: s.title }))],
+    () => [{ id: 'all', title: 'Tất cả môn' }, ...subjectMeta.map((s) => ({ id: s.id, title: s.title }))],
     []
   );
 

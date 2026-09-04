@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { subjects } from '../data/subjects';
-import type { Subject } from '../data/subjects';
+import { subjectMeta } from '../data/subjectMeta';
+import type { SubjectMeta } from '../data/subjectMeta';
 import { useProgress } from '../hooks/useProgress';
 import {
   Code,
@@ -32,7 +32,7 @@ interface HomepageProps {
   onOpenMistakes: () => void;
 }
 
-const CATEGORIES = ['Tất cả', ...Array.from(new Set(subjects.map(s => s.category)))];
+const CATEGORIES = ['Tất cả', ...Array.from(new Set(subjectMeta.map(s => s.category)))];
 
 export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
@@ -50,7 +50,7 @@ export const Homepage: React.FC<HomepageProps> = ({
   const isNewLearner = globalStats.studied === 0;
   const firstSessionSize = Math.min(data.settings.dailyNewLimit, globalStats.total);
   const perSubjectStats = useMemo(
-    () => Object.fromEntries(subjects.map((s) => [s.id, statsFor(s.id)])),
+    () => Object.fromEntries(subjectMeta.map((s) => [s.id, statsFor(s.id)])),
     [statsFor]
   );
 
@@ -78,9 +78,9 @@ export const Homepage: React.FC<HomepageProps> = ({
     }
   };
 
-  // Filter subjects based on search query and selected category
+  // Filter subjectMeta based on search query and selected category
   const filteredSubjects = useMemo(() => {
-    return subjects.filter(subject => {
+    return subjectMeta.filter(subject => {
       const matchesCategory =
         selectedCategory === 'Tất cả' || subject.category === selectedCategory;
       
@@ -96,7 +96,7 @@ export const Homepage: React.FC<HomepageProps> = ({
     });
   }, [searchQuery, selectedCategory]);
 
-  const renderIcon = (iconType: Subject['icon']) => {
+  const renderIcon = (iconType: SubjectMeta['icon']) => {
     switch (iconType) {
       case 'code':
         return <Code className="w-6 h-6" />;
@@ -159,18 +159,18 @@ export const Homepage: React.FC<HomepageProps> = ({
         {/* Quick Stats Banner */}
         <div className="relative z-10 mt-8 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-white">{subjects.length}</span>
+            <span className="text-2xl font-black text-white">{subjectMeta.length}</span>
             <span className="text-xs text-slate-400 font-medium">Môn học chuyên sâu</span>
           </div>
           <div className="flex flex-col">
             <span className="text-2xl font-black text-indigo-300">
-              {subjects.reduce((acc, s) => acc + s.totalLessons, 0)}+
+              {subjectMeta.reduce((acc, s) => acc + s.totalLessons, 0)}+
             </span>
             <span className="text-xs text-slate-400 font-medium">Bài học & Lý thuyết</span>
           </div>
           <div className="flex flex-col">
             <span className="text-2xl font-black text-purple-300">
-              {subjects.reduce((acc, s) => acc + s.totalItems, 0)}+
+              {subjectMeta.reduce((acc, s) => acc + s.totalItems, 0)}+
             </span>
             <span className="text-xs text-slate-400 font-medium">Từ vựng & Câu hỏi</span>
           </div>

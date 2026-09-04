@@ -1,19 +1,30 @@
-import { useState, useEffect, useMemo } from 'react';
-import { subjects } from './data/subjects';
-import type { Subject } from './data/subjects';
+import { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import { subjectMeta, findSubjectMeta } from './data/subjectMeta';
+import type { SubjectMeta } from './data/subjectMeta';
 import { useHashRoute } from './hooks/useHashRoute';
 import { Homepage } from './components/Homepage';
-import { LessonSelector } from './components/LessonSelector';
-import { MimiN3Selector } from './components/MimiN3Selector';
-import { JFE301Selector } from './components/JFE301Selector';
 import { StudySession } from './components/StudySession';
 import { TheoryViewer } from './components/TheoryViewer';
 import { FakePaywallModal } from './components/FakePaywallModal';
-import { KanjiMasterN3Selector } from './components/KanjiMasterN3Selector';
-import { ExamSession } from './components/ExamSession';
-import { MistakeNotebook } from './components/MistakeNotebook';
 import { useProgress } from './hooks/useProgress';
-import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle } from 'lucide-react';
+import { useSubjectData } from './hooks/useSubjectData';
+import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
+
+// Các màn hình chỉ dùng ở một nhánh route được nạp động để nhẹ lần tải đầu.
+// Riêng KanjiMasterN3Selector còn kéo theo bảng chữ Kanji, càng nên tách riêng.
+const LessonSelector = lazy(() => import('./components/LessonSelector').then((m) => ({ default: m.LessonSelector })));
+const MimiN3Selector = lazy(() => import('./components/MimiN3Selector').then((m) => ({ default: m.MimiN3Selector })));
+const JFE301Selector = lazy(() => import('./components/JFE301Selector').then((m) => ({ default: m.JFE301Selector })));
+const KanjiMasterN3Selector = lazy(() => import('./components/KanjiMasterN3Selector').then((m) => ({ default: m.KanjiMasterN3Selector })));
+const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({ default: m.ExamSession })));
+const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
+
+const ScreenLoader = () => (
+  <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
+    <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" />
+    <p className="text-sm font-bold text-slate-500">Đang tải dữ liệu bài học...</p>
+  </div>
+);
 
 function App() {
   const { route, navigate, goBack } = useHashRoute();
@@ -38,16 +49,21 @@ function App() {
       ? route.subjectId
       : 'nihon-it';
 
-  // "all" là môn ảo cho các phiên gộp mọi môn (ôn theo lịch, sổ tay câu sai).
-  const isAllSubjects = activeSubjectId === 'all';
+  const currentSubject: SubjectMeta = findSubjectMeta(activeSubjectId) || subjectMeta[0];
 
-  const currentSubject: Subject =
-    subjects.find((s) => s.id === activeSubjectId) || subjects[0];
+  /**
+   * Route nào cần dữ liệu bài học thì khai báo ở đây; trang chủ và trang lý thuyết
+   * không cần gì cả nên vào thẳng, không phải chờ tải gần 1 MB dữ liệu.
+   */
+  const requiredSubject =
+    route.page === 'mistakes'
+      ? 'all'
+      : route.page === 'subject' || route.page === 'study' || route.page === 'exam'
+      ? route.subjectId
+      : null;
 
-  // Phiên gộp lấy bài của mọi môn để chế độ luyện tập thường vẫn tra được nội dung.
-  const activeLessons = isAllSubjects
-    ? subjects.flatMap((s) => s.lessons)
-    : currentSubject.lessons;
+  const { lessons: activeLessons, loading: dataLoading, failed: dataFailed } =
+    useSubjectData(requiredSubject);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -280,6 +296,25 @@ function App() {
 
       {/* Main Content Area rendered dynamically according to Route */}
       <main className="flex-grow py-6 flex items-start justify-center">
+        {dataLoading && <ScreenLoader />}
+
+        {dataFailed && (
+          <div className="w-full max-w-md mx-auto text-center py-20 px-4">
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Không tải được dữ liệu bài học</h3>
+            <p className="text-slate-500 mb-6 text-sm">
+              Có thể mạng bị gián đoạn. Thử tải lại trang nhé.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
+            >
+              Tải lại
+            </button>
+          </div>
+        )}
+
+        {!dataLoading && !dataFailed && (
+        <Suspense fallback={<ScreenLoader />}>
         {route.page === 'home' && (
           <Homepage
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
@@ -290,7 +325,7 @@ function App() {
 
         {route.page === 'subject' && currentSubject.id === 'mimi-n3-goi' && (
           <MimiN3Selector
-            lessons={currentSubject.lessons}
+            lessons={activeLessons}
             onStartBySections={(sections) =>
               navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
             }
@@ -303,7 +338,7 @@ function App() {
 
         {route.page === 'subject' && currentSubject.id === 'jfe301' && (
           <JFE301Selector
-            lessons={currentSubject.lessons}
+            lessons={activeLessons}
             onStartByChapter={(sectionIds) =>
               navigate(`/subject/jfe301/study?sections=${sectionIds.join(',')}`)
             }
@@ -319,7 +354,7 @@ function App() {
 
         {route.page === 'subject' && currentSubject.id === 'kanji-master-n3' && (
           <KanjiMasterN3Selector
-            lessons={currentSubject.lessons}
+            lessons={activeLessons}
             onStartBySections={(sections) =>
               navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
             }
@@ -332,7 +367,7 @@ function App() {
           currentSubject.id !== 'jfe301' && 
           currentSubject.id !== 'kanji-master-n3' && (
           <LessonSelector
-            lessons={currentSubject.lessons}
+            lessons={activeLessons}
             selectedSectionIds={selectedSectionIds}
             setSelectedSectionIds={setSelectedSectionIds}
             onStartSession={handleStartSession}
@@ -383,6 +418,8 @@ function App() {
               navigate(`/subject/${subjectId}/study?mode=mistakes`)
             }
           />
+        )}
+        </Suspense>
         )}
       </main>
 

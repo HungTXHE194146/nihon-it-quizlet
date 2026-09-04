@@ -18,7 +18,8 @@ import React, {
 import { readJSON, writeJSON, removeKey, isPersistent } from '../lib/storage';
 import { review as srsReview, isDue, isMature } from '../lib/srs';
 import type { CardState } from '../lib/srs';
-import { itemByKey } from '../lib/itemIndex';
+import { itemByKey, subjectIdFromKey } from '../lib/itemIndex';
+import { totalItemsOf } from '../data/subjectMeta';
 
 const STORE_KEY = 'progress';
 const SAVE_DEBOUNCE_MS = 400;
@@ -217,22 +218,26 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     (subjectId: string | 'all', limit?: number) => {
       const now = Date.now();
       const due: { key: string; due: number }[] = [];
-      const fresh: string[] = [];
 
-      for (const [key, entry] of itemByKey) {
-        if (subjectId !== 'all' && entry.subjectId !== subjectId) continue;
-        const card = data.cards[key];
-        if (!card) {
-          fresh.push(key);
-        } else if (isDue(card, now)) {
-          due.push({ key, due: card.due });
-        }
+      // Thẻ đến hạn suy ra được từ tiến độ đã lưu, không cần dữ liệu bài học.
+      for (const [key, card] of Object.entries(data.cards)) {
+        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (isDue(card, now)) due.push({ key, due: card.due });
       }
-
       // Thẻ quá hạn lâu nhất được ưu tiên trước.
       due.sort((a, b) => a.due - b.due);
+
+      // Thẻ mới thì phải tra chỉ mục, nên chỉ lấy được từ các môn đã nạp dữ liệu.
+      const fresh: string[] = [];
+      const newLimit = data.settings.dailyNewLimit;
+      for (const [key, entry] of itemByKey) {
+        if (fresh.length >= newLimit) break;
+        if (subjectId !== 'all' && entry.subjectId !== subjectId) continue;
+        if (!data.cards[key]) fresh.push(key);
+      }
+
       const queue = due.map((d) => d.key);
-      queue.push(...fresh.slice(0, data.settings.dailyNewLimit));
+      queue.push(...fresh);
       return typeof limit === 'number' ? queue.slice(0, limit) : queue;
     },
     [data.cards, data.settings.dailyNewLimit]
@@ -243,9 +248,8 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const rows: { key: string; last: number; wrong: number }[] = [];
       for (const [key, card] of Object.entries(data.cards)) {
         if (card.wrong === 0) continue;
-        const entry = itemByKey.get(key);
-        if (!entry) continue; // dữ liệu cũ trỏ tới câu đã bị xoá khỏi giáo trình
-        if (subjectId !== 'all' && entry.subjectId !== subjectId) continue;
+        // Lọc theo mã môn nằm ngay trong khoá, nhờ vậy không phụ thuộc vào việc đã nạp dữ liệu.
+        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
         rows.push({ key, last: card.last, wrong: card.wrong });
       }
       // Sai nhiều nhất lên đầu, cùng số lần sai thì lấy câu vừa sai gần đây.
@@ -258,24 +262,30 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const statsFor = useCallback(
     (subjectId: string | 'all'): SubjectStats => {
       const now = Date.now();
-      let total = 0;
+      // Tổng số mục lấy từ metadata tĩnh nên trang chủ không cần nạp dữ liệu môn nào.
+      const total = totalItemsOf(subjectId);
       let studied = 0;
       let mature = 0;
       let due = 0;
       let wrong = 0;
 
-      for (const [key, entry] of itemByKey) {
-        if (subjectId !== 'all' && entry.subjectId !== subjectId) continue;
-        total += 1;
-        const card = data.cards[key];
-        if (!card) continue;
+      for (const [key, card] of Object.entries(data.cards)) {
+        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
         studied += 1;
         if (isMature(card)) mature += 1;
         if (isDue(card, now)) due += 1;
         if (card.wrong > 0) wrong += 1;
       }
 
-      return { total, studied, mature, due, newCards: total - studied, wrong };
+      return {
+        total,
+        studied,
+        mature,
+        due,
+        // Tiến độ cũ có thể trỏ tới câu đã bị gỡ khỏi giáo trình, đừng để ra số âm.
+        newCards: Math.max(0, total - studied),
+        wrong,
+      };
     },
     [data.cards]
   );
