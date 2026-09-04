@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { StudyItem } from '../data/lessons';
 import { CheckCircle2, XCircle, Info, HelpCircle, X } from 'lucide-react';
 
@@ -17,6 +17,8 @@ interface QuestionCardProps {
   reveal?: boolean;
   /** Số thứ tự câu, hiển thị ở góc thẻ khi làm đề. */
   questionNumber?: number;
+  /** Đảo thứ tự các phương án để không học vẹt theo vị trí. */
+  shuffleChoices?: boolean;
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -29,6 +31,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onChange,
   reveal = false,
   questionNumber,
+  shuffleChoices = false,
 }) => {
   const [localChoice, setLocalChoice] = useState<string | null>(null);
   const [localGraded, setLocalGraded] = useState(false);
@@ -45,27 +48,69 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     setIsImageOpen(false);
   }, [item]);
 
-  const choices = item.choices || [];
-  
+  const rawChoices = useMemo(() => item.choices || [], [item]);
+
   // Detect if this is a True/False question (choices are exactly "Đúng" and "Sai")
-  const isTrueFalse = 
-    choices.length === 2 && 
-    ((choices[0] === 'Đúng' && choices[1] === 'Sai') || 
-     (choices[0] === 'Sai' && choices[1] === 'Đúng'));
+  const isTrueFalse =
+    rawChoices.length === 2 &&
+    ((rawChoices[0] === 'Đúng' && rawChoices[1] === 'Sai') ||
+     (rawChoices[0] === 'Sai' && rawChoices[1] === 'Đúng'));
 
-  const handleSelect = (choice: string) => {
-    if (examMode) {
-      if (reveal) return; // bài đã nộp, chỉ xem lại
-      onChange?.(choice);
-      return;
+  /**
+   * Thứ tự phương án hiển thị.
+   *
+   * Giữ nguyên thứ tự gốc ở ba trường hợp: khi làm đề (phải giống đề thật),
+   * câu Đúng/Sai (đảo chỉ gây rối), và câu hỏi bằng ảnh — vì chính tấm ảnh đã liệt kê
+   * a) b) c) d) theo thứ tự, đảo đi thì nhãn trên nút lệch với ảnh.
+   *
+   * Trộn lại mỗi lần thẻ được dựng, nên làm lại cùng một câu sẽ ra thứ tự khác.
+   */
+  const choices = useMemo(() => {
+    if (!shuffleChoices || examMode || isTrueFalse || item.image) return rawChoices;
+    const arr = [...rawChoices];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
+  }, [rawChoices, shuffleChoices, examMode, isTrueFalse, item.image]);
 
-    if (isGraded) return; // Prevent clicking after selection
+  const handleSelect = useCallback(
+    (choice: string) => {
+      if (examMode) {
+        if (reveal) return; // bài đã nộp, chỉ xem lại
+        onChange?.(choice);
+        return;
+      }
 
-    setLocalChoice(choice);
-    setLocalGraded(true);
-    onAnswerGraded?.(choice === item.answer);
-  };
+      if (isGraded) return; // Prevent clicking after selection
+
+      setLocalChoice(choice);
+      setLocalGraded(true);
+      onAnswerGraded?.(choice === item.answer);
+    },
+    [examMode, reveal, onChange, isGraded, item.answer, onAnswerGraded]
+  );
+
+  // Phím 1-4 (hoặc A-D) chọn phương án tương ứng, khỏi phải rê chuột.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isGraded || choices.length === 0) return;
+
+      let index = -1;
+      if (/^[1-9]$/.test(e.key)) index = Number(e.key) - 1;
+      else if (/^[a-dA-D]$/.test(e.key)) index = e.key.toLowerCase().charCodeAt(0) - 97;
+
+      if (index >= 0 && index < choices.length) {
+        e.preventDefault();
+        handleSelect(choices[index]);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [choices, handleSelect, isGraded]);
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -238,6 +283,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Gợi ý phím tắt */}
+      {!isGraded && choices.length > 0 && !isTrueFalse && (
+        <div className="mt-4 flex justify-center">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100/60 py-1.5 px-3 rounded-lg border border-slate-200/50 select-none">
+            Bấm phím{' '}
+            {choices.map((_, i) => (
+              <kbd
+                key={i}
+                className="mx-0.5 px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-[9px] text-slate-500"
+              >
+                {i + 1}
+              </kbd>
+            ))}{' '}
+            để chọn nhanh
+          </span>
+        </div>
+      )}
 
       {/* Fullscreen Image Modal */}
       {isImageOpen && item.image && (

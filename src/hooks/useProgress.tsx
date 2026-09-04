@@ -65,6 +65,8 @@ export interface ProgressSettings {
   dailyNewLimit: number;
   /** Kiểu hiển thị mặt trước thẻ từ vựng, ghi nhớ giữa các phiên. */
   practiceMode: 'default' | 'write-kanji';
+  /** Đảo thứ tự phương án trắc nghiệm khi luyện tập. */
+  shuffleChoices: boolean;
 }
 
 interface ProgressData {
@@ -82,6 +84,7 @@ const DEFAULT_SETTINGS: ProgressSettings = {
   ttsRate: 0.9,
   dailyNewLimit: 20,
   practiceMode: 'default',
+  shuffleChoices: true,
 };
 
 function emptyData(): ProgressData {

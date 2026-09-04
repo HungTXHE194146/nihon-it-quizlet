@@ -199,6 +199,36 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
     writeJSON(ATTEMPT_KEY, attempt);
   }, [answers, flagged, index, phase, signature, startedAt, deadline, questions.length]);
 
+  // Phím tắt phòng thi: mũi tên chuyển câu, F đánh dấu (phím số do QuestionCard xử lý).
+  useEffect(() => {
+    if (phase !== 'doing') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setIndex((i) => Math.min(questions.length - 1, i + 1));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setIndex((i) => Math.max(0, i - 1));
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        const current = questions[index];
+        if (current) {
+          setFlagged((prev) => {
+            const next = new Set(prev);
+            if (next.has(current.key)) next.delete(current.key);
+            else next.add(current.key);
+            return next;
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [phase, questions, index]);
+
   const toggleFlag = (key: string) => {
     setFlagged((prev) => {
       const next = new Set(prev);
@@ -513,6 +543,25 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* Gợi ý phím tắt phòng thi */}
+      <div className="mt-4 flex justify-center">
+        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100/60 py-1.5 px-3 rounded-lg border border-slate-200/50 select-none flex items-center gap-3 flex-wrap justify-center">
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-[9px] text-slate-500">1-4</kbd>{' '}
+            chọn đáp án
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-[9px] text-slate-500">←</kbd>{' '}
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-[9px] text-slate-500">→</kbd>{' '}
+            chuyển câu
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-[9px] text-slate-500">F</kbd>{' '}
+            đánh dấu
+          </span>
+        </span>
       </div>
 
       {/* Xác nhận nộp bài */}

@@ -335,6 +335,24 @@ export const StudySession: React.FC<StudySessionProps> = ({
     }
   };
 
+  // Sau khi đã chấm câu trắc nghiệm, Enter hoặc mũi tên phải để đi tiếp.
+  useEffect(() => {
+    if (!isAnswered) return;
+    const q = questions[currentIndex];
+    if (!q || q.sectionType === 'vocabulary') return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'Enter' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // handleNext dựng lại mỗi lần render nhưng luôn đóng gói đúng chỉ số hiện tại.
+  });
+
   const handleRetryAll = () => {
     setQuestions([...questions]);
     setCurrentIndex(0);
@@ -535,6 +553,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
             lessonTitle={currentQuestion.lessonTitle}
             sectionTitle={currentQuestion.sectionTitle}
             onAnswerGraded={handleAnswerGraded}
+            shuffleChoices={data.settings.shuffleChoices}
           />
         )}
       </div>
@@ -652,6 +671,26 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Cài đặt trắc nghiệm */}
+            <div className="pt-4 border-t border-slate-100">
+              <label className="flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer">
+                <span>
+                  <span className="text-xs font-extrabold text-slate-800 block">
+                    Đảo thứ tự đáp án trắc nghiệm
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500 leading-relaxed block mt-0.5">
+                    Tránh học vẹt theo vị trí. Đề thi và câu hỏi bằng ảnh luôn giữ nguyên thứ tự gốc.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={data.settings.shuffleChoices}
+                  onChange={(e) => updateSettings({ shuffleChoices: e.target.checked })}
+                  className="h-4 w-4 mt-0.5 rounded accent-indigo-600 cursor-pointer shrink-0"
+                />
+              </label>
             </div>
 
             {/* Cài đặt phát âm */}
