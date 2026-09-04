@@ -103,8 +103,11 @@ export const StudySession: React.FC<StudySessionProps> = ({
         range,
         examFilter,
         qTypeFilter,
+        // Dữ liệu bài học nạp động nên có thể tới sau khi component đã mount;
+        // đưa vào chữ ký để phiên được dựng lại khi bài học thực sự có mặt.
+        lessonCount: lessons.length,
       }),
-    [subjectId, mode, selectedSectionIds, range, examFilter, qTypeFilter]
+    [subjectId, mode, selectedSectionIds, range, examFilter, qTypeFilter, lessons.length]
   );
 
   /**

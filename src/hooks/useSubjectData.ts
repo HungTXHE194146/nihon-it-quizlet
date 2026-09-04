@@ -24,6 +24,23 @@ export function useSubjectData(target: string | null) {
   const [lessons, setLessons] = useState<Lesson[]>(() => (target ? readCache(target) ?? [] : []));
   const [loading, setLoading] = useState<boolean>(() => (target ? readCache(target) === null : false));
   const [failed, setFailed] = useState(false);
+  const [renderedTarget, setRenderedTarget] = useState(target);
+
+  /**
+   * Đặt lại state ngay trong lúc render khi đổi môn.
+   *
+   * Nếu để việc này cho useEffect thì có đúng một lượt render trung gian mà `lessons`
+   * vẫn là của môn cũ còn `loading` đã là false — đủ để màn hình học dựng phiên bằng
+   * dữ liệu sai và ra "không tìm thấy câu hỏi". Đây là cách React khuyến nghị để
+   * điều chỉnh state theo prop thay đổi.
+   */
+  if (renderedTarget !== target) {
+    setRenderedTarget(target);
+    const cached = target ? readCache(target) : [];
+    setLessons(cached ?? []);
+    setLoading(target ? cached === null : false);
+    setFailed(false);
+  }
 
   useEffect(() => {
     if (!target) {
