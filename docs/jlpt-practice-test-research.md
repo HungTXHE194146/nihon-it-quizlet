@@ -21,14 +21,15 @@
 5. [Ba giai đoạn: TRƯỚC / TRONG / SAU](#5-ba-giai-đoạn-trước--trong--sau)
 6. [Quy trình mổ xẻ lỗi](#6-quy-trình-mổ-xẻ-lỗi)
 7. [Đặc thù từng phần thi](#7-đặc-thù-từng-phần-thi)
-8. [Đặc tả màn hình & luồng](#8-đặc-tả-màn-hình--luồng)
-9. [Mô hình dữ liệu đề xuất](#9-mô-hình-dữ-liệu-đề-xuất)
-10. [Nguyên tắc viết chữ trong giao diện](#10-nguyên-tắc-viết-chữ-trong-giao-diện)
-11. [Chỉ số đo & tiêu chí thành công](#11-chỉ-số-đo--tiêu-chí-thành-công)
-12. [Phản mẫu — những thứ tuyệt đối không làm](#12-phản-mẫu--những-thứ-tuyệt-đối-không-làm)
-13. [Lộ trình triển khai](#13-lộ-trình-triển-khai)
-14. [Câu hỏi mở cần chủ dự án quyết](#14-câu-hỏi-mở-cần-chủ-dự-án-quyết)
-15. [Nguồn tham khảo](#15-nguồn-tham-khảo)
+8. [Tham chiếu thực địa: Bunpro JLPT Practice Tests](#8-tham-chiếu-thực-địa-bunpro-jlpt-practice-tests) ★ mới
+9. [Đặc tả màn hình & luồng](#9-đặc-tả-màn-hình--luồng)
+10. [Mô hình dữ liệu đề xuất](#10-mô-hình-dữ-liệu-đề-xuất)
+11. [Nguyên tắc viết chữ trong giao diện](#11-nguyên-tắc-viết-chữ-trong-giao-diện)
+12. [Chỉ số đo & tiêu chí thành công](#12-chỉ-số-đo--tiêu-chí-thành-công)
+13. [Phản mẫu — những thứ tuyệt đối không làm](#13-phản-mẫu--những-thứ-tuyệt-đối-không-làm)
+14. [Lộ trình triển khai](#14-lộ-trình-triển-khai)
+15. [Câu hỏi mở cần chủ dự án quyết](#15-câu-hỏi-mở-cần-chủ-dự-án-quyết)
+16. [Nguồn tham khảo](#16-nguồn-tham-khảo)
 
 ---
 
@@ -98,7 +99,7 @@ Không cố nhét JLPT vào `ExamSession`.
 
 ## 2. Kỳ thi JLPT thật — ràng buộc bắt buộc
 
-Phần này là dữ kiện, không phải ý kiến. Đã đối chiếu nguồn (xem mục 15).
+Phần này là dữ kiện, không phải ý kiến. Đã đối chiếu nguồn (xem mục 16).
 
 ### 2.1 Khối thời gian
 
@@ -114,7 +115,8 @@ Phần này là dữ kiện, không phải ý kiến. Đã đối chiếu nguồ
 
 - N1, N2 có **2 khối**; N3, N4, N5 có **3 khối**.
 - **Không được dồn giờ thừa sang khối sau.** Giữa các khối có nghỉ.
-- Tổng số câu N3 khoảng 100–110.
+- Tổng số câu N3 khoảng 100–110. Một điểm tham chiếu cụ thể (N3 = 36 + 39 + 28 = 103 câu) ở
+  **mục 8.2**, lấy từ đề mô phỏng của Bunpro — tham khảo tốt, nhưng không phải số chính thức.
 - Thời lượng 聴解 có thể xê dịch nhẹ theo độ dài file ghi âm.
 
 ### 2.2 Cách chấm điểm
@@ -267,16 +269,21 @@ xử lý tệ nhất, vì họ coi màn hình điểm số là đích đến.
 
 Rào cản không phải độ khó mà là **kích thước của bước đầu tiên**.
 
-**Ba cỡ phiên, luôn hiện song song:**
+**Ba cỡ phiên, luôn hiện song song.** Hai cỡ lớn **bám đúng khối thi thật** thay vì cắt theo
+số phút tuỳ tiện — cách này Bunpro cũng dùng (mục 8.4), vừa hạ chi phí khởi động vừa không
+phải giải thích gì thêm cho người dùng:
 
 | Cỡ | Thời lượng | Nội dung | Dành cho |
 |---|---|---|---|
-| **Nhấm nháp** | ~5 phút | 1 問題 (ví dụ chỉ 漢字読み 8 câu) | Người lười, đang chờ xe buýt, "học tí thôi" |
-| **Một phần** | 25–40 phút | 1 khối thi (文字・語彙, hoặc 聴解) | Buổi tối trong tuần |
+| **Nhấm nháp** | ~5 phút | **1 問題** (ví dụ 問題1 漢字読み, 8–9 câu) | Người lười, đang chờ xe buýt, "học tí thôi" |
+| **Một khối** | 30 / 70 / 40 phút | 1 khối thi thật (文字・語彙 hoặc 文法・読解 hoặc 聴解) | Buổi tối trong tuần |
 | **Full** | 140 phút | Cả đề, đủ 3 khối, có nghỉ | Cuối tuần, gần ngày thi |
 
 Nguyên tắc: **nút được nhấn nhiều nhất phải là nút nhỏ nhất.** Trang chủ JLPT mở ra phải thấy
 ngay "Làm 8 câu (5 phút)" chứ không phải "Bắt đầu đề thi 140 phút".
+
+Cỡ **nhấm nháp** chính là chỗ ta đi xa hơn Bunpro: khối nhỏ nhất bên họ vẫn là 30 phút, mà 30
+phút vẫn là một quyết định lớn với người đang lười. Một 問題 thì không.
 
 **Hiệu ứng khởi đầu mới:** thứ Hai, đầu tháng, sau kỳ thi trượt — đây là những lúc người ta dễ
 tiếp nhận lời mời quay lại nhất. Đáng để canh.
@@ -376,8 +383,8 @@ Người dùng đã quyết định làm bài — mọi thứ khác là ma sát.
 
 Mục tiêu: bảo vệ sự tập trung, mô phỏng đúng áp lực, thu dữ liệu cho phần review.
 
-**Giao diện tối giản.** Trên màn hình chỉ được có: số thứ tự câu, đồng hồ, nội dung câu hỏi,
-các lựa chọn, bảng câu hỏi, nút đánh dấu. Hết.
+**Giao diện tối giản.** Trên màn hình chỉ được có: đề bài của 問題, câu hỏi, các lựa chọn,
+phiếu trả lời (mục 9.4), đồng hồ, nút đánh dấu. Hết.
 
 **Thu độ chắc chắn ngay tại chỗ** — chi tiết kỹ thuật quan trọng nhất của phần này:
 
@@ -598,7 +605,7 @@ chỉ có **một** hệ thống để bảo trì.
 
 ### 7.4 聴解 (nghe hiểu) — phần khó nhất về mặt kỹ thuật
 
-Cần quyết định trước khi code (xem mục 14):
+Cần quyết định trước khi code (xem mục 15):
 
 - **Nguồn audio.** TTS (`src/lib/tts.ts`) đọc được tiếng Nhật nhưng 聴解 thật là **hội thoại
   nhiều giọng, có ngữ điệu, tốc độ tự nhiên**. TTS một giọng đều đều sẽ khiến bài nghe *dễ hơn
@@ -614,9 +621,229 @@ Cần quyết định trước khi code (xem mục 14):
 
 ---
 
-## 8. Đặc tả màn hình & luồng
+## 8. Tham chiếu thực địa: Bunpro JLPT Practice Tests
 
-### 8.1 Sơ đồ điều hướng
+### 8.1 Vì sao mục này tồn tại
+
+[Bunpro](https://bunpro.jp/jlpt_practice_tests) ra mắt tính năng JLPT Practice Tests tháng
+09/2025: **miễn phí hoàn toàn, không cần tài khoản, chạy được offline**. Đây là sản phẩm gần
+nhất với thứ tài liệu này định xây, do một đội đã làm công cụ học tiếng Nhật nhiều năm.
+
+**Về độ tin cậy của mục này:** `bunpro.jp` bị proxy mạng của môi trường build chặn, nên tôi
+không tự truy cập được. Toàn bộ mô tả dưới đây dựa trên **ba ảnh chụp màn hình do chủ dự án
+cung cấp ngày 2026-09-04** (trang danh sách đề, hộp thoại Details, màn đang làm bài) cộng với
+mô tả gián tiếp từ kết quả tìm kiếm. **Chưa quan sát được** màn hình kết quả và màn hình review
+của Bunpro — mọi khẳng định về hai màn đó có độ tin cậy thấp hơn hẳn và được đánh dấu rõ.
+
+### 8.2 Cách tổ chức đề
+
+Trang danh sách là lưới thẻ, nhóm theo cấp, mỗi cấp 5 đề đặt tên `N3【模擬試験】1..5`.
+Mỗi thẻ hiển thị: thời lượng (`140m`), nhãn `Standard`, nhãn cấp (`N3`), và một bảng điểm 2×2
+ngay trên thẻ — khi chưa làm thì hiện dấu `—`:
+
+```
+┌ N3【模擬試験】1 ────────── 140m · Standard · N3 ┐
+│  Vocab              Grammar & Reading         │
+│  — / 36             — / 39                    │
+│  Listening          Total                     │
+│  — / 28             — / 103                   │
+│            [    Details    ]                  │
+└───────────────────────────────────────────────┘
+```
+
+Số câu quan sát được — **điểm tham chiếu đầu tiên mà tài liệu này có về phân bố câu hỏi**:
+
+| Cấp | 文字・語彙 | 文法・読解 | 聴解 | Tổng | Thời lượng |
+|---|---|---|---|---|---|
+| N4 | 38 | 35 | 26 | 99 | 115m |
+| **N3** | **36** | **39** | **28** | **103** | **140m** |
+
+> ⚠️ Đây là **số của Bunpro**, không phải của JEES. Đề thật xê dịch theo từng kỳ. Nhưng thời
+> lượng khớp *chính xác* với dữ kiện đã đối chiếu độc lập ở mục 2.1 (N3 140 phút, N4 115 phút),
+> nên phân bố câu hỏi này đáng tin ở mức "tham khảo tốt". Vẫn giữ nguyên nguyên tắc ở mục 10:
+> **số câu do dữ liệu quyết định, không hardcode.**
+
+### 8.3 Bunpro cũng KHÔNG giả điểm JLPT — xác nhận độc lập cho mục 2.3
+
+Bảng điểm hiện `— / 103`, tức **số câu đúng thô**, chứ không phải thang `/180` của kỳ thi thật.
+Ba phần điểm cũng đặt tên theo phần chấm điểm thật (Vocab / Grammar & Reading / Listening).
+
+Một sản phẩm thương mại lâu năm cũng từ chối quy đổi ra thang 180 — điều này củng cố mạnh cho
+quyết định ở **mục 2.3**. Nếu Bunpro với nguồn lực của họ còn không dám giả điểm IRT, ta lại
+càng không nên.
+
+### 8.4 Mỗi khối một nút Start riêng — cách họ giải bài toán chi phí khởi động
+
+Bấm `Details` mở ra hộp thoại. Đây là chi tiết quan trọng thứ hai:
+
+```
+┌ N3【模擬試験】1 ───────────────────────────────┐
+│  Score  —                    頑張ってください！ │
+│                                                │
+│  げんごちしき（もじ・ごい）        [  Start  ]  │
+│  Vocab                                         │
+│  Alloted Time 00:30:00   Total Questions 36    │
+│                                                │
+│  言語知識（文法）・読解            [  Start  ]  │
+│  Grammar & Reading                             │
+│  Alloted Time 01:10:00   Total Questions 39    │
+│                                                │
+│  聴解                              [  Start  ]  │
+│  Listening                                     │
+│  Alloted Time 00:40:00   Total Questions 28    │
+│                                                │
+│            [  ← Return  ]                      │
+└────────────────────────────────────────────────┘
+```
+
+**Người học không bị buộc làm cả 140 phút một lượt.** Mỗi khối có nút `Start` độc lập.
+
+→ **Điều này tốt hơn đề xuất ban đầu ở mục 4.2.** Thay vì bịa ra ba "cỡ phiên" nhân tạo, họ
+dùng chính **khối thi thật** làm đơn vị chia nhỏ: vừa hạ chi phí khởi động, vừa trung thành
+với cấu trúc kỳ thi, vừa không phải giải thích gì thêm cho người dùng.
+
+→ **Nhưng khối nhỏ nhất vẫn là 30 phút.** Với người lười ở điểm rơi 1, 30 phút vẫn là một
+quyết định lớn. Chỗ trống còn lại chính là cỡ **"nhấm nháp" theo 問題** (問題1 漢字読み chỉ
+~8–9 câu ≈ 5 phút) — thứ Bunpro không có. Mục 4.2 nay được sửa lại theo hướng đó.
+
+Chi tiết nhỏ đáng lấy: dòng `Score` để trống kèm 「頑張ってください！」 — một lời động viên
+nhẹ ngay trước khi bắt đầu, đúng tinh thần mục 5.1 mà không sa vào sáo rỗng.
+
+### 8.5 ★ Phiếu trả lời kiểu マークシート — chi tiết đáng học nhất
+
+Màn làm bài chia hai. Bên phải là một panel cố định mô phỏng **phiếu tô đáp án của kỳ thi thật**:
+
+```
+┌ げんごちしき（もじ・ごい）  🕐 00:29:57 ┐
+│                                        │
+│  問題1                                  │
+│   01  [1] [2] [3] [4]   ← câu hiện tại │
+│   02  [1] [2] [3] [4]                  │
+│   ...                                  │
+│   09  [1] [2] [3] [4]                  │
+│                                        │
+│  問題2                                  │
+│   10  [1] [2] [3] [4]                  │
+│   ...                                  │
+│                                        │
+│  問題3                                  │
+│   16  [1] [2] [3] [4]                  │
+│   ...                        (cuộn được)│
+└────────────────────────────────────────┘
+```
+
+Panel này làm **ba việc cùng lúc**:
+
+1. **Điều hướng** — bấm số câu để nhảy tới.
+2. **Trả lời trực tiếp** — bấm ô 1/2/3/4 ngay trên phiếu, không cần vào từng câu.
+3. **Tổng quan tiến độ** — nhìn một cái là thấy còn bao nhiêu câu trắng.
+
+Và nó **nhóm theo 問題** — đúng đơn vị chẩn đoán mà mục 6 và mục 7 nhấn mạnh. Người học thấy
+ngay "mình bỏ trắng gần hết 問題4" chứ không phải "mình bỏ trắng 6 câu".
+
+**So với `ExamSession` hiện có trong repo:** bảng câu hỏi của ta chỉ là lưới ô số để nhảy câu,
+tô màu theo trạng thái đã làm / đánh dấu / chưa làm. Nó **không hiện đáp án đã chọn** và
+**không cho trả lời tại chỗ**. Phiếu của Bunpro tốt hơn hẳn.
+
+→ **Quyết định: thay bảng câu hỏi bằng phiếu trả lời kiểu này.** Đặc tả ở mục 9.4.
+
+### 8.6 Giao diện làm bài — xác nhận nguyên tắc tối giản
+
+Bên trái màn hình chỉ có đúng ba thứ:
+
+- **Khung đề bài của 問題 tách riêng ở trên cùng**, luôn nhìn thấy:
+  `問題1　＿＿のことばの読み方として最もよいものを、1・2・3・4から一つ えらびなさい。`
+  → Người học không phải nhớ yêu cầu của nhóm câu. Đây là giảm tải nhận thức đúng chỗ (mục 3.7).
+- **Câu hỏi**: `01　お父さんが車に乗っています。` với chữ cần đọc (`乗`) **gạch chân đỏ**.
+- **Bốn đáp án dạng lưới 2×2**, đánh số `1 2 3 4` — không phải `A B C D`. Đây là quy ước của
+  đề Nhật và nên theo, vì phiếu trả lời cũng đánh số.
+
+Những thứ đáng chú ý khác:
+
+- **Có furigana trên chữ Hán khó** (`もんだい` trên 問題, `げんごちしき` trên 言語知識). Với N4/N5
+  đây là hỗ trợ cần thiết; với N3 trở lên thì nên tắt được.
+- **Đồng hồ nằm trong panel phụ**, không chiếm vị trí trung tâm, không nhấp nháy → khớp chính
+  xác với mục 3.8 (đừng biến đồng hồ thành nguồn lo âu).
+- **Chỉ có hai nút điều hướng ← →** ở dưới cùng. Không có gì khác.
+- **Nền tối.** Với bài thi dài 140 phút, đây là lựa chọn hợp lý; nên cân nhắc chế độ tối cho
+  riêng màn làm bài kể cả khi phần còn lại của app dùng nền sáng.
+
+### 8.7 Những gì Bunpro KHÔNG có — chỗ trống của chúng ta
+
+| Bunpro thiếu | Ta làm gì | Mục |
+|---|---|---|
+| Không thu độ chắc chắn lúc trả lời | Ma trận hai trục nguyên nhân × độ chắc chắn | 6.3 |
+| Không bắt đoán lại trước khi xem đáp án | Bước 1 của quy trình mổ xẻ | 6.2 |
+| Không cho tự phân loại nguyên nhân lỗi | Bước 2 | 6.2 |
+| Không thấy nút đánh dấu / cờ trên màn làm bài | Có cờ đánh dấu, phím tắt `F` | 5.2 |
+| Không có cỡ phiên nhỏ hơn một khối (30 phút) | Cỡ "nhấm nháp" theo 問題, ~5 phút | 4.2 |
+| Không thấy dự đoán điểm trước khi làm | Có, để rèn tự đánh giá | 5.1 |
+| *(theo mô tả gián tiếp)* Review = xem đáp án + giải thích | Quy trình 7 bước chủ động | 6 |
+
+> ⚠️ Dòng cuối bảng dựa trên **mô tả gián tiếp, chưa kiểm chứng bằng ảnh**. Nếu sau này quan
+> sát được màn review thật của Bunpro thì phải sửa lại mục này. Đừng trích dẫn nó như sự thật.
+
+Điểm khác biệt cốt lõi có thể tóm trong một câu: **Bunpro làm rất tốt phần "mô phỏng phòng
+thi". Chỗ ta chen vào được là phần "sau khi rời phòng thi".**
+
+### 8.8 Link từ câu sai sang điểm ngữ pháp / từ vựng
+
+Theo mô tả (chưa thấy tận mắt), khi xem đáp án Bunpro có **link nhanh sang đúng điểm ngữ pháp
+hoặc từ vựng tương ứng** để ôn lại ngay. Đây là ý hay và bản nghiên cứu v1 đã bỏ sót phần giao
+diện cho nó — mô hình dữ liệu ở mục 10 có sẵn `grammarPoint`, `vocabIds`, `kanjiChars` nhưng
+không đặc tả dùng chúng thế nào.
+
+**Repo này ở vị thế làm mạnh hơn Bunpro một bậc**, vì đã có sẵn:
+
+- 1.066 thẻ từ vựng Mimi Kara Oboeru N3
+- 529 thẻ Kanji Master N3
+- Một hệ SRS đang chạy (`src/lib/srs.ts`)
+
+Bunpro link sang **trang tra cứu**. Ta có thể đẩy thẳng thẻ đó **vào hàng đợi ôn của chính
+người học**. Đặc tả cho bước 3 của quy trình mổ xẻ:
+
+```
+┌ BƯỚC 3 — Đáp án & lời giải ────────────────────────────┐
+│ Đáp án đúng: 4 のって                                   │
+│ 乗る (のる) — đi, lên (xe)                              │
+│                                                         │
+│ 🔗 Từ này có trong bộ thẻ của bạn:                      │
+│    乗る  ·  Mimi N3 Bài 3  ·  Đã thuộc, ôn lại sau 8 ngày│
+│    [ Đưa về ôn lại ngay ]                               │
+│                                                         │
+│ 🔗 Chữ Hán liên quan: 乗 (Kanji Master N3, chưa học)     │
+│    [ + Thêm vào hàng học mới ]                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+Hai điều làm được mà một trang tra cứu tĩnh không làm được:
+
+1. **Hiện trạng thái SRS thật của người học** với chính thẻ đó — "bạn đã thuộc từ này 8 ngày
+   trước mà giờ vẫn sai" là một thông tin chẩn đoán rất mạnh, và là bằng chứng năng lực /
+   thiếu hụt cụ thể (mục 4.5).
+2. **Một nút đưa thẻ về hàng ôn ngay** — biến một câu sai thành hành động, không chỉ thành
+   kiến thức đọc qua rồi quên.
+
+### 8.9 Điều Bunpro tiết lộ về rủi ro thật của dự án
+
+25 đề × ~100 câu ≈ **2.500 câu tự soạn**, cộng audio thu âm cho phần 聴解. Đó là hàng nghìn giờ
+biên soạn nội dung, không phải công viết code.
+
+→ **Nút thắt của dự án này là nội dung, không phải kỹ thuật.** Toàn bộ lộ trình 10 giai đoạn ở
+mục 14 là việc code có thể làm được; 2.500 câu hỏi chất lượng thì không.
+
+→ Việc Bunpro **tự soạn đề** (thay vì dùng đề thật) cũng là bằng chứng gián tiếp rằng phương án
+(a) ở mục 15.1 — tự soạn theo đúng format — là con đường khả thi duy nhất về mặt bản quyền.
+
+→ **Mục tiêu thực tế cho giai đoạn 0:** không phải một đề đầy đủ 103 câu, mà **một khối
+文字・語彙 = 36 câu**. Đó là con số soạn được trong thời gian hợp lý, và đủ để chạy trọn vòng
+đời: phòng chờ → làm bài → kết quả → mổ xẻ → vào SRS.
+
+---
+
+## 9. Đặc tả màn hình & luồng
+
+### 9.1 Sơ đồ điều hướng
 
 ```
 #/jlpt                          Trung tâm JLPT (thay trang chủ khi đã chuyển hẳn sang JLPT)
@@ -630,7 +857,7 @@ Cần quyết định trước khi code (xem mục 14):
   └── #/jlpt/progress           TIẾN BỘ THEO THỜI GIAN
 ```
 
-### 8.2 Máy trạng thái của một lượt thi
+### 9.2 Máy trạng thái của một lượt thi
 
 ```
     created ──► running(block 0) ──► break(0) ──► running(block 1) ──► ... ──► submitted
@@ -648,7 +875,7 @@ Cần quyết định trước khi code (xem mục 14):
 - Một lượt chỉ được coi là **hoàn tất** khi ở trạng thái `reviewed`, không phải `submitted`.
   Chỉ số theo dõi cũng phải đếm theo định nghĩa này.
 
-### 8.3 Bố cục màn hình mổ xẻ (quan trọng nhất)
+### 9.3 Bố cục màn hình mổ xẻ (quan trọng nhất)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -676,9 +903,53 @@ Cần quyết định trước khi code (xem mục 14):
 Nguyên tắc: **mở dần từng bước**, không hiện cả 7 bước cùng lúc. Một màn hình dày đặc sẽ khiến
 người dùng bỏ qua toàn bộ.
 
+### 9.4 Bố cục màn làm bài — phiếu trả lời
+
+Rút ra từ mục 8.5. Đây là thay đổi so với `ExamSession` hiện có trong repo.
+
+```
+┌──────────────────────────────────┬──────────────────────────┐
+│ 問題1 ＿＿のことばの読み方として   │ げんごちしき（もじ・ごい）│
+│ 最もよいものを、1・2・3・4から     │ 🕐 00:29:57              │
+│ 一つ えらびなさい。               │ ──────────────────────── │
+│  ↑ đề bài của 問題, LUÔN hiện     │ 問題1                    │
+├──────────────────────────────────┤ 01 [1][2][3][4] ← hiện tại│
+│                                  │ 02 [1][2][3][4]          │
+│  01  お父さんが車に乗っています。 │ ...                      │
+│                     ‾            │ 問題2                    │
+│                                  │ 10 [1][2][3][4]          │
+│   ┌────────────┬────────────┐    │ ...                      │
+│   │ 1 かって   │ 2 もって   │    │ 問題3                    │
+│   ├────────────┼────────────┤    │ 16 [1][2][3][4]          │
+│   │ 3 さって   │ 4 のって   │    │ ...        (cuộn được)   │
+│   └────────────┴────────────┘    │                          │
+│                                  │                          │
+│   Chắc chắn ◯  Phân vân ◯  Đoán ◯│  ← thứ Bunpro không có   │
+│                                  │                          │
+│              [ ← ]  [ → ]        │                          │
+└──────────────────────────────────┴──────────────────────────┘
+```
+
+Yêu cầu bắt buộc của phiếu trả lời:
+
+1. **Nhóm theo 問題**, có tiêu đề nhóm — không phải một dãy số phẳng. Đây là đơn vị chẩn đoán.
+2. **Bấm ô 1/2/3/4 ngay trên phiếu là trả lời được**, không cần nhảy vào từng câu.
+3. **Hiện đáp án đã chọn**, không chỉ hiện "đã làm / chưa làm".
+4. Câu đang xem được **làm nổi bật**.
+5. Đồng hồ đặt **trong panel này**, không đặt giữa màn hình (mục 3.8).
+6. Trên mobile: phiếu trở thành panel trượt lên từ đáy, mở bằng một nút "Phiếu trả lời (12/36)".
+
+Ba thứ thêm vào so với Bunpro: **hàng chọn độ chắc chắn** dưới các đáp án (mục 5.2), **nút
+đánh dấu cờ**, và **đề bài 問題 dính trên cùng** khi cuộn.
+
+**Đánh số đáp án là `1 2 3 4`, không phải `A B C D`** — theo đúng quy ước đề Nhật, và để khớp
+với phiếu trả lời. `QuestionCard` hiện đang dùng A/B/C/D nên cần một prop chọn kiểu đánh số.
+
 ---
 
-## 9. Mô hình dữ liệu đề xuất
+---
+
+## 10. Mô hình dữ liệu đề xuất
 
 TypeScript, khớp phong cách hiện có của repo (`src/data/lessons.ts`).
 
@@ -705,17 +976,29 @@ export type MondaiType =
 export interface TimedBlock {
   id: string;
   label: string;          // "言語知識(文字・語彙)"
+  /** Nhãn tiếng Anh phụ, như Bunpro làm: "Vocab" / "Grammar & Reading" / "Listening". */
+  labelEn?: string;
   minutes: number;        // 30
   mondai: MondaiType[];
+}
+
+/** Đề bài chung của một nhóm 問題, hiện cố định trên đầu màn làm bài. Xem mục 8.6. */
+export interface MondaiGroup {
+  mondai: MondaiType;
+  /** "＿＿のことばの読み方として最もよいものを、1・2・3・4から一つ えらびなさい。" */
+  instruction: string;
+  questionIds: string[];
 }
 
 export interface JlptExam {
   id: string;             // "n3-2024-07"
   level: JlptLevel;
-  title: string;
+  title: string;          // "N3【模擬試験】1"
   blocks: TimedBlock[];
+  /** Nhóm 問題 theo đúng thứ tự đề, dùng để dựng phiếu trả lời ở mục 9.4. */
+  groups: MondaiGroup[];
   questionIds: string[];
-  /** Nguồn gốc đề — bắt buộc khai báo vì lý do bản quyền, xem mục 14. */
+  /** Nguồn gốc đề — bắt buộc khai báo vì lý do bản quyền, xem mục 15. */
   source: 'original' | 'official-sample' | 'user-provided';
 }
 
@@ -727,10 +1010,14 @@ export interface JlptQuestion {
   mondai: MondaiType;
   scoringSection: ScoringSection;
 
-  stem?: string;              // đề bài; có thể rỗng với 聴解
+  stem?: string;              // câu hỏi; có thể rỗng với 聴解
+  /** Phần cần đọc/điền được gạch chân trong câu, dạng [bắt đầu, kết thúc] trên `stem`. */
+  stemUnderline?: [number, number];
   choices: string[];
   answerIndex: number;
   explanation?: string;
+  /** Furigana cho chữ Hán khó, dùng ở N4/N5; người học N3+ tắt được. Xem mục 8.6. */
+  furigana?: { text: string; reading: string }[];
 
   /** 読解: nhiều câu cùng trỏ về một đoạn văn. */
   passageId?: string;
@@ -833,7 +1120,7 @@ nhưng nuốt lỗi nghĩa là **mất dữ liệu âm thầm** — cần cảnh
 
 ---
 
-## 10. Nguyên tắc viết chữ trong giao diện
+## 11. Nguyên tắc viết chữ trong giao diện
 
 Ngôn ngữ ở đây không phải trang trí — nó quyết định người học ở lại hay bỏ đi. Có một phát hiện
 đáng chú ý trong nghiên cứu về phản hồi: phản hồi hướng vào **bản thân người học** (khen/chê con
@@ -860,7 +1147,7 @@ Thêm hai quy tắc:
 
 ---
 
-## 11. Chỉ số đo & tiêu chí thành công
+## 12. Chỉ số đo & tiêu chí thành công
 
 Đo bằng dữ liệu cục bộ, không gửi đi đâu (app không có backend, không tài khoản).
 
@@ -884,7 +1171,7 @@ Thêm hai quy tắc:
 
 ---
 
-## 12. Phản mẫu — những thứ tuyệt đối không làm
+## 13. Phản mẫu — những thứ tuyệt đối không làm
 
 | Phản mẫu | Vì sao hỏng |
 |---|---|
@@ -893,33 +1180,36 @@ Thêm hai quy tắc:
 | Xu / huy hiệu / level ảo | Bào mòn động lực nội tại vốn đã có (4.5) |
 | Bảng xếp hạng | App học một mình, offline, không tài khoản — vô nghĩa và gây so đo |
 | Streak cứng không có ngày nghỉ | Mất streak → bỏ hẳn (4.4) |
-| Thông báo trách móc | Né tránh, chứ không phải quay lại (mục 10) |
+| Thông báo trách móc | Né tránh, chứ không phải quay lại (mục 11) |
 | Ép mổ xẻ ngay sau 140 phút thi | Đã cạn năng lượng, review thành hình thức (5.3.1) |
 | Mổ xẻ = hiện lời giải rồi bấm "tiếp" | Cảm giác thông thạo giả (6.1) |
-| Nhồi cả 7 bước lên một màn hình | Quá tải → bỏ qua toàn bộ (8.3) |
+| Nhồi cả 7 bước lên một màn hình | Quá tải → bỏ qua toàn bộ (9.3) |
 | Bắt buộc điền nhãn nguyên nhân | Người dùng bấm bừa → dữ liệu thành rác (5.2) |
 | Đồng hồ đỏ nhấp nháy | Lo âu ăn mất trí nhớ làm việc (3.8) |
 | Nhét JLPT vào `ExamSession` cũ | Khác về cấu trúc ở 6 điểm (1.3) |
+| Bảng câu hỏi chỉ để nhảy câu, không hiện đáp án đã chọn | Bỏ phí ba chức năng của phiếu trả lời thật (8.5, 9.4) |
+| Đánh số đáp án A/B/C/D | Đề Nhật đánh số 1/2/3/4; lệch với phiếu trả lời (9.4) |
+| Câu sai chỉ link sang trang tra cứu | Ta có SRS — đẩy thẳng thẻ vào hàng ôn được (8.8) |
 | Dựng lịch 1-3-7-14 song song với SRS | Hai nguồn sự thật mâu thuẫn nhau (6.4) |
 | Dùng TTS thay audio 聴解 thật mà không nói rõ | Bài nghe dễ hơn thực tế → tự tin giả (7.4) |
 
 ---
 
-## 13. Lộ trình triển khai
+## 14. Lộ trình triển khai
 
 Sắp theo **giá trị học trên mỗi đơn vị công sức**, không theo thứ tự dễ–khó.
 
 | Giai đoạn | Nội dung | Vì sao thứ tự này |
 |---|---|---|
-| **0** | Mô hình dữ liệu (mục 9) + 1 đề N3 **chỉ phần 文字・語彙** (~35 câu) | Rẻ nhất, dữ liệu đã có sẵn trong repo, đủ để chạy hết vòng đời một lượt thi |
-| **1** | Phòng chờ + phòng thi 1 khối + thu độ chắc chắn | Xương sống. Có độ chắc chắn ngay từ đầu vì **không thể bổ sung ngược** cho dữ liệu cũ |
+| **0** | Mô hình dữ liệu (mục 10) + 1 khối N3 **文字・語彙 = 36 câu** | Rẻ nhất, dữ liệu đã có sẵn trong repo, đủ để chạy hết vòng đời một lượt thi. Con số 36 lấy theo mục 8.2 |
+| **1** | Phòng chờ + phòng thi 1 khối + **phiếu trả lời (9.4)** + thu độ chắc chắn | Xương sống. Có độ chắc chắn ngay từ đầu vì **không thể bổ sung ngược** cho dữ liệu cũ |
 | **2** | Màn kết quả trung thực (mục 5.3) | Cửa vào của phần quan trọng nhất |
 | **3** | ★ **Luồng mổ xẻ 7 bước + ma trận phân loại** | **Đây là tính năng. Mọi thứ trước đó chỉ là để tới được đây.** |
-| **4** | Nối vào SRS + sổ tay lỗi có cấu trúc + mini-quiz kết thúc | Biến một lần mổ xẻ thành trí nhớ dài hạn |
+| **4** | Nối vào SRS + sổ tay lỗi có cấu trúc + mini-quiz kết thúc + **link câu sai sang thẻ SRS (8.8)** | Biến một lần mổ xẻ thành trí nhớ dài hạn |
 | **5** | Phiên "nhấm nháp" 5 phút + việc dở dang trên trang chủ | Giữ chân (điểm rơi 1 và 4) |
 | **6** | Nhiều khối + nghỉ giữa khối + đề full 140 phút | Chỉ có nghĩa khi vòng lặp học đã chạy tốt |
 | **7** | 読解 (đoạn văn dùng chung) | Cần component mới, tải nhận thức cao hơn |
-| **8** | 聴解 (audio, tải theo yêu cầu, transcript) | Đắt nhất, nhiều câu hỏi chưa chốt (mục 14) |
+| **8** | 聴解 (audio, tải theo yêu cầu, transcript) | Đắt nhất, nhiều câu hỏi chưa chốt (mục 15) |
 | **9** | Biểu đồ tiến bộ, đối chiếu dự đoán, chẩn đoán theo 問題 | Có giá trị khi đã đủ dữ liệu lịch sử |
 
 **Ranh giới quan trọng:** đừng làm giai đoạn 6–8 trước giai đoạn 3. Một đề full 140 phút có
@@ -928,7 +1218,7 @@ luận là vô ích.
 
 ---
 
-## 14. Câu hỏi mở cần chủ dự án quyết
+## 15. Câu hỏi mở cần chủ dự án quyết
 
 Xếp theo mức độ chặn đường.
 
@@ -960,14 +1250,23 @@ chưa. Làm N3 cho tới nơi tới chốn trước là hợp lý.
 Giữ nguyên (đúng như đã chốt), nhưng khi JLPT thành trọng tâm thì trang chủ nên đổi: JLPT lên
 đầu, hai môn cũ xuống mục "Môn khác". **Không xoá.**
 
-### ❓ 5. Bước 4 (tự viết quy tắc) có nên bắt buộc?
+### ⛔ 5. Ai soạn 2.500 câu hỏi? — chặn mọi thứ từ giai đoạn 1 trở đi
+
+Mục 8.9 cho thấy nút thắt thật của dự án là nội dung. Bunpro có 25 đề; ta có 0. Cần chốt:
+ai soạn, soạn theo nguồn nào, và với nhịp bao nhiêu câu mỗi tuần. Nếu chưa có câu trả lời thì
+**đừng bắt đầu giai đoạn 6 trở đi** — sẽ có một phòng thi rất đẹp mà không có đề để làm.
+
+Gợi ý mốc thực tế: giai đoạn 0 chỉ cần **36 câu** (một khối 文字・語彙). Đó là mục tiêu soạn
+được trong một hai buổi, và đủ để kiểm chứng toàn bộ vòng đời sản phẩm.
+
+### ❓ 6. Bước 4 (tự viết quy tắc) có nên bắt buộc?
 
 Đây là bước hiệu quả nhất nhưng cũng nhiều ma sát nhất. Đề xuất: **không bắt buộc, nhưng chỉ mở
 ra cho ô "sai + chắc chắn"** — nhóm ít câu nhất và đáng công nhất.
 
 ---
 
-## 15. Nguồn tham khảo
+## 16. Nguồn tham khảo
 
 ### Dữ kiện về kỳ thi (đã đối chiếu ngày 2026-09-04)
 
@@ -1016,6 +1315,15 @@ nguyên văn.
 - **Ý định thực hiện:** Gollwitzer (1999).
 - **Hiệu ứng khởi đầu mới:** Dai, Milkman & Riis (2014).
 
+### Tham chiếu sản phẩm
+
+- [Bunpro — JLPT Practice Tests](https://bunpro.jp/jlpt_practice_tests) — phân tích ở mục 8.
+  Trang bị proxy chặn ở môi trường build; toàn bộ quan sát dựa trên **ba ảnh chụp màn hình do
+  chủ dự án cung cấp ngày 2026-09-04**: trang danh sách đề, hộp thoại Details của
+  N3【模擬試験】1, và màn đang làm bài `/jlpt_practice_tests/n3/11/vocab/31`.
+- [Thông báo ra mắt tính năng, 20/09/2025 — Bunpro Community](https://community.bunpro.jp/t/bunpro-jlpt-tests-new-feature-sep-20th-2025/149777)
+  *(cũng bị chặn; chỉ đọc được qua đoạn trích tìm kiếm)*
+
 ### Đóng góp từ chủ dự án
 
 Quy trình 5 bước mổ xẻ lỗi do chủ dự án cung cấp (qua ChatGPT) là hạt nhân của mục 6. Tài liệu
@@ -1033,12 +1341,17 @@ gần như nguyên văn vì chúng rất đắt:
 Dành cho AI hoặc người sắp viết tính năng này. Trả lời được hết thì hãy bắt đầu.
 
 - [ ] Đã đọc mục 1.3 và hiểu vì sao không dùng lại `ExamSession`?
-- [ ] Đã chốt nguồn đề (mục 14.1)? **Đây là điều kiện chặn.**
+- [ ] Đã chốt nguồn đề (mục 15.1)? **Đây là điều kiện chặn.**
 - [ ] Mô hình dữ liệu có `confidence` ngay từ v1 chưa? (Không bổ sung ngược được.)
 - [ ] Màn kết quả có mở đầu bằng điểm số không? (Nếu có → sai, xem 5.3.)
 - [ ] Luồng mổ xẻ có bắt đoán lại trước khi hiện đáp án không? (Bước 1, mục 6.2.)
 - [ ] Ô "đúng + đoán" có được xử lý riêng trong SRS không? (Mục 3.6 — dễ quên nhất.)
 - [ ] Phiên mổ xẻ có kết thúc bằng mini-quiz không? (Mục 4.7.)
-- [ ] Chữ trong giao diện đã qua bảng ở mục 10 chưa?
-- [ ] Lượt đã nộp mà chưa mổ xẻ có hiện thành việc dở dang ở trang chủ không? (Mục 8.2.)
+- [ ] Chữ trong giao diện đã qua bảng ở mục 11 chưa?
+- [ ] Lượt đã nộp mà chưa mổ xẻ có hiện thành việc dở dang ở trang chủ không? (Mục 9.2.)
 - [ ] Có chỗ nào hiển thị điểm JLPT giả không? (Mục 2.3 — phải là không.)
+- [ ] Phiếu trả lời có nhóm theo 問題 và cho trả lời tại chỗ không? (Mục 9.4.)
+- [ ] Đáp án đánh số 1/2/3/4 chứ không phải A/B/C/D? (Mục 9.4.)
+- [ ] Đề bài của 問題 có dính trên cùng khi cuộn không? (Mục 8.6.)
+- [ ] Câu sai có link sang thẻ SRS tương ứng kèm nút đưa về ôn không? (Mục 8.8.)
+- [ ] Đã biết ai soạn câu hỏi chưa? (Mục 15.5 — chặn từ giai đoạn 1.)
