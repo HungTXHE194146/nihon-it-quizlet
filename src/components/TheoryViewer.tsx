@@ -1,130 +1,79 @@
-import React, { useEffect } from 'react';
-import { Lesson1Theory } from './Lesson1Theory';
-import { Lesson2Theory } from './Lesson2Theory';
-import { Lesson3Theory } from './Lesson3Theory';
-import { Lesson4Theory } from './Lesson4Theory';
-import { Lesson5Theory } from './Lesson5Theory';
-import { Lesson6Theory } from './Lesson6Theory';
-import { Lesson7Theory } from './Lesson7Theory';
-import { Lesson8Theory } from './Lesson8Theory';
-import { Lesson9Theory } from './Lesson9Theory';
-import { Lesson10Theory } from './Lesson10Theory';
-import { Lesson11Theory } from './Lesson11Theory';
-import { Lesson12Theory } from './Lesson12Theory';
-import { Lesson13Theory } from './Lesson13Theory';
-import { Lesson14Theory } from './Lesson14Theory';
-import { Lesson15Theory } from './Lesson15Theory';
-import { Lesson16Theory } from './Lesson16Theory';
-import { Lesson17Theory } from './Lesson17Theory';
-import { Lesson18Theory } from './Lesson18Theory';
-import { Lesson19Theory } from './Lesson19Theory';
-import { Lesson20Theory } from './Lesson20Theory';
+import React, { Suspense, useEffect, lazy } from 'react';
+import { BookOpen } from 'lucide-react';
+
+/**
+ * Bài lý thuyết được nạp động.
+ *
+ * 20 component lý thuyết chiếm phần lớn mã nguồn giao diện nhưng chỉ dùng khi người dùng
+ * thực sự mở một bài. Nạp động giúp lần vào trang đầu tiên không phải tải hết.
+ */
+const THEORY_COMPONENTS: Record<number, React.LazyExoticComponent<React.ComponentType<{ onClose: () => void }>>> = {
+  1: lazy(() => import('./Lesson1Theory').then((m) => ({ default: m.Lesson1Theory }))),
+  2: lazy(() => import('./Lesson2Theory').then((m) => ({ default: m.Lesson2Theory }))),
+  3: lazy(() => import('./Lesson3Theory').then((m) => ({ default: m.Lesson3Theory }))),
+  4: lazy(() => import('./Lesson4Theory').then((m) => ({ default: m.Lesson4Theory }))),
+  5: lazy(() => import('./Lesson5Theory').then((m) => ({ default: m.Lesson5Theory }))),
+  6: lazy(() => import('./Lesson6Theory').then((m) => ({ default: m.Lesson6Theory }))),
+  7: lazy(() => import('./Lesson7Theory').then((m) => ({ default: m.Lesson7Theory }))),
+  8: lazy(() => import('./Lesson8Theory').then((m) => ({ default: m.Lesson8Theory }))),
+  9: lazy(() => import('./Lesson9Theory').then((m) => ({ default: m.Lesson9Theory }))),
+  10: lazy(() => import('./Lesson10Theory').then((m) => ({ default: m.Lesson10Theory }))),
+  11: lazy(() => import('./Lesson11Theory').then((m) => ({ default: m.Lesson11Theory }))),
+  12: lazy(() => import('./Lesson12Theory').then((m) => ({ default: m.Lesson12Theory }))),
+  13: lazy(() => import('./Lesson13Theory').then((m) => ({ default: m.Lesson13Theory }))),
+  14: lazy(() => import('./Lesson14Theory').then((m) => ({ default: m.Lesson14Theory }))),
+  15: lazy(() => import('./Lesson15Theory').then((m) => ({ default: m.Lesson15Theory }))),
+  16: lazy(() => import('./Lesson16Theory').then((m) => ({ default: m.Lesson16Theory }))),
+  17: lazy(() => import('./Lesson17Theory').then((m) => ({ default: m.Lesson17Theory }))),
+  18: lazy(() => import('./Lesson18Theory').then((m) => ({ default: m.Lesson18Theory }))),
+  19: lazy(() => import('./Lesson19Theory').then((m) => ({ default: m.Lesson19Theory }))),
+  20: lazy(() => import('./Lesson20Theory').then((m) => ({ default: m.Lesson20Theory }))),
+};
 
 interface TheoryViewerProps {
   lessonId: number;
   onClose: () => void;
 }
 
+const TheoryFallback: React.FC = () => (
+  <div className="w-full max-w-3xl mx-auto py-24 px-4 flex flex-col items-center gap-4">
+    <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center animate-pulse">
+      <BookOpen size={26} />
+    </div>
+    <p className="text-sm font-bold text-slate-500">Đang tải bài lý thuyết...</p>
+  </div>
+);
+
 export const TheoryViewer: React.FC<TheoryViewerProps> = ({ lessonId, onClose }) => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [lessonId]);
 
-  if (lessonId === 1) {
-    return <Lesson1Theory onClose={onClose} />;
-  }
+  const LessonTheory = THEORY_COMPONENTS[lessonId];
 
-  if (lessonId === 2) {
-    return <Lesson2Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 3) {
-    return <Lesson3Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 4) {
-    return <Lesson4Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 5) {
-    return <Lesson5Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 6) {
-    return <Lesson6Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 7) {
-    return <Lesson7Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 8) {
-    return <Lesson8Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 9) {
-    return <Lesson9Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 10) {
-    return <Lesson10Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 11) {
-    return <Lesson11Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 12) {
-    return <Lesson12Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 13) {
-    return <Lesson13Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 14) {
-    return <Lesson14Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 15) {
-    return <Lesson15Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 16) {
-    return <Lesson16Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 17) {
-    return <Lesson17Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 18) {
-    return <Lesson18Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 19) {
-    return <Lesson19Theory onClose={onClose} />;
-  }
-
-  if (lessonId === 20) {
-    return <Lesson20Theory onClose={onClose} />;
+  if (!LessonTheory) {
+    return (
+      <div className="w-full max-w-md mx-auto text-center py-16 px-4 bg-white border border-slate-200 rounded-2xl shadow-sm my-8">
+        <div className="w-16 h-16 mx-auto mb-4 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-2xl">
+          📖
+        </div>
+        <h3 className="text-xl font-bold text-slate-800 mb-2">Chưa có lý thuyết</h3>
+        <p className="text-slate-500 mb-6 text-sm">
+          Mục lý thuyết chi tiết cho Bài {lessonId} hiện đang được cập nhật và sẽ hoàn thiện sớm.
+        </p>
+        <button
+          onClick={onClose}
+          className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
+        >
+          Quay lại chọn bài
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="w-full max-w-md mx-auto text-center py-16 px-4 bg-white border border-slate-200 rounded-2xl shadow-sm my-8">
-      <div className="w-16 h-16 mx-auto mb-4 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-2xl">
-        📖
-      </div>
-      <h3 className="text-xl font-bold text-slate-800 mb-2">Chưa có lý thuyết</h3>
-      <p className="text-slate-500 mb-6 text-sm">
-        Mục lý thuyết chi tiết cho Bài {lessonId} hiện đang được cập nhật và sẽ hoàn thiện sớm.
-      </p>
-      <button
-        onClick={onClose}
-        className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
-      >
-        Quay lại chọn bài
-      </button>
-    </div>
+    <Suspense fallback={<TheoryFallback />}>
+      <LessonTheory onClose={onClose} />
+    </Suspense>
   );
 };

@@ -26,7 +26,7 @@ const PRESET_RANGES = [
   { label: 'Từ 101 - 200', from: 101, to: 200 },
   { label: 'Từ 201 - 300', from: 201, to: 300 },
   { label: 'Từ 301 - 400', from: 301, to: 400 },
-  { label: 'Từ 401 - 500', from: 501, to: 500 },
+  { label: 'Từ 401 - 500', from: 401, to: 500 },
   { label: 'Từ 501 - 600', from: 501, to: 600 },
   { label: 'Từ 601 - 700', from: 601, to: 700 },
   { label: 'Từ 701 - 800', from: 701, to: 800 },

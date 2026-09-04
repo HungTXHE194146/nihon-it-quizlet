@@ -1,11 +1,22 @@
 import React, { useState, useMemo, useEffect } from "react";
 import type { Lesson } from "../data/lessons";
-import { BookOpen, FileText, Play, Layers, ArrowLeft, ClipboardList } from "lucide-react";
+import { BookOpen, FileText, Play, Layers, ArrowLeft, ClipboardList, Timer, Dumbbell } from "lucide-react";
+
+/** Các mốc thời gian cho phòng thi mô phỏng; 0 nghĩa là không bấm giờ. */
+const DURATION_OPTIONS = [
+  { value: 0, label: "Không giới hạn" },
+  { value: 45, label: "45 phút" },
+  { value: 60, label: "60 phút" },
+  { value: 90, label: "90 phút" },
+  { value: 120, label: "120 phút" },
+];
 
 interface JFE301SelectorProps {
   lessons: Lesson[];
   onStartByChapter: (sectionIds: string[]) => void;
   onStartByExam: (examTag: string, qType: 'all' | 'theory' | 'calculation') => void;
+  /** Vào phòng thi mô phỏng: bấm giờ, không lộ đáp án cho tới khi nộp bài. */
+  onStartExam: (examTag: string, qType: 'all' | 'theory' | 'calculation', durationMin: number) => void;
   onBackToHome: () => void;
 }
 
@@ -13,12 +24,14 @@ export const JFE301Selector: React.FC<JFE301SelectorProps> = ({
   lessons,
   onStartByChapter,
   onStartByExam,
+  onStartExam,
   onBackToHome,
 }) => {
   const [tab, setTab] = useState<"chapter" | "exam">("chapter");
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [selectedQType, setSelectedQType] = useState<"all" | "theory" | "calculation">("all");
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
+  const [durationMin, setDurationMin] = useState<number>(90);
 
   // Clear selections when switching tabs
   useEffect(() => {
@@ -278,6 +291,27 @@ export const JFE301Selector: React.FC<JFE301SelectorProps> = ({
             </button>
           </div>
 
+          {/* Thời gian cho chế độ thi thử */}
+          <div className="flex items-center gap-2 flex-wrap justify-center mb-6 p-3 rounded-2xl bg-white border border-slate-200">
+            <span className="text-xs font-extrabold text-slate-600 flex items-center gap-1.5 mr-1">
+              <Timer size={14} className="text-blue-600" />
+              Thời gian thi thử:
+            </span>
+            {DURATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setDurationMin(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                  durationMin === opt.value
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           {examList.length === 0 ? (
             <div className="text-center py-16 text-slate-400">
               <ClipboardList size={48} className="mx-auto mb-4 opacity-30" />
@@ -314,16 +348,30 @@ export const JFE301Selector: React.FC<JFE301SelectorProps> = ({
                           <p className="text-xs text-slate-400 font-semibold">{count} câu hỏi</p>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onStartByExam(tag, selectedQType);
-                        }}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 text-white text-sm font-bold shadow-md shadow-blue-200 hover:from-blue-700 hover:to-sky-700 active:scale-95 transition-all cursor-pointer"
-                      >
-                        <Play size={15} fill="currentColor" />
-                        Làm đề
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStartByExam(tag, selectedQType);
+                          }}
+                          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold hover:border-sky-300 hover:text-sky-700 active:scale-95 transition-all cursor-pointer"
+                          title="Luyện tập: hiện đáp án và giải thích ngay sau mỗi câu"
+                        >
+                          <Dumbbell size={14} />
+                          <span className="hidden sm:inline">Luyện tập</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStartExam(tag, selectedQType, durationMin);
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 text-white text-sm font-bold shadow-md shadow-blue-200 hover:from-blue-700 hover:to-sky-700 active:scale-95 transition-all cursor-pointer"
+                          title="Thi thử: bấm giờ, không lộ đáp án cho tới khi nộp bài"
+                        >
+                          <Play size={15} fill="currentColor" />
+                          Thi thử
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -338,13 +386,22 @@ export const JFE301Selector: React.FC<JFE301SelectorProps> = ({
                       {selectedExamsCount} <span className="text-sm font-normal text-slate-400">câu hỏi</span>
                     </p>
                   </div>
-                  <button
-                    onClick={() => onStartByExam([...selectedExams].sort((a, b) => examList.indexOf(a) - examList.indexOf(b)).join(','), selectedQType)}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 cursor-pointer active:scale-95 transition-all"
-                  >
-                    <Play size={17} fill="currentColor" />
-                    Bắt đầu làm đề
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onStartByExam([...selectedExams].sort((a, b) => examList.indexOf(a) - examList.indexOf(b)).join(','), selectedQType)}
+                      className="flex items-center gap-1.5 px-4 py-3 rounded-xl font-bold text-slate-600 bg-white border border-slate-200 hover:border-sky-300 hover:text-sky-700 cursor-pointer active:scale-95 transition-all text-xs"
+                    >
+                      <Dumbbell size={15} />
+                      Luyện tập
+                    </button>
+                    <button
+                      onClick={() => onStartExam([...selectedExams].sort((a, b) => examList.indexOf(a) - examList.indexOf(b)).join(','), selectedQType, durationMin)}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Play size={17} fill="currentColor" />
+                      Thi thử
+                    </button>
+                  </div>
                 </div>
               )}
             </>
