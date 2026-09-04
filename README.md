@@ -1,5 +1,16 @@
 # NihonIT Quizlet - Hướng dẫn sử dụng & Mở rộng Dữ liệu
 
+> ### 🎯 Hướng đi hiện tại: tập trung vào JLPT
+> Từ 09/2026, dự án tập trung hoàn toàn vào **tiếng Nhật / luyện thi JLPT**.
+> JIT401 và JFE301 vẫn chạy như cũ nhưng **không phát triển thêm**.
+>
+> **Trước khi viết bất kỳ dòng code nào cho tính năng luyện đề JLPT, hãy đọc:**
+> 👉 **[docs/jlpt-practice-test-research.md](docs/jlpt-practice-test-research.md)**
+>
+> Đó là tài liệu nghiên cứu về tâm lý học người học và đặc tả thiết kế — viết cho cả người
+> lẫn AI đọc. Nó giải thích *vì sao* từng quyết định tồn tại, và có danh sách kiểm tra ở
+> phụ lục A cần trả lời hết trước khi bắt tay code.
+
 Dự án này là trang web ôn tập và học tập kiểu Quizlet kết hợp trắc nghiệm, viết bằng **React, Vite, TypeScript, và Tailwind CSS**.
 Giao diện tiếng Việt hiện đại, thân thiện trên di động và máy tính, chạy hoàn toàn offline bằng dữ liệu local.
 
