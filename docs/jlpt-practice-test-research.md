@@ -440,13 +440,18 @@ tạm dừng.
    聴解      ███████░░░░░  14/20
    (kèm ghi chú trung thực về việc đây không phải điểm JLPT thật — mục 2.3)
 
-4. ĐỐI CHIẾU DỰ ĐOÁN (nếu có)
+4. BẢN ĐỒ CHẨN ĐOÁN CẢ BÀI  (phiếu trả lời tô màu, mục 8.8)
+   Xanh = đúng · Đỏ = đáp án bạn chọn nhưng sai · Xanh viền = đáp án đúng bạn đã bỏ lỡ
+   Nhóm theo 問題, nhìn một cái thấy ngay cụm yếu — và thấy cả thói quen
+   "bí thì chọn phương án 4" nếu có.
+
+5. ĐỐI CHIẾU DỰ ĐOÁN (nếu có)
    "Bạn đoán 65%, thực tế 52%. Bạn đang tự đánh giá cao hơn thực tế ở phần 読解."
 
-5. TÁI ĐỊNH KHUNG — câu chốt, phải là dòng nổi bật nhất trang:
+6. TÁI ĐỊNH KHUNG — câu chốt, phải là dòng nổi bật nhất trang:
    "23 câu sai = 23 cơ hội tìm ra lỗ hổng."
 
-6. MỘT NÚT DUY NHẤT:
+7. MỘT NÚT DUY NHẤT:
    [ Bắt đầu mổ xẻ 23 câu → ]
 
    (Nút phụ, nhỏ, xám: "Để sau" — và nếu bấm thì phải hẹn giờ nhắc lại, mục 5.3.1)
@@ -455,7 +460,7 @@ tạm dừng.
 **Không** mở đầu bằng con số to màu đỏ. **Không** dùng từ "trượt". **Không** có cúp, pháo hoa,
 hay mặt buồn.
 
-Ý số 5 lấy trực tiếp từ gợi ý mà chủ dự án đưa vào, và nó đúng: chuyển "10 câu sai" từ *bản án*
+Ý số 6 lấy trực tiếp từ gợi ý mà chủ dự án đưa vào, và nó đúng: chuyển "10 câu sai" từ *bản án*
 thành *tài nguyên*. Đây là một trong những câu chữ có giá trị nhất trong toàn bộ tính năng.
 
 #### 5.3.1 Review ngay hay để sau?
@@ -498,7 +503,9 @@ học tập. Người học thấy dễ chịu, tưởng mình đã hiểu, và 
 │   "Cái gì đã khiến bạn chọn đáp án kia?"  ← câu hỏi lấy từ gợi ý của chủ dự án
 │   Chọn 1 nhãn (xem 6.3). Một chạm.
 │
-├─ BƯỚC 3 ── XEM ĐÁP ÁN + LỜI GIẢI
+├─ BƯỚC 3 ── XEM ĐÁP ÁN + LỜI GIẢI CỦA CẢ BỐN PHƯƠNG ÁN
+│   Không chỉ "đáp án đúng là B vì...". Mỗi phương án nhiễu đều được giải thích
+│   vì sao nó GẦN ĐÚNG mà vẫn sai, kèm thẻ từ vựng của chính nó (mục 8.7).
 │   Kèm câu hỏi chốt:
 │   "Kiến thức hoặc kỹ năng nào lẽ ra đã giúp bạn làm đúng câu này?"
 │
@@ -630,10 +637,18 @@ Cần quyết định trước khi code (xem mục 15):
 nhất với thứ tài liệu này định xây, do một đội đã làm công cụ học tiếng Nhật nhiều năm.
 
 **Về độ tin cậy của mục này:** `bunpro.jp` bị proxy mạng của môi trường build chặn, nên tôi
-không tự truy cập được. Toàn bộ mô tả dưới đây dựa trên **ba ảnh chụp màn hình do chủ dự án
-cung cấp ngày 2026-09-04** (trang danh sách đề, hộp thoại Details, màn đang làm bài) cộng với
-mô tả gián tiếp từ kết quả tìm kiếm. **Chưa quan sát được** màn hình kết quả và màn hình review
-của Bunpro — mọi khẳng định về hai màn đó có độ tin cậy thấp hơn hẳn và được đánh dấu rõ.
+không tự truy cập được. Toàn bộ mô tả dưới đây dựa trên **năm ảnh chụp màn hình do chủ dự án
+cung cấp ngày 2026-09-04**:
+
+1. Trang danh sách đề (`/jlpt_practice_tests`)
+2. Hộp thoại Details của `N3【模擬試験】1`
+3. Màn đang làm bài (`/n3/11/vocab/31`)
+4. **Màn review sau khi nộp** (`/n5/1/vocab/1`)
+5. **Trang chi tiết từ vựng** (`/vocabs/雨`)
+
+Vẫn **chưa quan sát được**: màn hình tổng kết điểm ngay sau khi nộp (nếu có một màn riêng),
+phần 読解 và 聴解 khi làm bài, và luồng lưu tiến độ giữa các lần (Bunpro không cần tài khoản
+nên chưa rõ họ lưu ở đâu).
 
 ### 8.2 Cách tổ chức đề
 
@@ -768,30 +783,129 @@ Những thứ đáng chú ý khác:
 - **Nền tối.** Với bài thi dài 140 phút, đây là lựa chọn hợp lý; nên cân nhắc chế độ tối cho
   riêng màn làm bài kể cả khi phần còn lại của app dùng nền sáng.
 
-### 8.7 Những gì Bunpro KHÔNG có — chỗ trống của chúng ta
+### 8.7 ★★ Màn review: giải thích TỪNG phương án nhiễu
 
-| Bunpro thiếu | Ta làm gì | Mục |
+**Đây là phát hiện lớn nhất của cả mục 8, và là thứ bản v1 của tài liệu này hoàn toàn bỏ sót.**
+
+Sau khi nộp, mỗi câu được mở ra với **lời giải riêng cho cả bốn lựa chọn**, không chỉ cho đáp
+án đúng. Ví dụ thật, câu `01 きのうは雨がふっていました。` (N5, 問題1 漢字読み):
+
+```
+① あめ   ✅ Correct Answer.
+         ┌────────────────────────────┐
+         │ 雨 あめ                  ↗ │   ← thẻ từ vựng nhúng, bấm mở trang chi tiết
+         │ rain                       │
+         └────────────────────────────┘
+
+② ゆき   Given the context of ふっていました (was falling) ゆき (雪), meaning 'snow',
+         would work however ゆき isn't the proper reading for 雨.
+         ┌────────────────────────────┐
+         │ 雪 ゆき · snow           ↗ │
+         └────────────────────────────┘
+
+③ はれ   Given the context of ふっていました (was falling), はれ (晴れ), meaning
+         'clear weather' or 'sunny', wouldn't fit.
+         ┌────────────────────────────┐
+         │ 晴れ はれ · clear weather ↗│
+         └────────────────────────────┘
+
+④ かぜ   ❌ (viền đỏ — đáp án người học đã chọn)
+         Given the context of ふっていました (was falling), かぜ (風), meaning
+         'wind', wouldn't fit.
+         ┌────────────────────────────┐
+         │ 風 かぜ · wind, breeze    ↗│
+         └────────────────────────────┘
+```
+
+Ba điều đáng chú ý:
+
+**1. Mỗi phương án nhiễu là một từ có thật, và được dạy luôn.** Một câu 4 lựa chọn biến thành
+**4 mục từ vựng** thay vì 1. Người học sai câu này không chỉ học được 雨, mà học luôn 雪・晴れ・風.
+Hiệu suất trên mỗi câu hỏi tăng gấp bốn.
+
+**2. Lời giải nói rõ vì sao nhiễu đó *gần đúng*, không chỉ nói nó sai.** Câu ② thừa nhận
+「would work however ゆき isn't the proper reading for 雨」 — tức là chỉ ra chính xác chỗ bẫy:
+về mặt ngữ cảnh thì hợp, chỉ sai ở cách đọc. Đây đúng là kiểu giải thích chữa được lỗi
+"phân vân giữa hai đáp án" ở ô 🟠 của ma trận mục 6.3.
+
+**3. Đáp án người học chọn được viền đỏ và tô chữ đỏ**, đáp án đúng ghi `Correct Answer.` màu
+xanh. Không có dấu chấm than, không có "Sai rồi!" — khớp với nguyên tắc ngôn ngữ ở mục 11.
+
+→ **Hệ quả bắt buộc cho mô hình dữ liệu (mục 10):** trường `explanation` một chuỗi duy nhất là
+**không đủ**. Phải là **lời giải theo từng lựa chọn**. Đây là thay đổi phải làm ngay từ giai
+đoạn 0, vì soạn lại 4 lời giải cho hàng nghìn câu sau này là không khả thi.
+
+→ **Hệ quả cho quy trình mổ xẻ (mục 6.2):** bước 3 không chỉ hiện "đáp án đúng là B vì...", mà
+hiện cả bốn. Kết hợp với bước 1 (đoán lại khi chưa xem đáp án) và bước 2 (tự phân loại nguyên
+nhân) thì ta có thứ mạnh hơn Bunpro: họ có **nội dung giải thích tốt hơn**, ta có **quy trình
+chủ động hơn**. Hai thứ này cộng được với nhau chứ không loại trừ nhau.
+
+### 8.8 Phiếu trả lời ở chế độ kết quả — bản đồ chẩn đoán cả khối
+
+Cùng panel phiếu trả lời ở mục 8.5, nhưng sau khi nộp thì mỗi ô được tô màu:
+
+```
+        もんだい1                      Quy ước màu:
+   01  [1̲] [2] [3] [4̶]                 ┌ xanh viền  = đáp án đúng, bạn KHÔNG chọn
+   02  [1] [2̲] [3] [4̶]                 ├ xanh đặc   = đáp án đúng, bạn CHỌN đúng
+   03  [1] [2] [3̲] [4̶]                 ├ đỏ đặc     = đáp án bạn chọn, và nó SAI
+   04  [1] [2̲] [3] [4̶]                 └ trung tính = không chọn, không đúng
+   05  [1] [2] [3] [4̲]  ✔
+   06  [1] [2] [3] [4̲]  ✔
+   07  [1] [2] [3] [4̲]  ✔
+        もんだい2
+   08  [1̲] [2] [3] [4̶]
+   ...
+```
+
+Nhìn một cái là thấy toàn bộ bức tranh của cả khối, không cần lật từng câu:
+
+- **Cụm đỏ theo 問題** — "gần như trượt sạch もんだい3" là chẩn đoán ở đúng cấp độ hữu ích.
+- **Cụm đỏ theo *vị trí* đáp án** — trong ảnh, rất nhiều ô đỏ nằm ở cột `4`. Đó là dấu hiệu của
+  một thói quen làm bài: *khi bí thì chọn phương án cuối*. Không một bảng "đúng/sai" nào phát
+  hiện được điều này, nhưng bản đồ theo vị trí thì có.
+
+→ Điều thứ hai đáng giá hơn nó thoạt trông. Nó nối thẳng vào nhãn nguyên nhân `het_gio` và
+`wana` ở mục 6.3, và vào ô "đúng nhờ đoán" ở mục 3.6. **Thêm vào màn kết quả (mục 5.3) như một
+phần của bước 3**, đặt ngay dưới các thanh điểm theo phần.
+
+### 8.9 Trang chi tiết từ vựng — cái mà thẻ nhúng trỏ tới
+
+Bấm ↗ trên thẻ nhúng sẽ mở `/vocabs/雨`. Trang này có:
+
+| Khối | Nội dung | Ta có dữ liệu chưa? |
 |---|---|---|
-| Không thu độ chắc chắn lúc trả lời | Ma trận hai trục nguyên nhân × độ chắc chắn | 6.3 |
-| Không bắt đoán lại trước khi xem đáp án | Bước 1 của quy trình mổ xẻ | 6.2 |
-| Không cho tự phân loại nguyên nhân lỗi | Bước 2 | 6.2 |
-| Không thấy nút đánh dấu / cờ trên màn làm bài | Có cờ đánh dấu, phím tắt `F` | 5.2 |
-| Không có cỡ phiên nhỏ hơn một khối (30 phút) | Cỡ "nhấm nháp" theo 問題, ~5 phút | 4.2 |
-| Không thấy dự đoán điểm trước khi làm | Có, để rèn tự đánh giá | 5.1 |
-| *(theo mô tả gián tiếp)* Review = xem đáp án + giải thích | Quy trình 7 bước chủ động | 6 |
+| Đầu trang | 雨 cỡ lớn, furigana あめ, nghĩa "rain", nhãn `N5 Noun` | ✅ Có |
+| **Bunpro Summary** | *"Water that falls from dark clouds."* — một câu diễn giải dễ hiểu, **tách riêng** khỏi danh sách nghĩa từ điển | ⚠️ Chưa — đáng thêm |
+| Nghĩa từ điển | 1. rain 2. rainy day 3. the November suit (hanafuda), kèm "See Also: 花札" | ✅ Có (một phần) |
+| All Forms | 雨【あめ】 | ✅ Có |
+| **Pitch Accent** | あめ có vạch thanh điệu + nút phát âm | ❌ **Không có dữ liệu** |
+| **Frequency** | "Dictionary Top 600" | ❌ Không có |
+| **Examples** | Câu ví dụ có audio thật, furigana, từ đích tô đỏ, bản dịch, nhãn cấp độ | ⚠️ Có câu ví dụ, không có audio |
+| Examples — điều khiển | Trình phát audio + **hai nút bật/tắt: 👁 Sentence và 👁 Translation** | ❌ Chưa có |
 
-> ⚠️ Dòng cuối bảng dựa trên **mô tả gián tiếp, chưa kiểm chứng bằng ảnh**. Nếu sau này quan
-> sát được màn review thật của Bunpro thì phải sửa lại mục này. Đừng trích dẫn nó như sự thật.
+**Chi tiết đáng học nhất ở trang này: hai nút ẩn/hiện câu và bản dịch.** Nó biến một danh sách
+ví dụ *thụ động* thành một bài **tự kiểm tra**: ẩn câu đi, nghe audio, thử hiểu; hoặc ẩn bản
+dịch, đọc câu, tự dịch. Đúng tinh thần truy hồi chủ động ở mục 3.1, với chi phí xây dựng gần
+bằng không. `VocabularyCard` trong repo đã có nút "Xem câu ví dụ (例文)" — chỉ cần mở rộng
+thành hai công tắc độc lập.
 
-Điểm khác biệt cốt lõi có thể tóm trong một câu: **Bunpro làm rất tốt phần "mô phỏng phòng
-thi". Chỗ ta chen vào được là phần "sau khi rời phòng thi".**
+**Hai thứ ta thiếu dữ liệu:** *pitch accent* và *frequency rank*. Cả hai đều hữu ích (pitch cho
+phát âm, frequency để ưu tiên học từ nào trước) và cả hai đều **không tự sinh ra được** —
+chúng phải đến từ một bộ dữ liệu bên ngoài. Ghi lại đây như một khoản nợ dữ liệu, không phải
+việc làm ngay.
 
-### 8.8 Link từ câu sai sang điểm ngữ pháp / từ vựng
+**Lưu ý về mặt sản phẩm:** trang này có ô quảng cáo "Ready to transform your studies? — Try
+Bunpro". Nghĩa là với Bunpro, luồng review là **phễu bán hàng**: bài thi miễn phí → thấy mình
+yếu → trang tra cứu → mời đăng ký. Ta không có mô hình đó, nên **không nên copy hình thức
+"trang tra cứu"** — xem mục 8.10.
 
-Theo mô tả (chưa thấy tận mắt), khi xem đáp án Bunpro có **link nhanh sang đúng điểm ngữ pháp
-hoặc từ vựng tương ứng** để ôn lại ngay. Đây là ý hay và bản nghiên cứu v1 đã bỏ sót phần giao
-diện cho nó — mô hình dữ liệu ở mục 10 có sẵn `grammarPoint`, `vocabIds`, `kanjiChars` nhưng
-không đặc tả dùng chúng thế nào.
+### 8.10 Link từ câu sai sang điểm ngữ pháp / từ vựng
+
+**Đã xác nhận bằng ảnh** (mục 8.7 và 8.9): mỗi phương án trong màn review có một thẻ từ vựng
+nhúng, bấm ↗ mở sang trang chi tiết của từ đó. Bản nghiên cứu v1 bỏ sót phần giao diện này —
+mô hình dữ liệu ở mục 10 có sẵn `grammarPoint`, `vocabIds`, `kanjiChars` nhưng không đặc tả
+dùng chúng thế nào.
 
 **Repo này ở vị thế làm mạnh hơn Bunpro một bậc**, vì đã có sẵn:
 
@@ -799,8 +913,9 @@ không đặc tả dùng chúng thế nào.
 - 529 thẻ Kanji Master N3
 - Một hệ SRS đang chạy (`src/lib/srs.ts`)
 
-Bunpro link sang **trang tra cứu**. Ta có thể đẩy thẳng thẻ đó **vào hàng đợi ôn của chính
-người học**. Đặc tả cho bước 3 của quy trình mổ xẻ:
+Khác biệt then chốt: **Bunpro link sang một trang tra cứu tĩnh** — nơi hành động duy nhất còn
+lại là bấm "Try Bunpro" (mục 8.9). Với ta, đích đến không phải trang tra cứu mà là **hàng đợi
+ôn của chính người học**. Đặc tả cho bước 3 của quy trình mổ xẻ:
 
 ```
 ┌ BƯỚC 3 — Đáp án & lời giải ────────────────────────────┐
@@ -824,7 +939,36 @@ Hai điều làm được mà một trang tra cứu tĩnh không làm được:
 2. **Một nút đưa thẻ về hàng ôn ngay** — biến một câu sai thành hành động, không chỉ thành
    kiến thức đọc qua rồi quên.
 
-### 8.9 Điều Bunpro tiết lộ về rủi ro thật của dự án
+### 8.11 Những gì Bunpro KHÔNG có — chỗ trống của chúng ta
+
+> **Đính chính so với bản trước của tài liệu này.** Trước khi có ảnh màn review, tôi phỏng đoán
+> rằng phần review của Bunpro chỉ là "hiện đáp án + lời giải". Điều đó **sai một nửa**: nội dung
+> giải thích của họ **giàu hơn tôi tưởng nhiều** (giải thích cả bốn phương án, kèm thẻ từ vựng
+> cho từng phương án — mục 8.7). Cái họ thiếu không phải nội dung, mà là **quy trình**.
+
+| Bunpro thiếu | Ta làm gì | Mục |
+|---|---|---|
+| Không thu độ chắc chắn lúc trả lời | Ma trận hai trục nguyên nhân × độ chắc chắn | 6.3 |
+| Không bắt đoán lại trước khi xem đáp án — mở ra là thấy ngay đáp án đúng | Bước 1 của quy trình mổ xẻ | 6.2 |
+| Không cho tự phân loại nguyên nhân lỗi | Bước 2 | 6.2 |
+| Không có chỗ để người học tự viết lại quy tắc / tự đặt ví dụ | Bước 4 | 6.2 |
+| Câu sai không được lên lịch ôn lại — xem xong là hết | Nối thẳng vào SRS | 6.4, 8.10 |
+| Không có mini-quiz kết thúc phiên | Bước 7 | 4.7 |
+| Không thấy nút đánh dấu / cờ trên màn làm bài | Có cờ đánh dấu, phím tắt `F` | 5.2 |
+| Không có cỡ phiên nhỏ hơn một khối (30 phút) | Cỡ "nhấm nháp" theo 問題, ~5 phút | 4.2 |
+| Không thấy dự đoán điểm trước khi làm | Có, để rèn tự đánh giá | 5.1 |
+
+Điểm khác biệt cốt lõi, nói cho gọn:
+
+> **Bunpro giải thích rất tốt một câu hỏi. Nhưng họ dừng ở đó.**
+> Xem xong lời giải là hết — không ai hỏi bạn *vì sao* bạn chọn sai, và câu đó không bao giờ
+> quay lại tìm bạn nữa.
+
+Đó chính xác là cái bẫy "cảm giác thông thạo giả" ở mục 6.1: đọc lời giải hay thì thấy rất
+hiểu, nhưng hiểu ≠ làm lại được sau hai tuần. Chỗ ta chen vào không phải viết lời giải hay hơn
+họ — mà là **bắt kiến thức đó quay lại đúng lúc sắp quên**.
+
+### 8.12 Điều Bunpro tiết lộ về rủi ro thật của dự án
 
 25 đề × ~100 câu ≈ **2.500 câu tự soạn**, cộng audio thu âm cho phần 聴解. Đó là hàng nghìn giờ
 biên soạn nội dung, không phải công viết code.
@@ -1004,6 +1148,21 @@ export interface JlptExam {
 
 // ─── Câu hỏi ─────────────────────────────────────────────────────────
 
+/**
+ * Một phương án trả lời.
+ *
+ * `note` được hiện ở màn mổ xẻ cho MỌI phương án, không chỉ phương án đúng.
+ * `linkedItem` là thẻ từ vựng / kanji tương ứng với chính phương án đó — nhờ vậy một câu sai
+ * kéo theo được vài thẻ vào hàng ôn (mục 8.7 và 8.10).
+ */
+export interface JlptChoice {
+  text: string;
+  /** Vì sao phương án này đúng, hoặc vì sao nó gần đúng mà vẫn sai. */
+  note?: string;
+  /** Khoá thẻ trong kho hiện có, dạng `subjectId::itemId`. */
+  linkedItemKey?: string;
+}
+
 export interface JlptQuestion {
   id: string;
   level: JlptLevel;
@@ -1013,10 +1172,21 @@ export interface JlptQuestion {
   stem?: string;              // câu hỏi; có thể rỗng với 聴解
   /** Phần cần đọc/điền được gạch chân trong câu, dạng [bắt đầu, kết thúc] trên `stem`. */
   stemUnderline?: [number, number];
-  choices: string[];
+  /**
+   * Các lựa chọn, KÈM lời giải riêng cho từng phương án.
+   *
+   * Đây là điểm quan trọng nhất của mô hình dữ liệu (mục 8.7): một chuỗi `explanation` duy
+   * nhất cho cả câu là KHÔNG ĐỦ. Mỗi phương án nhiễu thường là một từ/mẫu có thật, và giải
+   * thích vì sao nó *gần đúng nhưng không đúng* mới là chỗ chữa được lỗi "phân vân giữa hai
+   * đáp án" (ô 🟠, mục 6.3). Một câu 4 lựa chọn khi đó dạy được 4 mục thay vì 1.
+   *
+   * Phải soạn theo cấu trúc này NGAY TỪ ĐẦU — bổ sung ngược cho hàng nghìn câu là bất khả thi.
+   */
+  choices: JlptChoice[];
   answerIndex: number;
+  /** Lời giải chung cho cả câu, nếu có. Không thay thế được lời giải từng lựa chọn. */
   explanation?: string;
-  /** Furigana cho chữ Hán khó, dùng ở N4/N5; người học N3+ tắt được. Xem mục 8.6. */
+  /** Furigana cho chữ Hán khó. Mật độ theo cấp: N5/N4 nhiều, N3+ ít dần. Xem mục 8.6. */
   furigana?: { text: string; reading: string }[];
 
   /** 読解: nhiều câu cùng trỏ về một đoạn văn. */
@@ -1189,7 +1359,9 @@ Thêm hai quy tắc:
 | Nhét JLPT vào `ExamSession` cũ | Khác về cấu trúc ở 6 điểm (1.3) |
 | Bảng câu hỏi chỉ để nhảy câu, không hiện đáp án đã chọn | Bỏ phí ba chức năng của phiếu trả lời thật (8.5, 9.4) |
 | Đánh số đáp án A/B/C/D | Đề Nhật đánh số 1/2/3/4; lệch với phiếu trả lời (9.4) |
-| Câu sai chỉ link sang trang tra cứu | Ta có SRS — đẩy thẳng thẻ vào hàng ôn được (8.8) |
+| Câu sai chỉ link sang trang tra cứu | Ta có SRS — đẩy thẳng thẻ vào hàng ôn được (8.10) |
+| Chỉ giải thích đáp án đúng, bỏ qua ba phương án nhiễu | Mỗi nhiễu là một từ/mẫu có thật; bỏ qua là phí 3/4 giá trị câu hỏi (8.7) |
+| Danh sách câu ví dụ không ẩn/hiện được | Ẩn câu hoặc ẩn bản dịch biến ví dụ thụ động thành tự kiểm tra (8.9) |
 | Dựng lịch 1-3-7-14 song song với SRS | Hai nguồn sự thật mâu thuẫn nhau (6.4) |
 | Dùng TTS thay audio 聴解 thật mà không nói rõ | Bài nghe dễ hơn thực tế → tự tin giả (7.4) |
 
@@ -1201,11 +1373,11 @@ Sắp theo **giá trị học trên mỗi đơn vị công sức**, không theo 
 
 | Giai đoạn | Nội dung | Vì sao thứ tự này |
 |---|---|---|
-| **0** | Mô hình dữ liệu (mục 10) + 1 khối N3 **文字・語彙 = 36 câu** | Rẻ nhất, dữ liệu đã có sẵn trong repo, đủ để chạy hết vòng đời một lượt thi. Con số 36 lấy theo mục 8.2 |
+| **0** | Mô hình dữ liệu (mục 10) + 1 khối N3 **文字・語彙 = 36 câu**, mỗi câu có **lời giải cho cả 4 phương án** | Rẻ nhất, dữ liệu đã có sẵn trong repo, đủ để chạy hết vòng đời một lượt thi. Con số 36 lấy theo mục 8.2. Lời giải từng phương án **không bổ sung ngược được** (8.7) |
 | **1** | Phòng chờ + phòng thi 1 khối + **phiếu trả lời (9.4)** + thu độ chắc chắn | Xương sống. Có độ chắc chắn ngay từ đầu vì **không thể bổ sung ngược** cho dữ liệu cũ |
-| **2** | Màn kết quả trung thực (mục 5.3) | Cửa vào của phần quan trọng nhất |
+| **2** | Màn kết quả trung thực (mục 5.3) + **bản đồ chẩn đoán (8.8)** | Cửa vào của phần quan trọng nhất |
 | **3** | ★ **Luồng mổ xẻ 7 bước + ma trận phân loại** | **Đây là tính năng. Mọi thứ trước đó chỉ là để tới được đây.** |
-| **4** | Nối vào SRS + sổ tay lỗi có cấu trúc + mini-quiz kết thúc + **link câu sai sang thẻ SRS (8.8)** | Biến một lần mổ xẻ thành trí nhớ dài hạn |
+| **4** | Nối vào SRS + sổ tay lỗi có cấu trúc + mini-quiz kết thúc + **link câu sai sang thẻ SRS (8.10)** | Biến một lần mổ xẻ thành trí nhớ dài hạn |
 | **5** | Phiên "nhấm nháp" 5 phút + việc dở dang trên trang chủ | Giữ chân (điểm rơi 1 và 4) |
 | **6** | Nhiều khối + nghỉ giữa khối + đề full 140 phút | Chỉ có nghĩa khi vòng lặp học đã chạy tốt |
 | **7** | 読解 (đoạn văn dùng chung) | Cần component mới, tải nhận thức cao hơn |
@@ -1252,12 +1424,17 @@ Giữ nguyên (đúng như đã chốt), nhưng khi JLPT thành trọng tâm th�
 
 ### ⛔ 5. Ai soạn 2.500 câu hỏi? — chặn mọi thứ từ giai đoạn 1 trở đi
 
-Mục 8.9 cho thấy nút thắt thật của dự án là nội dung. Bunpro có 25 đề; ta có 0. Cần chốt:
+Mục 8.12 cho thấy nút thắt thật của dự án là nội dung. Bunpro có 25 đề; ta có 0. Cần chốt:
 ai soạn, soạn theo nguồn nào, và với nhịp bao nhiêu câu mỗi tuần. Nếu chưa có câu trả lời thì
 **đừng bắt đầu giai đoạn 6 trở đi** — sẽ có một phòng thi rất đẹp mà không có đề để làm.
 
 Gợi ý mốc thực tế: giai đoạn 0 chỉ cần **36 câu** (một khối 文字・語彙). Đó là mục tiêu soạn
 được trong một hai buổi, và đủ để kiểm chứng toàn bộ vòng đời sản phẩm.
+
+**Lưu ý về khối lượng thật:** theo mục 8.7, mỗi câu cần **4 lời giải** chứ không phải 1. Vậy 36
+câu ≈ 144 lời giải ngắn. Nghe nhiều, nhưng với 漢字読み thì phần lớn là một câu mẫu lặp lại
+("X có nghĩa là ..., nhưng không phải cách đọc của 漢字 này") — soạn nhanh hơn vẻ ngoài của nó.
+Với 文法 thì đắt hơn hẳn, vì mỗi nhiễu là một mẫu ngữ pháp cần phân biệt.
 
 ### ❓ 6. Bước 4 (tự viết quy tắc) có nên bắt buộc?
 
@@ -1318,9 +1495,10 @@ nguyên văn.
 ### Tham chiếu sản phẩm
 
 - [Bunpro — JLPT Practice Tests](https://bunpro.jp/jlpt_practice_tests) — phân tích ở mục 8.
-  Trang bị proxy chặn ở môi trường build; toàn bộ quan sát dựa trên **ba ảnh chụp màn hình do
-  chủ dự án cung cấp ngày 2026-09-04**: trang danh sách đề, hộp thoại Details của
-  N3【模擬試験】1, và màn đang làm bài `/jlpt_practice_tests/n3/11/vocab/31`.
+  Trang bị proxy chặn ở môi trường build; toàn bộ quan sát dựa trên **năm ảnh chụp màn hình do
+  chủ dự án cung cấp ngày 2026-09-04**: trang danh sách đề; hộp thoại Details của
+  N3【模擬試験】1; màn đang làm bài `/n3/11/vocab/31`; màn review sau khi nộp `/n5/1/vocab/1`;
+  và trang chi tiết từ vựng `/vocabs/雨`.
 - [Thông báo ra mắt tính năng, 20/09/2025 — Bunpro Community](https://community.bunpro.jp/t/bunpro-jlpt-tests-new-feature-sep-20th-2025/149777)
   *(cũng bị chặn; chỉ đọc được qua đoạn trích tìm kiếm)*
 
@@ -1353,5 +1531,7 @@ Dành cho AI hoặc người sắp viết tính năng này. Trả lời được
 - [ ] Phiếu trả lời có nhóm theo 問題 và cho trả lời tại chỗ không? (Mục 9.4.)
 - [ ] Đáp án đánh số 1/2/3/4 chứ không phải A/B/C/D? (Mục 9.4.)
 - [ ] Đề bài của 問題 có dính trên cùng khi cuộn không? (Mục 8.6.)
-- [ ] Câu sai có link sang thẻ SRS tương ứng kèm nút đưa về ôn không? (Mục 8.8.)
+- [ ] Câu sai có link sang thẻ SRS tương ứng kèm nút đưa về ôn không? (Mục 8.10.)
+- [ ] Mỗi câu hỏi có lời giải cho **cả bốn** phương án chưa? (Mục 8.7 — không bổ sung ngược được.)
+- [ ] Màn kết quả có bản đồ chẩn đoán tô màu theo 問題 chưa? (Mục 8.8.)
 - [ ] Đã biết ai soạn câu hỏi chưa? (Mục 15.5 — chặn từ giai đoạn 1.)
