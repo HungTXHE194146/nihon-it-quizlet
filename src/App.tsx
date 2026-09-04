@@ -6,6 +6,7 @@ import { Homepage } from './components/Homepage';
 import { StudySession } from './components/StudySession';
 import { TheoryViewer } from './components/TheoryViewer';
 import { FakePaywallModal } from './components/FakePaywallModal';
+import { PWAPrompt } from './components/PWAPrompt';
 import { useProgress } from './hooks/useProgress';
 import { useSubjectData } from './hooks/useSubjectData';
 import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
@@ -422,6 +423,9 @@ function App() {
         </Suspense>
         )}
       </main>
+
+      {/* Thông báo của Service Worker: sẵn sàng offline / có bản mới */}
+      <PWAPrompt />
 
       {/* Troll Paywall Modal */}
       <FakePaywallModal
