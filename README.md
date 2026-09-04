@@ -178,9 +178,53 @@ lịch ôn SRS. Bài đang làm được lưu lại nên F5 hay đóng tab giữ
 ### 5. Tiếp tục phiên học dở
 Thoát giữa chừng rồi quay lại đúng lựa chọn cũ, ứng dụng sẽ hỏi *"Tiếp tục từ câu N"* hay học lại từ đầu.
 
-### 6. Xuất / Nạp tiến độ
+### 6. Chế độ gõ cách đọc (tự chấm)
+
+Ngoài "Mặc định" và "Tập viết Kanji", modal ⚙️ giữa phiên học có thêm **Gõ Cách Đọc**:
+thẻ hiện Chữ Hán, bạn gõ lại cách đọc và ứng dụng tự chấm.
+
+* Chấp nhận **cả kana lẫn romaji** (`atama` hay `あたま` đều được), nên không cần cài bộ gõ
+  tiếng Nhật. Có ô xem trước chuyển đổi ngay khi gõ chữ La-tinh.
+* So khớp bỏ qua dấu cách, dấu câu và phần trong ngoặc; katakana được quy về hiragana.
+* Thẻ nào không có cách đọc bằng kana (ví dụ JIT401 để `reading` là phần khai triển tiếng
+  Anh) sẽ **tự lùi về chế độ mặc định** thay vì bắt gõ một chuỗi vô nghĩa.
+
+Mã nguồn: [src/lib/kana.ts](src/lib/kana.ts)
+
+### 7. Xuất / Nạp tiến độ
 Không có tài khoản, nên việc đồng bộ giữa các máy làm bằng file JSON: nút **Xuất tiến độ** /
 **Nạp tiến độ** ở cuối trang chủ. Bạn tự giữ dữ liệu của mình.
+
+---
+
+## 📱 Cài về máy & Học offline (PWA)
+
+Ứng dụng là một Progressive Web App: bấm **Cài ứng dụng** ở cuối trang chủ (Chrome/Edge/Android)
+để thêm vào màn hình chính và mở như app thật.
+
+* **Precache ~2,1 MB**: mã, CSS và dữ liệu của cả 4 môn. Mất mạng vẫn mở được môn chưa từng xem.
+* **440 ảnh đề thi (~30 MB) không precache** — chỉ ảnh nào đã xem mới được giữ lại (tối đa 250 ảnh,
+  60 ngày). Nếu định làm đề offline, hãy lướt qua đề đó một lần khi còn mạng.
+* Có bản mới thì hiện thanh mời cập nhật chứ **không tự nạp lại** — bạn có thể đang làm dở một
+  đề thi 90 phút.
+
+## ⚡ Hiệu năng
+
+Ứng dụng được chia nhỏ để lần vào trang đầu tiên không phải tải mọi thứ:
+
+| | Trước | Sau |
+|---|---|---|
+| JS lần đầu vào trang chủ | 1807 KB (gzip 423 KB) | **285 KB (gzip 85 KB)** |
+| Mở một môn | (đã nằm trong gói trên) | + 164-202 KB đúng môn đó |
+| Mở một bài lý thuyết | (đã nằm trong gói trên) | + ~36 KB đúng bài đó |
+
+Dữ liệu bài học nằm trong `src/data/*.ts` và được nạp động qua
+[src/data/subjectLoader.ts](src/data/subjectLoader.ts). Trang chủ chỉ đọc
+[src/data/subjectMeta.ts](src/data/subjectMeta.ts).
+
+> ⚠️ Vì `totalLessons` / `totalItems` trong `subjectMeta.ts` là số tĩnh, khi bạn **thêm hoặc bớt
+> dữ liệu** hãy cập nhật lại hai con số này. Chạy `npm run dev` và mở môn đó, console sẽ cảnh báo
+> nếu số liệu bị lệch.
 
 ---
 
@@ -190,7 +234,10 @@ Không có tài khoản, nên việc đồng bộ giữa các máy làm bằng f
 * **Responsive linh hoạt:** Bố cục tự co giãn và thay đổi kích thước nút trên thiết bị di động để tối ưu trải nghiệm chạm (touch targets).
 * **Chuỗi ngày học liên tiếp** hiển thị trên thanh điều hướng để duy trì thói quen.
 
-### ⌨️ Phím tắt khi học Flashcard
+### ⌨️ Phím tắt
+
+**Flashcard**
+
 | Phím | Tác dụng |
 |---|---|
 | `Space` | Lật thẻ |
@@ -198,3 +245,22 @@ Không có tài khoản, nên việc đồng bộ giữa các máy làm bằng f
 | `←` | Chưa thuộc |
 | `H` | Hiện / ẩn cách đọc |
 | `S` | Nghe phát âm |
+| `Enter` | Kiểm tra (chế độ gõ cách đọc) |
+
+**Trắc nghiệm**
+
+| Phím | Tác dụng |
+|---|---|
+| `1` `2` `3` `4` (hoặc `A`-`D`) | Chọn đáp án |
+| `Enter` / `→` | Sang câu tiếp (sau khi đã chấm) |
+
+**Phòng thi**
+
+| Phím | Tác dụng |
+|---|---|
+| `1` `2` `3` `4` | Chọn đáp án |
+| `←` `→` | Chuyển câu |
+| `F` | Đánh dấu câu để xem lại |
+
+Đáp án trắc nghiệm được **đảo thứ tự** mỗi lần làm để tránh học vẹt theo vị trí
+(tắt được trong ⚙️). Đề thi và câu hỏi bằng ảnh luôn giữ nguyên thứ tự gốc.

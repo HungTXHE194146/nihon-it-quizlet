@@ -64,7 +64,7 @@ export interface ProgressSettings {
   /** Số thẻ mới tối đa đưa vào một phiên ôn theo SRS. */
   dailyNewLimit: number;
   /** Kiểu hiển thị mặt trước thẻ từ vựng, ghi nhớ giữa các phiên. */
-  practiceMode: 'default' | 'write-kanji';
+  practiceMode: 'default' | 'write-kanji' | 'type-reading';
   /** Đảo thứ tự phương án trắc nghiệm khi luyện tập. */
   shuffleChoices: boolean;
 }

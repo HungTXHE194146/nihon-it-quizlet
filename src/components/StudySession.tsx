@@ -18,6 +18,7 @@ import {
   Settings,
   SlidersHorizontal,
   Volume2,
+  Keyboard,
   History,
   CalendarClock,
 } from 'lucide-react';
@@ -317,7 +318,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
     if (currentQ.sectionType === 'vocabulary') {
       if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-      autoNextTimeoutRef.current = setTimeout(() => handleNext(), 900);
+      // Chế độ gõ hiện cả đáp án lẫn chữ người học vừa nhập, cần thêm thời gian để đọc.
+      const delay = practiceMode === 'type-reading' ? 2000 : 900;
+      autoNextTimeoutRef.current = setTimeout(() => handleNext(), delay);
     }
   };
 
@@ -668,6 +671,40 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-amber-200 inline-flex items-center gap-2">
                     <span className="text-sm font-black text-rose-600">あたま</span>
                     <span className="text-xs text-slate-400 font-semibold">➡️ Lật thẻ: <strong className="text-slate-800 font-black">頭 (Cái đầu)</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 3: Type reading */}
+              <div
+                onClick={() => {
+                  updateSettings({ practiceMode: 'type-reading' });
+                  setShowSettingsModal(false);
+                }}
+                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${practiceMode === 'type-reading'
+                  ? 'bg-violet-50/70 border-violet-300 ring-2 ring-violet-200/60 shadow-xs'
+                  : 'bg-slate-50/50 hover:bg-white border-slate-200'
+                  }`}
+              >
+                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'type-reading' ? 'bg-violet-600 text-white' : 'border border-slate-300'}`}>
+                  <Check size={12} strokeWidth={3} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                    <Keyboard size={14} className="text-violet-600" />
+                    <span>Gõ Cách Đọc (Tự chấm)</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 font-semibold mt-0.5 leading-relaxed">
+                    Nhìn Chữ Hán rồi gõ lại cách đọc, ứng dụng tự chấm đúng/sai. Gõ được cả kana lẫn
+                    romaji nên không cần cài bộ gõ tiếng Nhật. Thẻ nào không có cách đọc bằng kana
+                    sẽ tự dùng chế độ mặc định.
+                  </p>
+                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-violet-200 inline-flex items-center gap-2">
+                    <span className="text-base font-black text-slate-800">頭</span>
+                    <span className="text-xs text-slate-400 font-semibold">
+                      ➡️ gõ <strong className="text-violet-700 font-black">atama</strong> hoặc{' '}
+                      <strong className="text-violet-700 font-black">あたま</strong>
+                    </span>
                   </div>
                 </div>
               </div>
