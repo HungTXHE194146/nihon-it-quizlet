@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { subjects } from './data/subjects';
 import type { Subject } from './data/subjects';
 import { useHashRoute } from './hooks/useHashRoute';
@@ -10,10 +10,14 @@ import { StudySession } from './components/StudySession';
 import { TheoryViewer } from './components/TheoryViewer';
 import { FakePaywallModal } from './components/FakePaywallModal';
 import { KanjiMasterN3Selector } from './components/KanjiMasterN3Selector';
-import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home } from 'lucide-react';
+import { ExamSession } from './components/ExamSession';
+import { MistakeNotebook } from './components/MistakeNotebook';
+import { useProgress } from './hooks/useProgress';
+import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle } from 'lucide-react';
 
 function App() {
   const { route, navigate, goBack } = useHashRoute();
+  const { data, persistent } = useProgress();
 
   // State for selected sections in current active subject
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
@@ -27,12 +31,23 @@ function App() {
 
   // Resolve current active subject
   const activeSubjectId =
-    route.page === 'subject' || route.page === 'theory' || route.page === 'study'
+    route.page === 'subject' ||
+    route.page === 'theory' ||
+    route.page === 'study' ||
+    route.page === 'exam'
       ? route.subjectId
       : 'nihon-it';
 
+  // "all" là môn ảo cho các phiên gộp mọi môn (ôn theo lịch, sổ tay câu sai).
+  const isAllSubjects = activeSubjectId === 'all';
+
   const currentSubject: Subject =
     subjects.find((s) => s.id === activeSubjectId) || subjects[0];
+
+  // Phiên gộp lấy bài của mọi môn để chế độ luyện tập thường vẫn tra được nội dung.
+  const activeLessons = isAllSubjects
+    ? subjects.flatMap((s) => s.lessons)
+    : currentSubject.lessons;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -70,6 +85,12 @@ function App() {
     const params = new URLSearchParams(hash.slice(qIndex + 1));
     return params.get('qType') || undefined;
   })();
+
+  // Số câu đang nằm trong sổ tay câu sai, hiện làm huy hiệu trên thanh điều hướng.
+  const mistakeCount = useMemo(
+    () => Object.values(data.cards).filter((c) => c.wrong > 0).length,
+    [data.cards]
+  );
 
   const handlePaywallSuccess = () => {
     setIsVipUnlocked(true);
@@ -149,6 +170,34 @@ function App() {
                     Lý thuyết Bài {route.lessonId}
                   </span>
                 </>
+              ) : route.page === 'mistakes' ? (
+                <>
+                  <ChevronRight size={14} className="text-slate-400" />
+                  <span
+                    className="hover:underline cursor-pointer text-slate-600"
+                    onClick={() => navigate('/')}
+                  >
+                    Trang chủ
+                  </span>
+                  <ChevronRight size={14} className="text-slate-400" />
+                  <span className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded-lg border border-rose-100">
+                    Sổ tay câu sai
+                  </span>
+                </>
+              ) : route.page === 'exam' ? (
+                <>
+                  <ChevronRight size={14} className="text-slate-400" />
+                  <span
+                    className="hover:underline cursor-pointer text-slate-600"
+                    onClick={() => navigate(`/subject/${currentSubject.id}`)}
+                  >
+                    {currentSubject.title}
+                  </span>
+                  <ChevronRight size={14} className="text-slate-400" />
+                  <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg border border-blue-100">
+                    Phòng thi
+                  </span>
+                </>
               ) : route.page === 'study' ? (
                 <>
                   <ChevronRight size={14} className="text-slate-400" />
@@ -168,6 +217,29 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+            {/* Chuỗi ngày học liên tiếp */}
+            {data.streak.current > 0 && (
+              <span
+                className="hidden sm:flex items-center gap-1 py-1.5 px-3 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-xs font-black"
+                title={`Chuỗi dài nhất: ${data.streak.longest} ngày`}
+              >
+                <Flame size={14} className="fill-orange-400 text-orange-500" />
+                {data.streak.current}
+              </span>
+            )}
+
+            {/* Lối tắt vào sổ tay câu sai */}
+            {mistakeCount > 0 && route.page !== 'mistakes' && (
+              <button
+                onClick={() => navigate('/mistakes')}
+                className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-black hover:bg-rose-100 transition-all cursor-pointer"
+                title="Sổ tay câu sai"
+              >
+                <AlertTriangle size={13} />
+                {mistakeCount}
+              </button>
+            )}
+
             {/* VIP Status Button */}
             <button
               onClick={() => setIsPaywallOpen(true)}
@@ -198,11 +270,21 @@ function App() {
         </div>
       </header>
 
+      {/* Cảnh báo khi trình duyệt chặn lưu trữ: tiến độ sẽ mất khi đóng tab */}
+      {!persistent && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs font-bold px-4 py-2 text-center">
+          Trình duyệt đang chặn lưu trữ cục bộ (chế độ ẩn danh?). Tiến độ học sẽ không được giữ lại
+          sau khi đóng tab.
+        </div>
+      )}
+
       {/* Main Content Area rendered dynamically according to Route */}
       <main className="flex-grow py-6 flex items-start justify-center">
         {route.page === 'home' && (
           <Homepage
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
+            onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
+            onOpenMistakes={() => navigate('/mistakes')}
           />
         )}
 
@@ -227,6 +309,9 @@ function App() {
             }
             onStartByExam={(examTag, qType) =>
               navigate(`/subject/jfe301/study?exam=${examTag}&qType=${qType}`)
+            }
+            onStartExam={(examTag, qType, durationMin) =>
+              navigate(`/subject/jfe301/exam?exam=${examTag}&qType=${qType}&duration=${durationMin}`)
             }
             onBackToHome={() => navigate('/')}
           />
@@ -269,12 +354,34 @@ function App() {
 
         {route.page === 'study' && (
           <StudySession
+            subjectId={route.subjectId}
+            mode={route.mode}
             selectedSectionIds={route.sections && route.sections.length > 0 ? route.sections : selectedSectionIds}
             range={route.range}
             examFilter={examFilter}
             qTypeFilter={qTypeFilter}
-            lessons={currentSubject.lessons}
+            lessons={activeLessons}
             onBackToSelector={() => goBack()}
+          />
+        )}
+
+        {route.page === 'exam' && (
+          <ExamSession
+            subjectId={route.subjectId}
+            lessons={activeLessons}
+            examTags={route.examTags}
+            qType={route.qType}
+            durationMin={route.durationMin}
+            onExit={() => navigate(`/subject/${route.subjectId}`)}
+          />
+        )}
+
+        {route.page === 'mistakes' && (
+          <MistakeNotebook
+            onBackToHome={() => navigate('/')}
+            onStartReview={(subjectId) =>
+              navigate(`/subject/${subjectId}/study?mode=mistakes`)
+            }
           />
         )}
       </main>

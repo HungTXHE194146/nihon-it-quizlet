@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { subjects } from '../data/subjects';
 import type { Subject } from '../data/subjects';
+import { useProgress } from '../hooks/useProgress';
 import {
   Code,
   Languages,
@@ -14,18 +15,68 @@ import {
   GraduationCap,
   Zap,
   Flame,
-  Clock
+  Clock,
+  Play,
+  AlertTriangle,
+  CalendarCheck,
+  Download,
+  Upload,
+  Trash2,
+  Target,
 } from 'lucide-react';
 
 interface HomepageProps {
   onSelectSubject: (subjectId: string, directFlashcard?: boolean) => void;
+  /** Mở phiên ôn theo lịch SRS cho một môn ("all" = gộp mọi môn). */
+  onStartReview: (subjectId: string) => void;
+  onOpenMistakes: () => void;
 }
 
 const CATEGORIES = ['Tất cả', ...Array.from(new Set(subjects.map(s => s.category)))];
 
-export const Homepage: React.FC<HomepageProps> = ({ onSelectSubject }) => {
+export const Homepage: React.FC<HomepageProps> = ({
+  onSelectSubject,
+  onStartReview,
+  onOpenMistakes,
+}) => {
+  const { data, statsFor, todayStat, exportData, importData, resetAll } = useProgress();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+  const [dataMessage, setDataMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const globalStats = useMemo(() => statsFor('all'), [statsFor]);
+  // Người mới chưa có thẻ nào đến hạn; hiển thị kích thước phiên đầu tiên thay cho số 0.
+  const isNewLearner = globalStats.studied === 0;
+  const firstSessionSize = Math.min(data.settings.dailyNewLimit, globalStats.total);
+  const perSubjectStats = useMemo(
+    () => Object.fromEntries(subjects.map((s) => [s.id, statsFor(s.id)])),
+    [statsFor]
+  );
+
+  const handleExport = () => {
+    const blob = new Blob([exportData()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nihonit-tien-do-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setDataMessage('Đã tải file tiến độ về máy.');
+  };
+
+  const handleImportFile = async (file: File) => {
+    const text = await file.text();
+    const res = importData(text);
+    setDataMessage(res.message);
+  };
+
+  const handleReset = () => {
+    if (window.confirm('Xoá toàn bộ tiến độ học, chuỗi ngày và sổ tay câu sai? Không thể hoàn tác.')) {
+      resetAll();
+      setDataMessage('Đã xoá toàn bộ tiến độ.');
+    }
+  };
 
   // Filter subjects based on search query and selected category
   const filteredSubjects = useMemo(() => {
@@ -126,6 +177,85 @@ export const Homepage: React.FC<HomepageProps> = ({ onSelectSubject }) => {
           <div className="flex flex-col">
             <span className="text-2xl font-black text-emerald-300">100%</span>
             <span className="text-xs text-slate-400 font-medium">Hỗ trợ Nút Back trình duyệt</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bảng điều khiển học tập: hàng đợi ôn hôm nay, chuỗi ngày, câu sai */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Thẻ CTA ôn theo lịch */}
+        <div className="lg:col-span-2 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
+          <div className="relative shrink-0">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex flex-col items-center justify-center text-white shadow-lg shadow-indigo-100">
+              <span className="text-3xl font-black leading-none">
+                {isNewLearner ? firstSessionSize : globalStats.due}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">thẻ</span>
+            </div>
+          </div>
+
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2 justify-center sm:justify-start">
+              <CalendarCheck className="w-5 h-5 text-indigo-600" />
+              {isNewLearner
+                ? 'Bắt đầu học ngay'
+                : globalStats.due > 0
+                ? 'Đến hạn ôn hôm nay'
+                : 'Bạn đã ôn hết hôm nay'}
+            </h2>
+            <p className="text-xs text-slate-500 font-semibold mt-1 leading-relaxed">
+              {isNewLearner
+                ? `Mỗi thẻ bạn học sẽ được lên lịch nhắc lại đúng lúc sắp quên. Phiên đầu tiên gồm ${firstSessionSize} thẻ.`
+                : globalStats.due > 0
+                ? `${globalStats.due} thẻ đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.`
+                : globalStats.newCards > 0
+                ? `Không còn thẻ đến hạn. Bạn có thể học thêm ${globalStats.newCards} thẻ mới.`
+                : 'Tuyệt vời! Hôm nay bạn không còn gì phải ôn.'}
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2 justify-center sm:justify-start">
+              <button
+                onClick={() => onStartReview('all')}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+              >
+                <Play size={15} fill="currentColor" />
+                {globalStats.due > 0 ? 'Ôn ngay' : 'Học thẻ mới'}
+              </button>
+              {globalStats.wrong > 0 && (
+                <button
+                  onClick={onOpenMistakes}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-bold hover:bg-rose-100 active:scale-95 transition-all cursor-pointer"
+                >
+                  <AlertTriangle size={15} />
+                  Sổ tay câu sai ({globalStats.wrong})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Thẻ chỉ số */}
+        <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-2xl font-black text-orange-600 flex items-center gap-1.5">
+              <Flame size={20} className="fill-orange-400 text-orange-500" />
+              {data.streak.current}
+            </p>
+            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Ngày học liên tiếp</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-indigo-600">{todayStat.reviews}</p>
+            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Lượt ôn hôm nay</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-emerald-600">{globalStats.mature}</p>
+            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Thẻ đã thuộc</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-slate-700">{globalStats.studied}</p>
+            <p className="text-[11px] font-bold text-slate-500 mt-0.5">
+              / {globalStats.total} đã học qua
+            </p>
           </div>
         </div>
       </div>
@@ -238,6 +368,32 @@ export const Homepage: React.FC<HomepageProps> = ({ onSelectSubject }) => {
                 </p>
               </div>
 
+              {/* Tiến độ học của môn này */}
+              {(() => {
+                const st = perSubjectStats[subject.id];
+                if (!st || st.studied === 0) return null;
+                const percent = Math.round((st.mature / st.total) * 100);
+                return (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                      <span className="flex items-center gap-1">
+                        <Target className="w-3 h-3 text-emerald-500" />
+                        Đã thuộc {percent}%
+                      </span>
+                      {st.due > 0 && (
+                        <span className="text-indigo-600">{st.due} thẻ đến hạn</span>
+                      )}
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Card Footer: Metadata & Action CTA */}
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
@@ -268,24 +424,56 @@ export const Homepage: React.FC<HomepageProps> = ({ onSelectSubject }) => {
         </div>
       )}
 
-      {/* Modern Value Proposition Banner */}
+      {/* Quản lý dữ liệu tiến độ (không cần tài khoản) */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800 shadow-lg">
         <div className="space-y-2 text-center md:text-left">
           <h3 className="text-lg font-extrabold text-white flex items-center justify-center md:justify-start gap-2">
             <Flame className="w-5 h-5 text-orange-400" />
-            <span>Hệ Thống Đã Được Nâng Cấp Nút Back Trình Duyệt</span>
+            <span>Tiến độ của bạn nằm trên chính máy này</span>
           </h3>
           <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
-            Bạn có thể thoải mái click qua lại giữa Trang chủ, Danh sách bài học, Đọc lý thuyết và Luyện tập trắc nghiệm. Nút Back/Forward trên trình duyệt và chuột gaming sẽ hoạt động mượt mà 100%!
+            Không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay trong trình
+            duyệt. Muốn học tiếp trên máy khác thì xuất ra file JSON rồi nạp lại — bạn tự giữ dữ
+            liệu của mình.
           </p>
+          {dataMessage && (
+            <p className="text-emerald-300 text-xs font-bold pt-1">{dataMessage}</p>
+          )}
         </div>
-        <div className="flex gap-2">
-          <span className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-indigo-200">
-            Hash Routing
-          </span>
-          <span className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-emerald-200">
-            Multi-Course
-          </span>
+
+        <div className="flex flex-wrap gap-2 justify-center shrink-0">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-indigo-100 hover:bg-white/20 transition-all cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Xuất tiến độ
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-emerald-100 hover:bg-white/20 transition-all cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Nạp tiến độ
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImportFile(file);
+              e.target.value = '';
+            }}
+          />
+          <button
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/20 border border-rose-400/30 text-xs font-bold text-rose-200 hover:bg-rose-500/30 transition-all cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Xoá tiến độ
+          </button>
         </div>
       </div>
     </div>

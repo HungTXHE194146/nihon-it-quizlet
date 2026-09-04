@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { StudyItem } from '../data/lessons';
-import { RefreshCw, Check, X, HelpCircle, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw, Check, X, HelpCircle, Eye, EyeOff, Volume2 } from 'lucide-react';
+import { speak, speakableText, ttsSupported, cancelSpeech } from '../lib/tts';
 
 interface VocabularyCardProps {
   item: StudyItem;
@@ -8,6 +9,11 @@ interface VocabularyCardProps {
   sectionTitle: string;
   onAnswerGraded: (isCorrect: boolean) => void;
   practiceMode?: 'default' | 'write-kanji';
+  /** Ngôn ngữ phát âm của môn học hiện tại. */
+  lang?: 'ja' | 'en';
+  /** Tự đọc to ngay khi thẻ hiện ra. */
+  autoPlay?: boolean;
+  ttsRate?: number;
 }
 
 export const VocabularyCard: React.FC<VocabularyCardProps> = ({
@@ -16,6 +22,9 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
   sectionTitle,
   onAnswerGraded,
   practiceMode = 'default',
+  lang = 'ja',
+  autoPlay = false,
+  ttsRate = 0.9,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isGraded, setIsGraded] = useState(false);
@@ -36,6 +45,24 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
     if (isGraded) return;
     setIsFlipped(prev => !prev);
   };
+
+  // Chuỗi được đọc to: ưu tiên cách đọc thuần kana, nếu không thì đọc chính từ.
+  const spokenText = speakableText(item.term, item.reading);
+
+  const handleSpeak = useCallback(
+    (text?: string) => {
+      speak(text ?? spokenText, { lang, rate: ttsRate });
+    },
+    [spokenText, lang, ttsRate]
+  );
+
+  // Tự phát âm khi thẻ mới xuất hiện, và ngắt tiếng khi rời thẻ.
+  useEffect(() => {
+    if (autoPlay && spokenText) {
+      handleSpeak();
+    }
+    return () => cancelSpeech();
+  }, [item, autoPlay, spokenText, handleSpeak]);
 
   const handleSelfGrade = (isCorrect: boolean) => {
     setIsGraded(true);
@@ -75,6 +102,9 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
         if (!isGraded) {
           setShowHira(prev => !prev);
         }
+      } else if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSpeak();
       }
     };
 
@@ -82,7 +112,7 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isGraded, onAnswerGraded]);
+  }, [isGraded, onAnswerGraded, handleSpeak]);
 
   return (
     <div className="w-full max-w-xl mx-auto">
@@ -108,7 +138,22 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
         >
           {/* FRONT FACE */}
           <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl border-2 border-slate-200 bg-white shadow-xl shadow-slate-100/40 p-6 md:p-8 flex flex-col justify-between cursor-pointer hover:border-indigo-300 transition-all duration-300">
-            <div className="text-right">
+            <div className="flex items-center justify-between gap-2">
+              {ttsSupported && spokenText ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSpeak();
+                  }}
+                  className="p-2 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 hover:bg-sky-100 active:scale-95 transition-all cursor-pointer shadow-sm"
+                  title="Nghe phát âm (phím S)"
+                  aria-label="Nghe phát âm"
+                >
+                  <Volume2 size={16} />
+                </button>
+              ) : (
+                <span />
+              )}
               {practiceMode === 'write-kanji' ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-[10px] font-black text-amber-800 uppercase tracking-wider border border-amber-200">
                   ✍️ Tập viết Chữ Hán
@@ -187,6 +232,19 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
                 {practiceMode === 'write-kanji' ? 'Chữ Hán Đáp Án' : 'Ý nghĩa'}
               </span>
+              {ttsSupported && spokenText && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSpeak();
+                  }}
+                  className="ml-auto mr-1.5 p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+                  title="Nghe phát âm (phím S)"
+                  aria-label="Nghe phát âm"
+                >
+                  <Volume2 size={16} />
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -243,6 +301,19 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="font-extrabold text-indigo-700 flex items-center gap-1 text-[11px] uppercase tracking-wider">
                           💡 Ví dụ (例文):
+                          {ttsSupported && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSpeak(item.example);
+                              }}
+                              className="ml-1 p-1 rounded text-sky-600 hover:bg-white/70 transition-colors cursor-pointer"
+                              title="Nghe câu ví dụ"
+                              aria-label="Nghe câu ví dụ"
+                            >
+                              <Volume2 size={13} />
+                            </button>
+                          )}
                         </span>
                         <button
                           onClick={(e) => {
@@ -331,6 +402,12 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
           <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">H</kbd>
           Hiện đọc
         </span>
+        {ttsSupported && (
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">S</kbd>
+            Nghe
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">←</kbd>
           Chưa thuộc

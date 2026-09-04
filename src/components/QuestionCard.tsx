@@ -6,7 +6,17 @@ interface QuestionCardProps {
   item: StudyItem;
   lessonTitle: string;
   sectionTitle: string;
-  onAnswerGraded: (isCorrect: boolean) => void;
+  /** Chấm ngay khi chọn (chế độ luyện tập). Không dùng ở chế độ thi. */
+  onAnswerGraded?: (isCorrect: boolean) => void;
+  /**
+   * Chế độ thi: thẻ không tự chấm mà báo lựa chọn ra ngoài, đáp án chỉ hiện khi `reveal`.
+   */
+  examMode?: boolean;
+  value?: string | null;
+  onChange?: (choice: string) => void;
+  reveal?: boolean;
+  /** Số thứ tự câu, hiển thị ở góc thẻ khi làm đề. */
+  questionNumber?: number;
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -14,15 +24,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   lessonTitle,
   sectionTitle,
   onAnswerGraded,
+  examMode = false,
+  value,
+  onChange,
+  reveal = false,
+  questionNumber,
 }) => {
-  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
-  const [isGraded, setIsGraded] = useState(false);
+  const [localChoice, setLocalChoice] = useState<string | null>(null);
+  const [localGraded, setLocalGraded] = useState(false);
   const [isImageOpen, setIsImageOpen] = useState(false);
+
+  // Ở chế độ thi, lựa chọn do component cha giữ để còn sửa lại và nộp một lượt.
+  const selectedChoice = examMode ? value ?? null : localChoice;
+  const isGraded = examMode ? reveal : localGraded;
 
   // Reset selected state when item changes
   useEffect(() => {
-    setSelectedChoice(null);
-    setIsGraded(false);
+    setLocalChoice(null);
+    setLocalGraded(false);
     setIsImageOpen(false);
   }, [item]);
 
@@ -35,13 +54,17 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
      (choices[0] === 'Sai' && choices[1] === 'Đúng'));
 
   const handleSelect = (choice: string) => {
+    if (examMode) {
+      if (reveal) return; // bài đã nộp, chỉ xem lại
+      onChange?.(choice);
+      return;
+    }
+
     if (isGraded) return; // Prevent clicking after selection
-    
-    setSelectedChoice(choice);
-    setIsGraded(true);
-    
-    const correct = choice === item.answer;
-    onAnswerGraded(correct);
+
+    setLocalChoice(choice);
+    setLocalGraded(true);
+    onAnswerGraded?.(choice === item.answer);
   };
 
   return (
@@ -49,7 +72,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Lesson Details Header */}
       <div className="mb-4 flex items-center justify-between">
         <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wide">
-          {lessonTitle}
+          {typeof questionNumber === 'number' ? `Câu ${questionNumber}` : lessonTitle}
         </span>
         <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
           <HelpCircle size={14} className="text-slate-400" />
@@ -91,7 +114,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               const isSelected = selectedChoice === choice;
               const isAnswer = item.answer === choice;
               
-              let btnClass = "border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20";
+              let btnClass = isSelected
+                ? "border-indigo-500 bg-indigo-50 text-indigo-900"
+                : "border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20";
               let icon = null;
 
               if (isGraded) {
@@ -129,8 +154,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               const isAnswer = item.answer === choice;
               
               let choiceLetter = String.fromCharCode(65 + index); // A, B, C, D...
-              let optionClass = "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/10";
-              let badgeClass = "bg-white text-slate-500 border-slate-200";
+              let optionClass = isSelected
+                ? "border-indigo-500 bg-indigo-50 text-indigo-900 shadow-sm"
+                : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/10";
+              let badgeClass = isSelected
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-white text-slate-500 border-slate-200";
               let icon = null;
 
               if (isGraded) {

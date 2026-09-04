@@ -1,11 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Lesson, StudyItem } from '../data/lessons';
+import type { StudyMode } from '../hooks/useHashRoute';
 import { QuestionCard } from './QuestionCard';
 import { VocabularyCard } from './VocabularyCard';
 import { ResultScreen } from './ResultScreen';
-import { ArrowLeft, ArrowRight, Check, X, Shuffle, Sparkles, Settings, SlidersHorizontal } from 'lucide-react';
+import { useProgress } from '../hooks/useProgress';
+import { cardKey, itemByKey, subjectLang } from '../lib/itemIndex';
+import { formatInterval } from '../lib/srs';
+import { ttsSupported } from '../lib/tts';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  X,
+  Shuffle,
+  Sparkles,
+  Settings,
+  SlidersHorizontal,
+  Volume2,
+  History,
+  CalendarClock,
+} from 'lucide-react';
 
 interface SessionQuestion {
+  /** Khoá tiến độ `subjectId::itemId`. */
+  key: string;
+  subjectId: string;
   item: StudyItem;
   lessonTitle: string;
   sectionTitle: string;
@@ -13,6 +33,8 @@ interface SessionQuestion {
 }
 
 interface StudySessionProps {
+  subjectId: string;
+  mode: StudyMode;
   selectedSectionIds: string[];
   range?: [number, number];
   lessons: Lesson[];
@@ -31,7 +53,27 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return arr;
 };
 
+/** Dựng SessionQuestion từ khoá tiến độ, bỏ qua khoá trỏ tới câu đã bị xoá khỏi dữ liệu. */
+function questionsFromKeys(keys: string[]): SessionQuestion[] {
+  const out: SessionQuestion[] = [];
+  for (const key of keys) {
+    const entry = itemByKey.get(key);
+    if (!entry) continue;
+    out.push({
+      key: entry.key,
+      subjectId: entry.subjectId,
+      item: entry.item,
+      lessonTitle: entry.lessonTitle,
+      sectionTitle: entry.sectionTitle,
+      sectionType: entry.sectionType,
+    });
+  }
+  return out;
+}
+
 export const StudySession: React.FC<StudySessionProps> = ({
+  subjectId,
+  mode,
   selectedSectionIds,
   range,
   lessons,
@@ -39,33 +81,58 @@ export const StudySession: React.FC<StudySessionProps> = ({
   examFilter,
   qTypeFilter,
 }) => {
-  const [questions, setQuestions] = useState<SessionQuestion[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [incorrectCount, setIncorrectCount] = useState(0);
-  const [wrongAnswers, setWrongAnswers] = useState<SessionQuestion[]>([]);
-  const [isFinished, setIsFinished] = useState(false);
-  const [showShuffleToast, setShowShuffleToast] = useState(false);
+  const {
+    data,
+    recordReview,
+    getCard,
+    buildReviewQueue,
+    buildMistakeQueue,
+    saveSession,
+    clearSession,
+    updateSettings,
+  } = useProgress();
 
-  // Practice mode settings for Flashcard: 'default' vs 'write-kanji'
-  const [practiceMode, setPracticeMode] = useState<'default' | 'write-kanji'>('default');
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // Chữ ký của phiên: dùng để biết phiên đã lưu có thuộc đúng lựa chọn hiện tại hay không.
+  const signature = useMemo(
+    () =>
+      JSON.stringify({
+        subjectId,
+        mode,
+        sections: selectedSectionIds,
+        range,
+        examFilter,
+        qTypeFilter,
+      }),
+    [subjectId, mode, selectedSectionIds, range, examFilter, qTypeFilter]
+  );
 
-  const autoNextTimeoutRef = React.useRef<any>(null);
+  /**
+   * Danh sách câu hỏi gốc của phiên.
+   *
+   * Với chế độ SRS và sổ tay câu sai, hàng đợi phải được chốt một lần lúc mở phiên:
+   * nếu tính lại theo `data.cards` thì mỗi lần trả lời sẽ làm danh sách đổi ngay giữa chừng.
+   */
+  const buildQuestions = useCallback((): SessionQuestion[] => {
+    if (mode === 'srs') {
+      return questionsFromKeys(buildReviewQueue(subjectId));
+    }
 
-  // Clear timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (autoNextTimeoutRef.current) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-    };
-  }, []);
+    if (mode === 'mistakes') {
+      return questionsFromKeys(buildMistakeQueue(subjectId));
+    }
 
-  // Initialize session questions based on selected sections or range
-  const initializeSession = () => {
     const aggregated: SessionQuestion[] = [];
+
+    const push = (lesson: Lesson, section: Lesson['sections'][number], item: StudyItem) => {
+      aggregated.push({
+        key: cardKey(subjectId, item.id),
+        subjectId,
+        item,
+        lessonTitle: lesson.title,
+        sectionTitle: section.title,
+        sectionType: section.type,
+      });
+    };
 
     if (range) {
       const [fromNum, toNum] = range;
@@ -74,6 +141,8 @@ export const StudySession: React.FC<StudySessionProps> = ({
         lesson.sections.forEach((section) => {
           section.items.forEach((item) => {
             allFlat.push({
+              key: cardKey(subjectId, item.id),
+              subjectId,
               item,
               lessonTitle: lesson.title,
               sectionTitle: section.title,
@@ -82,11 +151,10 @@ export const StudySession: React.FC<StudySessionProps> = ({
           });
         });
       });
+      return allFlat.slice(Math.max(0, fromNum - 1), Math.min(allFlat.length, toNum));
+    }
 
-      const sliced = allFlat.slice(Math.max(0, fromNum - 1), Math.min(allFlat.length, toNum));
-      setQuestions(sliced);
-    } else if (examFilter) {
-      // Filter all items by exam tag
+    if (examFilter) {
       const examTags = examFilter.split(',');
       lessons.forEach((lesson) => {
         lesson.sections.forEach((section) => {
@@ -98,64 +166,135 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 (qTypeFilter === 'theory' && (!item.qType || item.qType === 'theory')) ||
                 (qTypeFilter === 'calculation' && item.qType === 'calculation');
 
-              if (matchesQType) {
-                aggregated.push({
-                  item,
-                  lessonTitle: lesson.title,
-                  sectionTitle: section.title,
-                  sectionType: section.type,
-                });
-              }
+              if (matchesQType) push(lesson, section, item);
             }
           });
         });
       });
-      // Sort by exam (based on order of examTags list) then by examOrder so questions appear in correct sequence
+      // Sắp theo thứ tự đề đã chọn rồi tới thứ tự câu trong đề.
       aggregated.sort((a, b) => {
         const aExamIndex = examTags.indexOf(a.item.exam || '');
         const bExamIndex = examTags.indexOf(b.item.exam || '');
-        if (aExamIndex !== bExamIndex) {
-          return aExamIndex - bExamIndex;
-        }
+        if (aExamIndex !== bExamIndex) return aExamIndex - bExamIndex;
         return (a.item.examOrder ?? 999) - (b.item.examOrder ?? 999);
       });
-      setQuestions(aggregated);
-    } else {
-      lessons.forEach((lesson) => {
-        lesson.sections.forEach((section) => {
-          if (selectedSectionIds.includes(section.id)) {
-            section.items.forEach((item) => {
-              aggregated.push({
-                item,
-                lessonTitle: lesson.title,
-                sectionTitle: section.title,
-                sectionType: section.type,
-              });
-            });
-          }
-        });
-      });
-      setQuestions(aggregated);
+      return aggregated;
     }
 
+    lessons.forEach((lesson) => {
+      lesson.sections.forEach((section) => {
+        if (selectedSectionIds.includes(section.id)) {
+          section.items.forEach((item) => push(lesson, section, item));
+        }
+      });
+    });
+    return aggregated;
+    // buildReviewQueue/buildMistakeQueue đổi theo tiến độ, nhưng hàm này chỉ được gọi
+    // khi `signature` đổi nên hàng đợi vẫn ổn định trong suốt một phiên.
+  }, [
+    mode,
+    subjectId,
+    lessons,
+    range,
+    examFilter,
+    qTypeFilter,
+    selectedSectionIds,
+    buildReviewQueue,
+    buildMistakeQueue,
+  ]);
+
+  const [questions, setQuestions] = useState<SessionQuestion[]>(() => buildQuestions());
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [incorrectCount, setIncorrectCount] = useState(0);
+  const [wrongAnswers, setWrongAnswers] = useState<SessionQuestion[]>([]);
+  const [isFinished, setIsFinished] = useState(false);
+  const [showShuffleToast, setShowShuffleToast] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  /** Phiên đã lưu khớp với lựa chọn hiện tại, chờ người dùng quyết định khôi phục hay không. */
+  const [resumable, setResumable] = useState<typeof data.session>(null);
+
+  const practiceMode = data.settings.practiceMode;
+  const autoPlay = data.settings.ttsAutoplay;
+  const lang = subjectLang(subjectId === 'all' ? 'nihon-it' : subjectId);
+
+  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signatureRef = useRef<string | null>(null);
+
+  // Dựng lại phiên khi người dùng đổi lựa chọn (không phải mỗi lần tiến độ thay đổi).
+  useEffect(() => {
+    if (signatureRef.current === signature) return;
+    signatureRef.current = signature;
+
+    setQuestions(buildQuestions());
     setCurrentIndex(0);
     setIsAnswered(false);
     setCorrectCount(0);
     setIncorrectCount(0);
     setWrongAnswers([]);
     setIsFinished(false);
+
+    const saved = data.session;
+    // Chỉ mời khôi phục khi phiên cũ đúng lựa chọn này và đang dở giữa chừng.
+    setResumable(saved && saved.signature === signature && saved.index > 0 ? saved : null);
+  }, [signature, buildQuestions, data.session]);
+
+  useEffect(() => {
+    return () => {
+      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
+    };
+  }, []);
+
+  // Ghi lại tiến độ phiên sau mỗi câu để đóng tab giữa chừng vẫn quay lại được.
+  useEffect(() => {
+    if (isFinished || questions.length === 0 || currentIndex === 0) return;
+    saveSession({
+      signature,
+      subjectId,
+      keys: questions.map((q) => q.key),
+      index: currentIndex,
+      correct: correctCount,
+      incorrect: incorrectCount,
+      wrongKeys: wrongAnswers.map((q) => q.key),
+      savedAt: Date.now(),
+    });
+  }, [
+    currentIndex,
+    isFinished,
+    questions,
+    signature,
+    subjectId,
+    correctCount,
+    incorrectCount,
+    wrongAnswers,
+    saveSession,
+  ]);
+
+  const handleResume = () => {
+    if (!resumable) return;
+    const restored = questionsFromKeys(resumable.keys);
+    if (restored.length === 0) {
+      setResumable(null);
+      return;
+    }
+    setQuestions(restored);
+    setCurrentIndex(Math.min(resumable.index, restored.length - 1));
+    setCorrectCount(resumable.correct);
+    setIncorrectCount(resumable.incorrect);
+    setWrongAnswers(questionsFromKeys(resumable.wrongKeys));
+    setIsAnswered(false);
+    setResumable(null);
   };
 
-  // Run initialization on mount
-  useEffect(() => {
-    initializeSession();
-  }, [selectedSectionIds, range, lessons]);
+  const handleDismissResume = () => {
+    setResumable(null);
+    clearSession();
+  };
 
-  // Handle shuffling questions inside active session
   const handleShuffleInSession = () => {
     if (questions.length === 0) return;
-    const shuffled = shuffleArray(questions);
-    setQuestions(shuffled);
+    setQuestions(shuffleArray(questions));
     setCurrentIndex(0);
     setIsAnswered(false);
     setShowShuffleToast(true);
@@ -164,24 +303,21 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   const handleAnswerGraded = (isCorrect: boolean) => {
     setIsAnswered(true);
-    
+
     const currentQ = questions[currentIndex];
-    
+    // Mọi lần chấm đều chảy vào SRS: đây là nguồn duy nhất cập nhật lịch ôn và sổ tay câu sai.
+    recordReview(currentQ.key, isCorrect);
+
     if (isCorrect) {
-      setCorrectCount(prev => prev + 1);
+      setCorrectCount((prev) => prev + 1);
     } else {
-      setIncorrectCount(prev => prev + 1);
-      setWrongAnswers(prev => [...prev, currentQ]);
+      setIncorrectCount((prev) => prev + 1);
+      setWrongAnswers((prev) => [...prev, currentQ]);
     }
 
-    // Auto-next for vocabulary section
     if (currentQ.sectionType === 'vocabulary') {
-      if (autoNextTimeoutRef.current) {
-        clearTimeout(autoNextTimeoutRef.current);
-      }
-      autoNextTimeoutRef.current = setTimeout(() => {
-        handleNext();
-      }, 800);
+      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
+      autoNextTimeoutRef.current = setTimeout(() => handleNext(), 900);
     }
   };
 
@@ -191,14 +327,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
       autoNextTimeoutRef.current = null;
     }
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
       setIsAnswered(false);
     } else {
       setIsFinished(true);
+      clearSession();
     }
   };
 
-  // Re-run the same session with all current questions
   const handleRetryAll = () => {
     setQuestions([...questions]);
     setCurrentIndex(0);
@@ -209,7 +345,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
     setIsFinished(false);
   };
 
-  // Run a review session containing ONLY the incorrect answers
   const handleRetryWrongOnly = () => {
     setQuestions([...wrongAnswers]);
     setCurrentIndex(0);
@@ -221,21 +356,28 @@ export const StudySession: React.FC<StudySessionProps> = ({
   };
 
   if (questions.length === 0) {
+    const emptyMessage =
+      mode === 'srs'
+        ? 'Bạn không còn thẻ nào đến hạn ôn. Quay lại sau nhé!'
+        : mode === 'mistakes'
+        ? 'Sổ tay câu sai đang trống — bạn chưa sai câu nào.'
+        : 'Các phần học được chọn hiện tại không chứa dữ liệu câu hỏi.';
     return (
       <div className="w-full max-w-md mx-auto text-center py-16 px-4">
-        <h3 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy câu hỏi</h3>
-        <p className="text-slate-500 mb-6">Các phần học được chọn hiện tại không chứa dữ liệu câu hỏi.</p>
+        <h3 className="text-xl font-bold text-slate-800 mb-2">
+          {mode === 'srs' ? 'Đã ôn hết hôm nay!' : 'Không tìm thấy câu hỏi'}
+        </h3>
+        <p className="text-slate-500 mb-6">{emptyMessage}</p>
         <button
           onClick={onBackToSelector}
           className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer"
         >
-          Quay lại chọn bài
+          Quay lại
         </button>
       </div>
     );
   }
 
-  // Render Result Screen if finished
   if (isFinished) {
     return (
       <ResultScreen
@@ -252,6 +394,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   const currentQuestion = questions[currentIndex];
   const progressPercent = Math.round(((currentIndex + 1) / questions.length) * 100);
+  const currentCard = isAnswered ? getCard(currentQuestion.key) : undefined;
+
+  const modeBadge =
+    mode === 'srs'
+      ? { label: 'Ôn theo lịch', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+      : mode === 'mistakes'
+      ? { label: 'Sổ tay câu sai', className: 'bg-rose-50 text-rose-700 border-rose-200' }
+      : null;
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-6">
@@ -268,12 +418,18 @@ export const StudySession: React.FC<StudySessionProps> = ({
         {/* Progress Display */}
         <div className="flex-1 max-w-md mx-4">
           <div className="flex justify-between items-center text-xs font-bold text-slate-500 mb-1">
-            <span>Tiến độ</span>
+            <span className="flex items-center gap-1.5">
+              Tiến độ
+              {modeBadge && (
+                <span className={`px-1.5 py-0.5 rounded border text-[9px] uppercase tracking-wider ${modeBadge.className}`}>
+                  {modeBadge.label}
+                </span>
+              )}
+            </span>
             <span className="font-mono">
               Câu {currentIndex + 1} / {questions.length} ({progressPercent}%)
             </span>
           </div>
-          {/* Progress Bar Container */}
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300 ease-out"
@@ -320,6 +476,37 @@ export const StudySession: React.FC<StudySessionProps> = ({
         </div>
       </div>
 
+      {/* Lời mời khôi phục phiên học dở */}
+      {resumable && (
+        <div className="mb-6 p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex flex-col sm:flex-row sm:items-center gap-3 justify-between animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-white text-indigo-600 border border-indigo-100">
+              <History size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-extrabold text-indigo-900">Bạn có một phiên học đang dở</p>
+              <p className="text-xs font-semibold text-indigo-700/80">
+                Dừng ở câu {resumable.index + 1}/{resumable.keys.length} · đúng {resumable.correct}, sai {resumable.incorrect}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleDismissResume}
+              className="px-4 py-2 rounded-xl bg-white text-slate-600 border border-slate-200 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+            >
+              Học lại từ đầu
+            </button>
+            <button
+              onClick={handleResume}
+              className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-md hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+            >
+              Tiếp tục
+            </button>
+          </div>
+        </div>
+      )}
+
       {showShuffleToast && (
         <div className="mb-4 p-3 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 animate-fadeIn">
           <Sparkles size={16} />
@@ -331,16 +518,19 @@ export const StudySession: React.FC<StudySessionProps> = ({
       <div className="min-h-[400px] flex items-center justify-center py-4">
         {currentQuestion.sectionType === 'vocabulary' ? (
           <VocabularyCard
-            key={`${currentQuestion.item.id}-${currentIndex}`}
+            key={`${currentQuestion.key}-${currentIndex}`}
             item={currentQuestion.item}
             lessonTitle={currentQuestion.lessonTitle}
             sectionTitle={currentQuestion.sectionTitle}
             onAnswerGraded={handleAnswerGraded}
             practiceMode={practiceMode}
+            lang={subjectLang(currentQuestion.subjectId)}
+            autoPlay={autoPlay}
+            ttsRate={data.settings.ttsRate}
           />
         ) : (
           <QuestionCard
-            key={`${currentQuestion.item.id}-${currentIndex}`}
+            key={`${currentQuestion.key}-${currentIndex}`}
             item={currentQuestion.item}
             lessonTitle={currentQuestion.lessonTitle}
             sectionTitle={currentQuestion.sectionTitle}
@@ -349,9 +539,19 @@ export const StudySession: React.FC<StudySessionProps> = ({
         )}
       </div>
 
+      {/* Lịch ôn tiếp theo do SRS tính ra */}
+      {isAnswered && currentCard && (
+        <div className="flex justify-center -mt-2 mb-2 animate-fadeIn">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-600">
+            <CalendarClock size={13} className="text-indigo-500" />
+            {formatInterval(currentCard)}
+          </span>
+        </div>
+      )}
+
       {/* Lower Navigation Footer */}
       {isAnswered && currentQuestion.sectionType !== 'vocabulary' && (
-        <div className="mt-8 flex justify-center animate-bounce">
+        <div className="mt-6 flex justify-center animate-bounce">
           <button
             onClick={handleNext}
             className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-extrabold shadow-lg shadow-indigo-100 flex items-center gap-2 active:scale-95 transition-all text-base cursor-pointer"
@@ -369,7 +569,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
           onClick={() => setShowSettingsModal(false)}
         >
           <div
-            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100 flex flex-col gap-5"
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -400,7 +600,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               {/* Option 1: Default */}
               <div
                 onClick={() => {
-                  setPracticeMode('default');
+                  updateSettings({ practiceMode: 'default' });
                   setShowSettingsModal(false);
                 }}
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${practiceMode === 'default'
@@ -428,7 +628,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               {/* Option 2: Write Kanji Mode */}
               <div
                 onClick={() => {
-                  setPracticeMode('write-kanji');
+                  updateSettings({ practiceMode: 'write-kanji' });
                   setShowSettingsModal(false);
                 }}
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${practiceMode === 'write-kanji'
@@ -453,6 +653,46 @@ export const StudySession: React.FC<StudySessionProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Cài đặt phát âm */}
+            {ttsSupported && (
+              <div className="flex flex-col gap-3 pt-4 border-t border-slate-100">
+                <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
+                  <Volume2 size={16} className="text-sky-600" />
+                  Phát âm ({lang === 'ja' ? 'tiếng Nhật' : 'tiếng Anh'})
+                </h4>
+
+                <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer">
+                  <span className="text-xs font-bold text-slate-700">
+                    Tự đọc to khi hiện thẻ mới
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={autoPlay}
+                    onChange={(e) => updateSettings({ ttsAutoplay: e.target.checked })}
+                    className="h-4 w-4 rounded accent-sky-600 cursor-pointer"
+                  />
+                </label>
+
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-700">Tốc độ đọc</span>
+                    <span className="text-xs font-mono font-bold text-sky-700">
+                      {data.settings.ttsRate.toFixed(1)}x
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={1.5}
+                    step={0.1}
+                    value={data.settings.ttsRate}
+                    onChange={(e) => updateSettings({ ttsRate: Number(e.target.value) })}
+                    className="w-full accent-sky-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Footer */}
             <button

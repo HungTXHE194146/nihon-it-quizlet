@@ -135,7 +135,66 @@ Câu hỏi Đúng/Sai được thiết kế để sử dụng chung cấu trúc 
 
 ---
 
+## 🧠 Hệ thống Học tập & Ghi nhớ
+
+Toàn bộ tiến độ được lưu **ngay trong trình duyệt** (localStorage), không cần đăng nhập và không gửi dữ liệu đi đâu.
+
+### 1. Lặp lại ngắt quãng (SRS — thuật toán SM-2)
+Mỗi lần bạn chấm "Đã thuộc" / "Chưa thuộc" (hoặc chọn đáp án trắc nghiệm), thẻ đó được lên lịch nhắc lại:
+
+* Trả lời **đúng**: khoảng ôn giãn dần 1 ngày → 6 ngày → nhân với hệ số dễ (ease).
+* Trả lời **sai**: thẻ quay lại giai đoạn học lại (gặp lại sau ~10 phút) và hệ số dễ giảm 0.2.
+* Thẻ đạt khoảng ôn từ **21 ngày** trở lên được tính là "đã thuộc".
+
+Trang chủ hiển thị số thẻ **đến hạn ôn hôm nay**; bấm *Ôn ngay* để vào phiên ôn gộp mọi môn
+(`#/subject/all/study?mode=srs`) hoặc ôn riêng từng môn.
+
+Mã nguồn: [src/lib/srs.ts](src/lib/srs.ts) · [src/hooks/useProgress.tsx](src/hooks/useProgress.tsx)
+
+### 2. Sổ tay câu sai (`#/mistakes`)
+Mọi câu từng trả lời sai ở mọi môn được gom về một chỗ, kèm số lần sai và lịch ôn kế tiếp.
+Thẻ đã quên từ **3 lần** trở lên bị đánh dấu **leech** (từ cứng đầu) để bạn xử lý riêng.
+
+### 3. Phát âm bằng giọng đọc máy (Web Speech API)
+Nút loa trên thẻ từ vựng, hoặc phím tắt **S**. Chạy offline, không cần thư viện ngoài.
+
+* Ưu tiên đọc **cách đọc thuần kana** (chính xác hơn đọc kanji đa âm); nếu không có thì đọc chính từ.
+* Tự chọn `ja-JP` hay `en-US` theo môn học.
+* Bật **tự đọc khi hiện thẻ mới** và chỉnh tốc độ đọc trong nút ⚙️ giữa phiên học.
+
+### 4. Phòng thi mô phỏng cho JFE301
+Trong tab *Theo Đề*, mỗi đề có hai lối vào:
+
+| | Luyện tập | Thi thử |
+|---|---|---|
+| Đáp án | Hiện ngay sau mỗi câu | Chỉ hiện sau khi nộp bài |
+| Đồng hồ | Không | Đếm ngược, tự nộp khi hết giờ |
+| Điều hướng | Tuần tự | Bảng câu hỏi, nhảy câu, đánh dấu cờ |
+
+Sau khi nộp: điểm số, mốc đạt **60%**, thời gian làm bài, và bộ lọc xem lại
+*Tất cả / Câu sai / Bỏ trắng / Đánh dấu*. Câu bỏ trắng tính là sai điểm nhưng **không** đưa vào
+lịch ôn SRS. Bài đang làm được lưu lại nên F5 hay đóng tab giữa chừng vẫn tiếp tục được.
+
+### 5. Tiếp tục phiên học dở
+Thoát giữa chừng rồi quay lại đúng lựa chọn cũ, ứng dụng sẽ hỏi *"Tiếp tục từ câu N"* hay học lại từ đầu.
+
+### 6. Xuất / Nạp tiến độ
+Không có tài khoản, nên việc đồng bộ giữa các máy làm bằng file JSON: nút **Xuất tiến độ** /
+**Nạp tiến độ** ở cuối trang chủ. Bạn tự giữ dữ liệu của mình.
+
+---
+
 ## 🎨 Tối ưu hóa UI/UX
 * **Hiệu ứng lật thẻ 3D** mượt mà khi bấm lật flashcard.
 * **Giao diện tự động khóa lựa chọn** và tô màu xanh/đỏ báo hiệu kết quả ngay khi click đáp án.
 * **Responsive linh hoạt:** Bố cục tự co giãn và thay đổi kích thước nút trên thiết bị di động để tối ưu trải nghiệm chạm (touch targets).
+* **Chuỗi ngày học liên tiếp** hiển thị trên thanh điều hướng để duy trì thói quen.
+
+### ⌨️ Phím tắt khi học Flashcard
+| Phím | Tác dụng |
+|---|---|
+| `Space` | Lật thẻ |
+| `→` | Đã thuộc |
+| `←` | Chưa thuộc |
+| `H` | Hiện / ẩn cách đọc |
+| `S` | Nghe phát âm |
