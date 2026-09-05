@@ -19,6 +19,8 @@ const JFE301Selector = lazy(() => import('./components/JFE301Selector').then((m)
 const KanjiMasterN3Selector = lazy(() => import('./components/KanjiMasterN3Selector').then((m) => ({ default: m.KanjiMasterN3Selector })));
 const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({ default: m.ExamSession })));
 const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
+const JlptImportScreen = lazy(() => import('./components/jlpt/JlptImportScreen').then((m) => ({ default: m.JlptImportScreen })));
+const JlptExamRunner = lazy(() => import('./components/jlpt/JlptExamRunner').then((m) => ({ default: m.JlptExamRunner })));
 
 const ScreenLoader = () => (
   <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
@@ -321,6 +323,7 @@ function App() {
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
             onOpenMistakes={() => navigate('/mistakes')}
+            onOpenJlptImport={() => navigate('/jlpt/import')}
           />
         )}
 
@@ -419,6 +422,14 @@ function App() {
               navigate(`/subject/${subjectId}/study?mode=mistakes`)
             }
           />
+        )}
+
+        {route.page === 'jlpt-import' && (
+          <JlptImportScreen onBackToHome={() => navigate('/')} onStartExam={(examId) => navigate(`/jlpt/exam/${examId}`)} />
+        )}
+
+        {route.page === 'jlpt-exam' && (
+          <JlptExamRunner examId={route.examId} onExit={() => navigate('/jlpt/import')} />
         )}
         </Suspense>
         )}

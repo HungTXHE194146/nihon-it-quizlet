@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Nguồn đề JLPT thật (có bản quyền) và dữ liệu bóc tách từ đó.
+# KHÔNG BAO GIỜ commit — xem docs/jlpt-practice-test-research.md mục 11 và mục 2.
+# Đây là nơi để cục bộ trên máy bạn; xuất ra rồi tự nhập vào app qua #/jlpt/import.
+jlpt-source/
+tools/jlpt-import/output/
+__pycache__/
+*.pyc
+
+# Vercel CLI (vercel dev / vercel env pull) — chứa secret, không commit
+.vercel
+.env.local

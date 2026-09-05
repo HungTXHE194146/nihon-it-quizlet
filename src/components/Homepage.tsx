@@ -3,6 +3,7 @@ import { subjectMeta } from '../data/subjectMeta';
 import type { SubjectMeta } from '../data/subjectMeta';
 import { useProgress } from '../hooks/useProgress';
 import { InstallButton } from './PWAPrompt';
+import { SyncButton } from './SyncLogin';
 import {
   Code,
   Languages,
@@ -24,6 +25,7 @@ import {
   Upload,
   Trash2,
   Target,
+  FileJson,
 } from 'lucide-react';
 
 interface HomepageProps {
@@ -31,6 +33,7 @@ interface HomepageProps {
   /** Mở phiên ôn theo lịch SRS cho một môn ("all" = gộp mọi môn). */
   onStartReview: (subjectId: string) => void;
   onOpenMistakes: () => void;
+  onOpenJlptImport: () => void;
 }
 
 const CATEGORIES = ['Tất cả', ...Array.from(new Set(subjectMeta.map(s => s.category)))];
@@ -39,6 +42,7 @@ export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
   onStartReview,
   onOpenMistakes,
+  onOpenJlptImport,
 }) => {
   const { data, statsFor, todayStat, exportData, importData, resetAll } = useProgress();
   const [searchQuery, setSearchQuery] = useState('');
@@ -433,9 +437,10 @@ export const Homepage: React.FC<HomepageProps> = ({
             <span>Tiến độ của bạn nằm trên chính máy này</span>
           </h3>
           <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
-            Không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay trong trình
-            duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn học tiếp trên máy khác thì xuất
-            ra file JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
+            Mặc định không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay
+            trong trình duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn tự động đồng bộ giữa
+            nhiều máy (ví dụ máy nhà và máy cơ quan) thì đăng nhập bằng mật khẩu riêng của bạn;
+            không thì cứ xuất ra file JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
           </p>
           {dataMessage && (
             <p className="text-emerald-300 text-xs font-bold pt-1">{dataMessage}</p>
@@ -443,6 +448,14 @@ export const Homepage: React.FC<HomepageProps> = ({
         </div>
 
         <div className="flex flex-wrap gap-2 justify-center shrink-0">
+          <SyncButton />
+          <button
+            onClick={onOpenJlptImport}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-violet-100 hover:bg-white/20 transition-all cursor-pointer"
+          >
+            <FileJson className="w-3.5 h-3.5" />
+            Nhập đề JLPT
+          </button>
           <InstallButton />
           <button
             onClick={handleExport}
