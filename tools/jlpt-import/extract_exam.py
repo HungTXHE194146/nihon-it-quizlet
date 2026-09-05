@@ -79,7 +79,42 @@ def split_by_mondai(full_text: str) -> list[MondaiBlock]:
         body = chunk[instr_match.end():] if instr_match else chunk
 
         blocks.append(MondaiBlock(mondai_number=mondai_no, instruction=instruction, body=body))
+
+    _warn_on_mondai_gaps(blocks)
     return blocks
+
+
+def _warn_on_mondai_gaps(blocks: list[MondaiBlock]) -> None:
+    """Phát hiện đã gặp thật: một số đề (kể cả đề AI sinh) thiếu hẳn dòng tiêu đề
+    '問題N' cho một 問題 nào đó — câu của nó lặng lẽ dính vào phần trước, không hề
+    báo lỗi. Ở đây ta chỉ phát hiện được vì SỐ THỨ TỰ 問題 bị nhảy cóc (…3, 5 — thiếu 4),
+    nên không chặn, chỉ cảnh báo to để người vận hành tự soát và tách tay."""
+    numbers = [b.mondai_number for b in blocks]
+    # 問題 đánh số lại từ 1 ở mỗi khối thời gian (文字語彙/文法読解/聴解), nên chỉ cảnh báo
+    # trong phạm vi một dải tăng liên tục — mỗi lần số giảm về 1 là bắt đầu khối mới.
+    run: list[int] = []
+    for n in numbers:
+        if run and n <= run[-1]:
+            _check_run_for_gaps(run)
+            run = []
+        run.append(n)
+    _check_run_for_gaps(run)
+
+
+def _check_run_for_gaps(run: list[int]) -> None:
+    if len(run) < 2:
+        return
+    expected = list(range(run[0], run[-1] + 1))
+    if run != expected:
+        missing = sorted(set(expected) - set(run))
+        present_before_gap = max(n for n in run if n < missing[0])
+        print(
+            f"⚠ THIẾU TIÊU ĐỀ 問題{missing}: dò được các số {run} nhưng có khoảng trống. "
+            f"Đây là lỗi CÓ THẬT từng gặp (đề thiếu hẳn dòng '問題{missing[0]}'). "
+            f"Câu của 問題{missing} nhiều khả năng đã dính lẫn vào 問題{present_before_gap} "
+            f"ngay trước đó — kiểm tra thủ công phần này bằng inspect_pdf.py, KHÔNG dùng "
+            f"nguyên kết quả tự động cho khối này."
+        )
 
 
 def split_questions_in_block(body: str) -> list[RawQuestion]:

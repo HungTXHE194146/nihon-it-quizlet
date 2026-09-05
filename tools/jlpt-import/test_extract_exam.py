@@ -11,7 +11,7 @@ Chạy: python3 -m pytest tools/jlpt-import/test_extract_exam.py -v
 
 from __future__ import annotations
 
-from extract_exam import split_by_mondai, split_questions_in_block
+from extract_exam import split_by_mondai, split_questions_in_block, _check_run_for_gaps
 
 FAKE_EXAM_TEXT = """N3 7/2025
 
@@ -89,6 +89,31 @@ def test_khong_lan_giua_hai_khoi_mondai():
     qs2 = split_questions_in_block(blocks[1].body)
     assert len(qs2) == 1
     assert qs2[0].choices == ["あ", "い", "う", "え"]
+
+
+def test_canh_bao_khi_thieu_mot_so_mondai():
+    """Lỗi có thật gặp trên file mẫu N3 7/2010: đề thiếu hẳn dòng '問題4', câu của nó
+    dính vào 問題3. Không tự sửa được (không có dữ liệu để suy ra), nhưng PHẢI cảnh báo
+    to thay vì lặng lẽ trả về kết quả sai."""
+    import io
+    import contextlib
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        _check_run_for_gaps([1, 2, 3, 5])
+    out = buf.getvalue()
+    assert "THIẾU TIÊU ĐỀ" in out
+    assert "問題[4]" in out
+
+
+def test_khong_canh_bao_khi_day_du():
+    import io
+    import contextlib
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        _check_run_for_gaps([1, 2, 3, 4, 5])
+    assert buf.getvalue() == ""
 
 
 if __name__ == "__main__":
