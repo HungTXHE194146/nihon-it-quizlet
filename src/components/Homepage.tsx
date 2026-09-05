@@ -3,6 +3,7 @@ import { subjectMeta } from '../data/subjectMeta';
 import type { SubjectMeta } from '../data/subjectMeta';
 import { useProgress } from '../hooks/useProgress';
 import { InstallButton } from './PWAPrompt';
+import { SyncButton } from './SyncLogin';
 import {
   Code,
   Languages,
@@ -433,9 +434,10 @@ export const Homepage: React.FC<HomepageProps> = ({
             <span>Tiến độ của bạn nằm trên chính máy này</span>
           </h3>
           <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
-            Không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay trong trình
-            duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn học tiếp trên máy khác thì xuất
-            ra file JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
+            Mặc định không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay
+            trong trình duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn tự động đồng bộ giữa
+            nhiều máy (ví dụ máy nhà và máy cơ quan) thì đăng nhập bằng mật khẩu riêng của bạn;
+            không thì cứ xuất ra file JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
           </p>
           {dataMessage && (
             <p className="text-emerald-300 text-xs font-bold pt-1">{dataMessage}</p>
@@ -443,6 +445,7 @@ export const Homepage: React.FC<HomepageProps> = ({
         </div>
 
         <div className="flex flex-wrap gap-2 justify-center shrink-0">
+          <SyncButton />
           <InstallButton />
           <button
             onClick={handleExport}
