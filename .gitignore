@@ -30,3 +30,7 @@ jlpt-source/
 tools/jlpt-import/output/
 __pycache__/
 *.pyc
+
+# Vercel CLI (vercel dev / vercel env pull) — chứa secret, không commit
+.vercel
+.env.local
