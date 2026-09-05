@@ -25,6 +25,7 @@ import {
   Upload,
   Trash2,
   Target,
+  FileJson,
 } from 'lucide-react';
 
 interface HomepageProps {
@@ -32,6 +33,7 @@ interface HomepageProps {
   /** Mở phiên ôn theo lịch SRS cho một môn ("all" = gộp mọi môn). */
   onStartReview: (subjectId: string) => void;
   onOpenMistakes: () => void;
+  onOpenJlptImport: () => void;
 }
 
 const CATEGORIES = ['Tất cả', ...Array.from(new Set(subjectMeta.map(s => s.category)))];
@@ -40,6 +42,7 @@ export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
   onStartReview,
   onOpenMistakes,
+  onOpenJlptImport,
 }) => {
   const { data, statsFor, todayStat, exportData, importData, resetAll } = useProgress();
   const [searchQuery, setSearchQuery] = useState('');
@@ -446,6 +449,13 @@ export const Homepage: React.FC<HomepageProps> = ({
 
         <div className="flex flex-wrap gap-2 justify-center shrink-0">
           <SyncButton />
+          <button
+            onClick={onOpenJlptImport}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-xs font-bold text-violet-100 hover:bg-white/20 transition-all cursor-pointer"
+          >
+            <FileJson className="w-3.5 h-3.5" />
+            Nhập đề JLPT
+          </button>
           <InstallButton />
           <button
             onClick={handleExport}

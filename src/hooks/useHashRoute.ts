@@ -15,7 +15,8 @@ export type AppRoute =
       mode: StudyMode;
     }
   | { page: 'exam'; subjectId: string; examTags: string[]; qType: string; durationMin: number }
-  | { page: 'mistakes' };
+  | { page: 'mistakes' }
+  | { page: 'jlpt-import' };
 
 function parseHash(hash: string): AppRoute {
   // Chuẩn hoá hash, ví dụ "#/subject/nihon-it/theory/16" -> "/subject/nihon-it/theory/16"
@@ -33,6 +34,11 @@ function parseHash(hash: string): AppRoute {
   // #/mistakes — sổ tay câu sai gộp mọi môn
   if (segments[0] === 'mistakes') {
     return { page: 'mistakes' };
+  }
+
+  // #/jlpt/import — nhập đề JLPT từ JSON/file ngoài vào
+  if (segments[0] === 'jlpt' && segments[1] === 'import') {
+    return { page: 'jlpt-import' };
   }
 
   // #/subject/:subjectId  (subjectId có thể là "all" cho phiên gộp mọi môn)
