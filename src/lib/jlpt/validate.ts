@@ -67,6 +67,19 @@ export function validateImportFile(value: unknown): ValidationResult {
     return { errors, warnings, incompleteChoiceCount, totalQuestions: 0 };
   }
 
+  const passagesRaw = Array.isArray(value.passages) ? value.passages : [];
+  const validPassageIds = new Set<string>();
+  passagesRaw.forEach((raw: unknown, idx: number) => {
+    if (!isPlainObject(raw) || typeof raw.id !== 'string' || !raw.id) {
+      errors.push(`passages[${idx}]: thiếu "id".`);
+      return;
+    }
+    if (typeof raw.text !== 'string' || !raw.text.trim()) {
+      errors.push(`Đoạn văn "${raw.id}": thiếu "text".`);
+    }
+    validPassageIds.add(raw.id);
+  });
+
   const seenIds = new Set<string>();
   const validIds = new Set<string>();
 
@@ -117,6 +130,10 @@ export function validateImportFile(value: unknown): ValidationResult {
       if (typeof from === 'number' && typeof to === 'number' && (from < 0 || to > q.stem.length || from >= to)) {
         warnings.push(`Câu ${qId}: "stemUnderline" [${from}, ${to}] nằm ngoài độ dài câu (${q.stem.length} ký tự).`);
       }
+    }
+
+    if (typeof q.passageId === 'string' && q.passageId && !validPassageIds.has(q.passageId)) {
+      errors.push(`Câu ${qId}: "passageId" = "${q.passageId}" không khớp đoạn văn nào trong "passages".`);
     }
   });
 

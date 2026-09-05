@@ -20,6 +20,7 @@ const KanjiMasterN3Selector = lazy(() => import('./components/KanjiMasterN3Selec
 const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({ default: m.ExamSession })));
 const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
 const JlptImportScreen = lazy(() => import('./components/jlpt/JlptImportScreen').then((m) => ({ default: m.JlptImportScreen })));
+const JlptExamRunner = lazy(() => import('./components/jlpt/JlptExamRunner').then((m) => ({ default: m.JlptExamRunner })));
 
 const ScreenLoader = () => (
   <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
@@ -424,7 +425,11 @@ function App() {
         )}
 
         {route.page === 'jlpt-import' && (
-          <JlptImportScreen onBackToHome={() => navigate('/')} />
+          <JlptImportScreen onBackToHome={() => navigate('/')} onStartExam={(examId) => navigate(`/jlpt/exam/${examId}`)} />
+        )}
+
+        {route.page === 'jlpt-exam' && (
+          <JlptExamRunner examId={route.examId} onExit={() => navigate('/jlpt/import')} />
         )}
         </Suspense>
         )}

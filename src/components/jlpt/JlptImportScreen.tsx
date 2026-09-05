@@ -14,6 +14,7 @@ import {
   ShieldQuestion,
   CloudOff,
   Loader2,
+  Play,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { jlptExamsApi } from '../../lib/api';
@@ -29,6 +30,7 @@ const LEVELS: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 interface JlptImportScreenProps {
   onBackToHome: () => void;
+  onStartExam: (examId: string) => void;
 }
 
 function downloadJSON(filename: string, data: unknown) {
@@ -41,7 +43,7 @@ function downloadJSON(filename: string, data: unknown) {
   URL.revokeObjectURL(url);
 }
 
-export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome }) => {
+export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome, onStartExam }) => {
   const { authenticated } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -339,6 +341,13 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
                     </div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => onStartExam(entry.exam.id)}
+                      title="Làm bài"
+                      className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors cursor-pointer"
+                    >
+                      <Play size={15} fill="currentColor" />
+                    </button>
                     <button
                       onClick={() => handleToggleReviewed(entry)}
                       title={entry.reviewed ? 'Đánh dấu chưa kiểm' : 'Đánh dấu đã kiểm lại đề này'}

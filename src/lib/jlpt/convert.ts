@@ -35,6 +35,7 @@ export function toStoredExam(
   return {
     exam: importFileToExam(file),
     questions: file.questions,
+    passages: file.passages ?? [],
     reviewed,
     importedAt: existing?.importedAt ?? now,
     updatedAt: now,
@@ -53,6 +54,7 @@ export function toSyncPayload(stored: StoredJlptExam): JlptSyncPayload {
     },
     groups: stored.exam.groups,
     questions: stored.questions,
+    passages: stored.passages,
     reviewed: stored.reviewed,
     importedAt: stored.importedAt,
     updatedAt: stored.updatedAt,
@@ -63,6 +65,7 @@ export function fromSyncPayload(payload: JlptSyncPayload): StoredJlptExam {
   return {
     exam: importFileToExam(payload),
     questions: payload.questions,
+    passages: payload.passages ?? [],
     reviewed: payload.reviewed ?? false,
     importedAt: payload.importedAt ?? Date.now(),
     updatedAt: payload.updatedAt ?? Date.now(),
