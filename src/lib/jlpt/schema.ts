@@ -132,6 +132,15 @@ export interface JlptAttempt {
   answers: Record<string, JlptAnswer>;
   predictedPercent?: number;
   reviewedQuestionIds: string[];
+  /**
+   * Chủ sở hữu lượt làm bài: id tài khoản, hoặc null/thiếu = làm ở chế độ khách.
+   *
+   * Đề là kho chung nhưng LƯỢT LÀM BÀI là của riêng từng người, kể cả khi nhiều người
+   * dùng chung một trình duyệt — xem src/lib/jlpt/db.ts.
+   */
+  ownerId?: string | null;
+  /** % đúng lúc nộp bài, chốt sẵn để trang chủ khỏi phải nạp lại cả đề để tính điểm. */
+  scorePercent?: number;
 }
 
 // ─── Sổ tay lỗi riêng cho JLPT (mục 6.2-6.4) ─────────────────────────
@@ -151,6 +160,8 @@ export const MISTAKE_CAUSES: { code: MistakeCause; label: string; hint: string }
 
 export interface MistakeEntry {
   id: string;
+  /** Chủ sở hữu — cùng quy ước với JlptAttempt.ownerId. */
+  ownerId?: string | null;
   questionId: string;
   examId: string;
   attemptId: string;

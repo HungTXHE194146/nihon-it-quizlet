@@ -26,7 +26,8 @@ import { readJSON, writeJSON, removeKey, isPersistent } from '../lib/storage';
 import { review as srsReview, isDue, isMature } from '../lib/srs';
 import type { CardState } from '../lib/srs';
 import { itemByKey, subjectIdFromKey } from '../lib/itemIndex';
-import { totalItemsOf } from '../data/subjectMeta';
+import { totalItemsOf, subjectInScope } from '../data/subjectMeta';
+import type { SubjectScope } from '../data/subjectMeta';
 import { useAuth } from './useAuth';
 import { progressApi } from '../lib/api';
 import { mergeProgress } from '../lib/progressSync';
@@ -178,11 +179,11 @@ interface ProgressContextValue {
   recordReview: (key: string, correct: boolean) => void;
   getCard: (key: string) => CardState | undefined;
   /** Các thẻ đến hạn ôn, cộng thêm một ít thẻ mới, giới hạn theo cài đặt. */
-  buildReviewQueue: (subjectId: string | 'all', limit?: number) => string[];
+  buildReviewQueue: (scope: SubjectScope, limit?: number) => string[];
   /** Các thẻ từng trả lời sai, mới sai gần đây xếp trước. */
-  buildMistakeQueue: (subjectId: string | 'all') => string[];
-  statsFor: (subjectId: string | 'all') => SubjectStats;
-  dueCount: (subjectId: string | 'all') => number;
+  buildMistakeQueue: (scope: SubjectScope) => string[];
+  statsFor: (scope: SubjectScope) => SubjectStats;
+  dueCount: (scope: SubjectScope) => number;
   todayStat: DailyStat;
   saveSession: (session: SavedSession | null) => void;
   clearSession: () => void;
@@ -317,6 +318,11 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     let cancelled = false;
 
+    // Chỉ đánh thức hiệu ứng đẩy lên khi thật sự có gì để đẩy. Nếu lần nào mở web cũng đẩy
+    // một bản y hệt bản trên server thì vừa tốn lượt ghi KV vừa làm dấu thời gian nhảy lung
+    // tung giữa các máy.
+    let shouldPush = false;
+
     setSyncState('syncing');
     progressApi
       .get()
@@ -324,6 +330,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (cancelled) return;
 
         if (!server) {
+          shouldPush = true;
           // Tài khoản chưa có gì trên server. Nếu người này vừa đăng ký ngay trên máy đang
           // học ở chế độ khách thì mang luôn tiến độ khách sang làm vốn ban đầu — không thì
           // họ sẽ tưởng mình vừa mất sạch lịch ôn chỉ vì tạo tài khoản.
@@ -351,9 +358,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (cancelled) return;
         seedRef.current = null;
         didInitialSyncRef.current = true;
-        // Đánh thức hiệu ứng đẩy lên để bản vừa hợp nhất (hoặc bản đầu tiên của tài khoản
-        // mới) được ghi lên server, kể cả khi chữ ký nội dung không đổi.
-        setSyncEpoch((e) => e + 1);
+        // Tài khoản mới (server còn trống): đánh thức hiệu ứng đẩy lên để bản đầu tiên được
+        // ghi lên server ngay, kể cả khi chữ ký nội dung không đổi. Các ca còn lại đã có
+        // chữ ký nội dung lo — hợp nhất có thay đổi thì tự đẩy, không thay đổi thì không cần.
+        if (shouldPush) setSyncEpoch((e) => e + 1);
       });
 
     return () => {
@@ -421,13 +429,13 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getCard = useCallback((key: string) => data.cards[key], [data.cards]);
 
   const buildReviewQueue = useCallback(
-    (subjectId: string | 'all', limit?: number) => {
+    (scope: SubjectScope, limit?: number) => {
       const now = Date.now();
       const due: { key: string; due: number }[] = [];
 
       // Thẻ đến hạn suy ra được từ tiến độ đã lưu, không cần dữ liệu bài học.
       for (const [key, card] of Object.entries(data.cards)) {
-        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         if (isDue(card, now)) due.push({ key, due: card.due });
       }
       // Thẻ quá hạn lâu nhất được ưu tiên trước.
@@ -438,7 +446,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const newLimit = data.settings.dailyNewLimit;
       for (const [key, entry] of itemByKey) {
         if (fresh.length >= newLimit) break;
-        if (subjectId !== 'all' && entry.subjectId !== subjectId) continue;
+        if (!subjectInScope(entry.subjectId, scope)) continue;
         if (!data.cards[key]) fresh.push(key);
       }
 
@@ -450,12 +458,12 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   const buildMistakeQueue = useCallback(
-    (subjectId: string | 'all') => {
+    (scope: SubjectScope) => {
       const rows: { key: string; last: number; wrong: number }[] = [];
       for (const [key, card] of Object.entries(data.cards)) {
         if (card.wrong === 0) continue;
         // Lọc theo mã môn nằm ngay trong khoá, nhờ vậy không phụ thuộc vào việc đã nạp dữ liệu.
-        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         rows.push({ key, last: card.last, wrong: card.wrong });
       }
       // Sai nhiều nhất lên đầu, cùng số lần sai thì lấy câu vừa sai gần đây.
@@ -466,17 +474,17 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   const statsFor = useCallback(
-    (subjectId: string | 'all'): SubjectStats => {
+    (scope: SubjectScope): SubjectStats => {
       const now = Date.now();
       // Tổng số mục lấy từ metadata tĩnh nên trang chủ không cần nạp dữ liệu môn nào.
-      const total = totalItemsOf(subjectId);
+      const total = totalItemsOf(scope);
       let studied = 0;
       let mature = 0;
       let due = 0;
       let wrong = 0;
 
       for (const [key, card] of Object.entries(data.cards)) {
-        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         studied += 1;
         if (isMature(card)) mature += 1;
         if (isDue(card, now)) due += 1;
@@ -496,10 +504,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [data.cards]
   );
 
-  const dueCount = useCallback(
-    (subjectId: string | 'all') => statsFor(subjectId).due,
-    [statsFor]
-  );
+  const dueCount = useCallback((scope: SubjectScope) => statsFor(scope).due, [statsFor]);
 
   const todayStat = useMemo(
     () => data.daily[todayKey()] || { reviews: 0, correct: 0 },

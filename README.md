@@ -14,6 +14,11 @@
 Dự án này là trang web ôn tập và học tập kiểu Quizlet kết hợp trắc nghiệm, viết bằng **React, Vite, TypeScript, và Tailwind CSS**.
 Giao diện tiếng Việt hiện đại, thân thiện trên di động và máy tính, chạy hoàn toàn offline bằng dữ liệu local.
 
+Trang chủ lấy **luyện thi N3** làm trục chính: một hàng đợi ôn gộp cả từ vựng Mimi Kara Oboeru
+lẫn Kanji Master (`#/subject/n3/study?mode=srs`), khu **Phòng thi JLPT** ngay bên dưới, còn
+JIT401 / JFE301 nằm trong mục "Môn khác" gấp lại — vẫn dùng được đầy đủ, chỉ không chiếm chỗ
+của phần luyện thi.
+
 ---
 
 ## 🚀 Cách chạy dự án dưới máy cục bộ (Local)
@@ -226,8 +231,10 @@ Nút đăng nhập / tạo tài khoản nằm ở khu **quản lý dữ liệu**
   không trộn (trên máy dùng chung, "khách" có thể là người khác) — tiến độ khách vẫn nằm
   nguyên chỗ cũ, đăng xuất là thấy lại.
 * **Kho đề JLPT dùng chung** cho mọi tài khoản (một người nhập, cả nhóm luyện), nhưng chỉ
-  người đã nhập mới sửa/xoá được đề đó. Riêng lịch sử làm đề JLPT (IndexedDB) hiện vẫn lưu
-  **theo máy**, chưa tách theo tài khoản.
+  người đã nhập mới sửa/xoá được đề đó.
+* **Lịch sử làm đề JLPT và sổ tay lỗi JLPT tách riêng theo tài khoản** (lưu trong IndexedDB
+  của máy, lọc theo chủ sở hữu). Dữ liệu JLPT làm từ thời chưa có tài khoản được chuyển cho
+  tài khoản đầu tiên đăng nhập trên máy đó, đúng một lần.
 
 Chi tiết cấu hình phía server: [api/README.md](api/README.md).
 

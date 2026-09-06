@@ -50,7 +50,9 @@ function App() {
     route.page === 'study' ||
     route.page === 'exam'
       ? route.subjectId
-      : 'nihon-it';
+      // Web lấy N3 làm trục chính nên môn mặc định (chỉ dùng cho breadcrumb ở các trang
+      // không gắn với môn nào) là môn N3 đầu tiên, không còn là môn IT.
+      : subjectMeta[0].id;
 
   const currentSubject: SubjectMeta = findSubjectMeta(activeSubjectId) || subjectMeta[0];
 
@@ -272,8 +274,8 @@ function App() {
               <span>{isVipUnlocked ? 'VIP Pro Ultra Max' : 'Nâng cấp VIP (5k)'}</span>
             </button>
 
-            <span className="hidden md:inline bg-indigo-50 text-indigo-700 py-1 px-3 rounded-full text-xs font-bold">
-              Multi-Subject
+            <span className="hidden md:inline bg-emerald-50 text-emerald-700 py-1 px-3 rounded-full text-xs font-bold">
+              JLPT N3
             </span>
 
             <a
@@ -324,6 +326,7 @@ function App() {
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
             onOpenMistakes={() => navigate('/mistakes')}
             onOpenJlptImport={() => navigate('/jlpt/import')}
+            onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
           />
         )}
 
