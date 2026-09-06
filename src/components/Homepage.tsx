@@ -439,8 +439,9 @@ export const Homepage: React.FC<HomepageProps> = ({
           <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
             Mặc định không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay
             trong trình duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn tự động đồng bộ giữa
-            nhiều máy (ví dụ máy nhà và máy cơ quan) thì đăng nhập bằng mật khẩu riêng của bạn;
-            không thì cứ xuất ra file JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
+            nhiều máy (ví dụ máy nhà và máy cơ quan), hoặc học chung web với người khác mà tiến độ
+            ai người nấy giữ, thì đăng nhập bằng tài khoản riêng của bạn; không thì cứ xuất ra file
+            JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
           </p>
           {dataMessage && (
             <p className="text-emerald-300 text-xs font-bold pt-1">{dataMessage}</p>

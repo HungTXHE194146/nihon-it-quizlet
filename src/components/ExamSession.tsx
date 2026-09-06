@@ -5,6 +5,7 @@ import { useProgress } from '../hooks/useProgress';
 import type { ExamResult } from '../hooks/useProgress';
 import { cardKey } from '../lib/itemIndex';
 import { readJSON, writeJSON, removeKey } from '../lib/storage';
+import { useAuth } from '../hooks/useAuth';
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,7 +21,11 @@ import {
   Timer,
 } from 'lucide-react';
 
-const ATTEMPT_KEY = 'exam-attempt';
+/** Bài thi dở cũng là dữ liệu riêng của từng người: khoá kèm id tài khoản để hai người
+ * dùng chung một máy không nối tiếp bài thi của nhau (khách giữ khoá cũ, không mất bài). */
+function attemptKeyFor(userId: string | null): string {
+  return userId ? `exam-attempt:u:${userId}` : 'exam-attempt';
+}
 /** Ngưỡng đạt của kỳ thi FE / IT Passport. */
 const PASS_PERCENT = 60;
 
@@ -75,6 +80,8 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
   onExit,
 }) => {
   const { recordReview, recordExam } = useProgress();
+  const { user } = useAuth();
+  const attemptKey = attemptKeyFor(user?.id ?? null);
 
   const signature = useMemo(
     () => JSON.stringify({ subjectId, examTags, qType, durationMin }),
@@ -114,11 +121,11 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
 
   // Khôi phục bài đang làm dở nếu đúng đề và chưa hết giờ.
   const restored = useMemo(() => {
-    const saved = readJSON<SavedAttempt | null>(ATTEMPT_KEY, null);
+    const saved = readJSON<SavedAttempt | null>(attemptKey, null);
     if (!saved || saved.signature !== signature) return null;
     if (saved.deadline > 0 && saved.deadline <= Date.now()) return null;
     return saved;
-  }, [signature]);
+  }, [signature, attemptKey]);
 
   const [startedAt] = useState<number>(() => restored?.startedAt ?? Date.now());
   const [deadline] = useState<number>(
@@ -166,12 +173,12 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
     };
 
     recordExam(finished);
-    removeKey(ATTEMPT_KEY);
+    removeKey(attemptKey);
     setResult(finished);
     setPhase('submitted');
     setShowConfirm(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [answers, questions, recordReview, recordExam, subjectId, examTags, qType, durationMin, startedAt]);
+  }, [answers, questions, recordReview, recordExam, subjectId, examTags, qType, durationMin, startedAt, attemptKey]);
 
   // Đồng hồ chạy mỗi giây; hết giờ thì tự nộp.
   useEffect(() => {
@@ -196,8 +203,8 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
       flagged: Array.from(flagged),
       index,
     };
-    writeJSON(ATTEMPT_KEY, attempt);
-  }, [answers, flagged, index, phase, signature, startedAt, deadline, questions.length]);
+    writeJSON(attemptKey, attempt);
+  }, [answers, flagged, index, phase, signature, startedAt, deadline, questions.length, attemptKey]);
 
   // Phím tắt phòng thi: mũi tên chuyển câu, F đánh dấu (phím số do QuestionCard xử lý).
   useEffect(() => {
@@ -239,7 +246,7 @@ export const ExamSession: React.FC<ExamSessionProps> = ({
   };
 
   const handleRetake = () => {
-    removeKey(ATTEMPT_KEY);
+    removeKey(attemptKey);
     // Tải lại route hiện tại để dựng một lượt thi mới hoàn toàn.
     window.location.reload();
   };

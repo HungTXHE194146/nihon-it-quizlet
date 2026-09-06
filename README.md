@@ -148,7 +148,10 @@ Câu hỏi Đúng/Sai được thiết kế để sử dụng chung cấu trúc 
 
 ## 🧠 Hệ thống Học tập & Ghi nhớ
 
-Toàn bộ tiến độ được lưu **ngay trong trình duyệt** (localStorage), không cần đăng nhập và không gửi dữ liệu đi đâu.
+Mặc định, toàn bộ tiến độ được lưu **ngay trong trình duyệt** (localStorage), không cần đăng
+nhập và không gửi dữ liệu đi đâu. Ai muốn học trên nhiều máy — hoặc nhiều người muốn dùng
+chung một bản web mà tiến độ ai người nấy giữ — thì đăng nhập bằng tài khoản riêng, xem
+[mục 7](#7-nhiều-người-dùng-mỗi-người-một-tiến-độ).
 
 ### 1. Lặp lại ngắt quãng (SRS — thuật toán SM-2)
 Mỗi lần bạn chấm "Đã thuộc" / "Chưa thuộc" (hoặc chọn đáp án trắc nghiệm), thẻ đó được lên lịch nhắc lại:
@@ -202,8 +205,34 @@ thẻ hiện Chữ Hán, bạn gõ lại cách đọc và ứng dụng tự ch�
 
 Mã nguồn: [src/lib/kana.ts](src/lib/kana.ts)
 
-### 7. Xuất / Nạp tiến độ
-Không có tài khoản, nên việc đồng bộ giữa các máy làm bằng file JSON: nút **Xuất tiến độ** /
+### 7. Nhiều người dùng, mỗi người một tiến độ
+
+Web dùng được ở hai chế độ, chuyển qua lại lúc nào cũng được:
+
+| | Khách (mặc định) | Đăng nhập |
+|---|---|---|
+| Cần tài khoản | Không | Có (tên đăng nhập + mật khẩu) |
+| Nơi lưu tiến độ | localStorage của máy này | localStorage **riêng theo tài khoản** + server |
+| Nhiều máy | Không (tự xuất/nạp file) | Tự đồng bộ, hợp nhất theo từng thẻ |
+| Nhiều người chung một máy | Ghi đè lẫn nhau | Mỗi người một tiến độ, không đụng nhau |
+
+Nút đăng nhập / tạo tài khoản nằm ở khu **quản lý dữ liệu** cuối trang chủ. Vài điểm cần biết:
+
+* **Đăng ký cần mã mời** (`SIGNUP_CODE` do người quản trị đặt) — web không mở đăng ký tự do.
+* **Tài khoản đầu tiên** đăng ký sẽ nhận luôn tiến độ đã đồng bộ từ thời web còn một người
+  dùng, nên không mất gì khi nâng cấp. Hãy để chính chủ đăng ký trước.
+* Đang học ở chế độ khách rồi mới tạo tài khoản: tiến độ khách được **chuyển sang tài khoản
+  mới** nếu tài khoản đó chưa có dữ liệu nào trên server. Nếu tài khoản đã có dữ liệu thì
+  không trộn (trên máy dùng chung, "khách" có thể là người khác) — tiến độ khách vẫn nằm
+  nguyên chỗ cũ, đăng xuất là thấy lại.
+* **Kho đề JLPT dùng chung** cho mọi tài khoản (một người nhập, cả nhóm luyện), nhưng chỉ
+  người đã nhập mới sửa/xoá được đề đó. Riêng lịch sử làm đề JLPT (IndexedDB) hiện vẫn lưu
+  **theo máy**, chưa tách theo tài khoản.
+
+Chi tiết cấu hình phía server: [api/README.md](api/README.md).
+
+### 8. Xuất / Nạp tiến độ
+Không cần tài khoản vẫn chuyển được tiến độ giữa các máy bằng file JSON: nút **Xuất tiến độ** /
 **Nạp tiến độ** ở cuối trang chủ. Bạn tự giữ dữ liệu của mình.
 
 ---

@@ -202,7 +202,12 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
     try {
       await deleteStoredExam(entry.exam.id);
       if (authenticated === true) {
-        await jlptExamsApi.remove(entry.exam.id).catch(() => {});
+        // Kho đề trên server dùng chung cho mọi tài khoản nhưng chỉ người đã nhập mới xoá
+        // được (api/jlpt/exams.ts). Bị từ chối thì đề vẫn còn trên server và sẽ quay lại ở
+        // lần đối chiếu sau — phải nói rõ, đừng để người dùng tưởng đã xoá xong.
+        await jlptExamsApi.remove(entry.exam.id).catch((e: Error) => {
+          setSyncNote(`Đã xoá khỏi máy này, nhưng chưa xoá được trên server: ${e.message}`);
+        });
       }
       await refreshLocalList();
     } catch (e) {
@@ -215,7 +220,9 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
     try {
       await putStoredExam(next);
       if (authenticated === true) {
-        await jlptExamsApi.add(toSyncPayload(next)).catch(() => {});
+        await jlptExamsApi.add(toSyncPayload(next)).catch((e: Error) => {
+          setSyncNote(`Đã đổi trên máy này, nhưng chưa cập nhật được lên server: ${e.message}`);
+        });
       }
       await refreshLocalList();
     } catch (e) {
