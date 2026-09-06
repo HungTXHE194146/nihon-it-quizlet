@@ -38,6 +38,8 @@ export const KanjiMasterN3Selector: React.FC<KanjiMasterN3SelectorProps> = ({
   const [selectedChapter, setSelectedChapter] = useState<number | 'all'>('all');
 
   const CHAPTERS = [
+    { num: 1, name: 'Chương 1: Đời sống (生活)', badge: 'C1: Đời sống (Bài 1-5)', color: 'from-teal-500 to-emerald-500' },
+    { num: 2, name: 'Chương 2: Nhà cửa (家)', badge: 'C2: Nhà cửa (Bài 1-5)', color: 'from-amber-600 to-yellow-500' },
     { num: 3, name: 'Chương 3: Ẩm thực (料理)', badge: 'C3: Ẩm thực (Bài 1-5)', color: 'from-amber-500 to-orange-500' },
     { num: 4, name: 'Chương 4: Bệnh viện (病院)', badge: 'C4: Bệnh viện (Bài 6-10)', color: 'from-rose-500 to-pink-500' },
     { num: 5, name: 'Chương 5: Thể thao (スポーツ)', badge: 'C5: Thể thao (Bài 11-15)', color: 'from-emerald-500 to-teal-500' },
@@ -49,6 +51,8 @@ export const KanjiMasterN3Selector: React.FC<KanjiMasterN3SelectorProps> = ({
   ];
 
   const getChapterInfo = (lessonId: number) => {
+    if (lessonId >= 101 && lessonId <= 105) return { num: 1, name: 'Đời sống (生活)', color: 'from-teal-500 to-emerald-500' };
+    if (lessonId >= 201 && lessonId <= 205) return { num: 2, name: 'Nhà cửa (家)', color: 'from-amber-600 to-yellow-500' };
     if (lessonId <= 5) return { num: 3, name: 'Ẩm thực (料理)', color: 'from-amber-500 to-orange-500' };
     if (lessonId <= 10) return { num: 4, name: 'Bệnh viện (病院)', color: 'from-rose-500 to-pink-500' };
     if (lessonId <= 15) return { num: 5, name: 'Thể thao (スポーツ)', color: 'from-emerald-500 to-teal-500' };
@@ -60,6 +64,8 @@ export const KanjiMasterN3Selector: React.FC<KanjiMasterN3SelectorProps> = ({
   };
 
   const getLessonNumInChapter = (lessonId: number) => {
+    if (lessonId >= 101 && lessonId <= 105) return lessonId - 100;
+    if (lessonId >= 201 && lessonId <= 205) return lessonId - 200;
     if (lessonId <= 5) return lessonId;
     if (lessonId <= 10) return lessonId - 5;
     if (lessonId <= 15) return lessonId - 10;

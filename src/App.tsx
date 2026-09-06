@@ -11,6 +11,7 @@ import { TheoryViewer } from './components/TheoryViewer';
 import { FakePaywallModal } from './components/FakePaywallModal';
 import { KanjiMasterN3Selector } from './components/KanjiMasterN3Selector';
 import { EngGrade9Selector } from './components/EngGrade9Selector';
+import { TryN3Selector } from './components/TryN3Selector';
 import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home } from 'lucide-react';
 
 function App() {
@@ -251,11 +252,22 @@ function App() {
           />
         )}
 
+        {route.page === 'subject' && currentSubject.id === 'try-n3' && (
+          <TryN3Selector
+            lessons={currentSubject.lessons}
+            onStartBySections={(sections) =>
+              navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
+            }
+            onBackToHome={() => navigate('/')}
+          />
+        )}
+
         {route.page === 'subject' &&
           currentSubject.id !== 'mimi-n3-goi' &&
           currentSubject.id !== 'jfe301' &&
           currentSubject.id !== 'kanji-master-n3' &&
-          currentSubject.id !== 'eng-grade9-hw' && (
+          currentSubject.id !== 'eng-grade9-hw' &&
+          currentSubject.id !== 'try-n3' && (
             <LessonSelector
               lessons={currentSubject.lessons}
               selectedSectionIds={selectedSectionIds}

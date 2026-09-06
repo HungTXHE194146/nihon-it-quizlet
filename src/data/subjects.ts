@@ -1,5 +1,6 @@
 import { lessons as nihonItLessons } from './lessons';
 import { mimiN3Lessons } from './mimiN3FullData';
+import { tryN3Lessons } from './tryN3Data';
 import { jfe301Lessons } from './jfe301Data';
 import { kanjiMasterN3Lessons } from './kanjiMasterN3Data';
 import { allEngGrade9Lessons } from './engGrade9Data';
@@ -22,6 +23,20 @@ export interface Subject {
 }
 
 export const subjects: Subject[] = [
+  {
+    id: 'try-n3',
+    title: 'TRY! N3 - Ngữ Pháp Tiếng Nhật',
+    japaneseTitle: 'TRY! 日本語能力試験 N3 文法から伸ばす日本語',
+    description: 'Giáo trình Ngữ pháp N3 kinh điển theo phương pháp ngữ cảnh (Chương 1: Lần đầu leo núi Phú Sĩ). Học mẫu câu, cấu trúc, ví dụ song ngữ và luyện bài tập trắc nghiệm củng cố やっみよう!.',
+    category: 'Ngữ pháp N3',
+    icon: 'languages',
+    gradient: 'from-blue-600 via-indigo-600 to-sky-600',
+    badge: 'Mới - TRY! N3',
+    lessons: tryN3Lessons,
+    totalLessons: tryN3Lessons.length,
+    totalItems: tryN3Lessons.reduce((acc, l) => acc + l.sections.reduce((sAcc, s) => sAcc + s.items.length, 0), 0),
+    isAvailable: true,
+  },
   {
     id: 'eng-grade9-hw',
     title: 'Tiếng Anh Lớp 9 - Bài Tập Về Nhà & Từ Vựng',
@@ -68,12 +83,12 @@ export const subjects: Subject[] = [
   {
     id: 'kanji-master-n3',
     title: 'Kanji Master N3',
-    japaneseTitle: '漢字マスター N3 (Chương 3, 4, 5 & 6)',
+    japaneseTitle: '漢字マスター N3 (Chương 1-10)',
     description: 'Giáo trình Kanji Master N3 chuyên sâu. Luyện tập các chữ Kanji (âm Hán, số nét, cách đọc) và học từ vựng đi kèm bằng Flashcard sinh động.',
     category: 'Chữ Hán N3',
     icon: 'award',
     gradient: 'from-rose-600 to-red-600',
-    badge: 'Chương 3, 4, 5 & 6',
+    badge: 'Chương 1-10',
     lessons: kanjiMasterN3Lessons,
     totalLessons: kanjiMasterN3Lessons.length,
     totalItems: kanjiMasterN3Lessons.reduce((acc, l) => acc + l.sections.reduce((sAcc, s) => sAcc + s.items.length, 0), 0),
