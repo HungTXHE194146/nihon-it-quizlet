@@ -10,6 +10,8 @@ import { MONDAI_TYPES, type JlptImportFile, type JlptQuestion, type MondaiType, 
 
 const SCORING_SECTIONS: readonly ScoringSection[] = ['gengo_chishiki', 'dokkai', 'choukai'];
 
+const PASSAGE_KINDS = ['tan', 'chuu', 'chou', 'jouhou'] as const;
+
 /** Suy ra đúng scoringSection từ mondai — dùng để bắt lỗi AI tự đặt tên khác (đã gặp thực tế: "bunpou" thay vì "gengo_chishiki"). */
 const MONDAI_TO_SECTION: Record<MondaiType, ScoringSection> = {
   kanji_yomi: 'gengo_chishiki', hyouki: 'gengo_chishiki', bunmyaku_kitei: 'gengo_chishiki',
@@ -88,6 +90,13 @@ export function validateImportFile(value: unknown): ValidationResult {
     if (typeof raw.text !== 'string' || !raw.text.trim()) {
       errors.push(`Đoạn văn "${raw.id}": thiếu "text".`);
     }
+    if (typeof raw.kind !== 'string' || !(PASSAGE_KINDS as readonly string[]).includes(raw.kind)) {
+      // Đã gặp thực tế: AI trích xuất nhầm điền tên mondai (vd "naiyou_chuu") vào đây thay vì
+      // đúng 4 giá trị tan/chuu/chou/jouhou của Passage.kind.
+      errors.push(
+        `Đoạn văn "${raw.id}": "kind" = "${String(raw.kind)}" không hợp lệ. Giá trị hợp lệ: ${PASSAGE_KINDS.join(', ')}.`
+      );
+    }
     validPassageIds.add(raw.id);
   });
 
@@ -149,8 +158,19 @@ export function validateImportFile(value: unknown): ValidationResult {
     if (missingNote > 0) incompleteChoiceCount += 1;
 
     if (q.stemUnderline && typeof q.stem === 'string') {
-      const [from, to] = q.stemUnderline;
-      if (typeof from === 'number' && typeof to === 'number') {
+      if (
+        !Array.isArray(q.stemUnderline) ||
+        q.stemUnderline.length !== 2 ||
+        typeof q.stemUnderline[0] !== 'number' ||
+        typeof q.stemUnderline[1] !== 'number'
+      ) {
+        // Đã gặp thực tế: AI trích xuất điền nhầm luôn cả CHỮ được gạch chân (ví dụ "調査")
+        // thay vì mảng [from, to] toạ độ ký tự — phá vỡ hoàn toàn phần gạch chân khi hiển thị.
+        errors.push(
+          `Câu ${qId}: "stemUnderline" phải là mảng [từ, đến] gồm 2 số (vị trí ký tự trong "stem"), hiện là ${JSON.stringify(q.stemUnderline)}.`
+        );
+      } else {
+        const [from, to] = q.stemUnderline;
         if (from < 0 || to > q.stem.length || from >= to) {
           warnings.push(`Câu ${qId}: "stemUnderline" [${from}, ${to}] nằm ngoài độ dài câu (${q.stem.length} ký tự).`);
         } else if (q.mondai === 'kanji_yomi' && !/[一-鿿]/.test(q.stem.slice(from, to))) {
