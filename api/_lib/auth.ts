@@ -179,30 +179,26 @@ export async function verifySessionToken(
   }
 }
 
-// ─── Mã mời (giữ web ở chế độ riêng tư) ──────────────────────────────
+// ─── Mã mời (tuỳ chọn) ───────────────────────────────────────────────
 
 /**
- * Đăng ký KHÔNG mở tự do: người mới phải nhập đúng mã mời thì mới tạo được tài khoản.
+ * Đăng ký MỞ TỰ DO theo mặc định: ai vào web cũng tạo được tài khoản cho mình.
  *
- * Lý do: bản deploy này nằm trên domain công khai. Nếu ai vào cũng đăng ký được thì web
- * trở thành dịch vụ mở cho người lạ — đúng thứ mà thiết kế cũ (một mật khẩu chung) cố
- * tránh. Mã mời giữ nguyên tính riêng tư đó nhưng cho phép nhiều tài khoản.
+ * Muốn khoá lại thì đặt biến môi trường `SIGNUP_CODE` — khi đó người đăng ký phải nhập
+ * đúng mã đó. Chỉ một biến quyết định, không còn dùng `JLPT_ACCESS_PASSWORD` của thời một
+ * mật khẩu chung (biến đó nay vô nghĩa, xoá đi được).
  *
- * Dùng lại `JLPT_ACCESS_PASSWORD` nếu chưa đặt `SIGNUP_CODE`, để bản deploy đang chạy
- * không phải cấu hình lại gì vẫn đăng ký được ngay bằng mật khẩu cũ.
+ * Đổi trạng thái chỉ cần thêm/xoá biến rồi deploy lại; giao diện tự hiện hoặc ẩn ô mã mời
+ * theo `/api/auth/status`.
  */
-export function signupCodeConfigured(): boolean {
-  return Boolean(process.env.SIGNUP_CODE || process.env.JLPT_ACCESS_PASSWORD);
+export function signupCodeRequired(): boolean {
+  return Boolean(process.env.SIGNUP_CODE);
 }
 
 export async function checkSignupCode(candidate: string): Promise<boolean> {
-  const expected = process.env.SIGNUP_CODE || process.env.JLPT_ACCESS_PASSWORD;
-  if (!expected) {
-    throw new Error(
-      'Chưa mở đăng ký: đặt biến môi trường SIGNUP_CODE (mã mời) trong Vercel Project ' +
-        'Settings > Environment Variables rồi deploy lại.'
-    );
-  }
+  const expected = process.env.SIGNUP_CODE;
+  if (!expected) return true; // không đặt mã -> đăng ký mở cho mọi người
+
   // Băm hai vế trước khi so sánh: luôn đúng 32 byte bất kể độ dài mã gốc, nên vòng lặp
   // so khớp chạy đúng 32 bước — không có đường thoát sớm để đo thời gian mà đoán ký tự.
   const enc = new TextEncoder();

@@ -22,62 +22,87 @@ nhập mới sửa/xoá được — kho chung không có nghĩa là ai cũng d�
 Id người dùng luôn lấy từ **cookie đã ký**, không bao giờ từ tham số client gửi lên; nếu
 không thì chỉ cần đổi query string là đọc được tiến độ của người khác.
 
-### Đăng ký không mở tự do
+### Đăng ký mở tự do (mặc định)
 
-Bản deploy nằm trên domain công khai, nên muốn tạo tài khoản phải nhập đúng **mã mời**
-(`SIGNUP_CODE`). Đây là cách giữ nguyên tính riêng tư của thiết kế cũ (một mật khẩu chung)
-nhưng cho phép nhiều người, mỗi người một tiến độ.
+Ai vào web cũng tạo được tài khoản cho mình, không cần xin phép ai. Muốn khoá lại thì đặt
+biến môi trường `SIGNUP_CODE` — khi đó giao diện tự hiện thêm ô "Mã mời" và chỉ người biết
+mã mới đăng ký được. Bỏ biến đi là mở lại.
 
-## Việc bạn PHẢI tự làm (tôi không có quyền vào tài khoản Vercel của bạn)
+Vì cửa mở nên có hai cái van:
 
-### 1. Tạo KV store
-
-Vercel Dashboard → project này → tab **Storage** → **Create Database** → chọn **KV**
-(chạy trên nền Upstash Redis, tầng miễn phí đủ dùng cho một nhóm nhỏ). Sau khi tạo, bấm
-**Connect Project** để Vercel tự thêm các biến môi trường `KV_REST_API_URL` /
-`KV_REST_API_TOKEN` / v.v. — không cần bạn tự gõ tay các giá trị này.
-
-### 2. Đặt 2 biến môi trường còn lại
-
-Project Settings → Environment Variables, thêm cho cả 3 môi trường (Production, Preview,
-Development):
-
-| Tên | Giá trị | Cách tạo |
+| Van | Mặc định | Chỉnh ở đâu |
 |---|---|---|
-| `AUTH_SECRET` | chuỗi ngẫu nhiên dài | `openssl rand -hex 32` (càng dài càng tốt) |
-| `SIGNUP_CODE` | mã mời bạn tự chọn | ai muốn tạo tài khoản phải gõ đúng mã này |
+| Hạn mức đăng ký theo IP | 5 tài khoản / giờ | `MAX_SIGNUPS` trong `api/auth/register.ts` |
+| Trần tổng số tài khoản | không giới hạn | biến môi trường `MAX_USERS` (ví dụ `50`) |
 
-Đổi lại `AUTH_SECRET` bất cứ lúc nào sẽ làm mọi phiên đăng nhập cũ hết hiệu lực ngay lập
-tức (hữu ích nếu nghi ngờ có ai đó có được cookie của bạn). Đổi `SIGNUP_CODE` chỉ chặn
-người đăng ký mới, không ảnh hưởng tài khoản đã có.
+## Cấu hình trên project Vercel đang có (4 bước, ~10 phút)
 
-> Bản deploy cũ đang đặt `JLPT_ACCESS_PASSWORD` (một mật khẩu chung) thì **chưa cần sửa
-> gì**: nếu thiếu `SIGNUP_CODE`, mã mời tạm lấy đúng giá trị `JLPT_ACCESS_PASSWORD`. Nên
-> đặt `SIGNUP_CODE` rồi xoá biến cũ khi tiện, cho khỏi lẫn hai khái niệm.
+Không phải tạo project mới: web tĩnh vẫn deploy y như cũ, thư mục `api/` được Vercel tự
+nhận là Functions. Chỉ cần thêm kho dữ liệu và một biến môi trường.
 
-### 3. Deploy lại
+### Bước 1 — Tạo kho dữ liệu Redis/KV
 
-Sau khi thêm biến môi trường, phải **redeploy** (Vercel không tự áp dụng biến mới cho các
-bản deploy đã build trước đó). Push code lên nhánh đang deploy là đủ để trigger.
+Vercel Dashboard → chọn project → tab **Storage** → **Create Database**.
 
-### 4. Tạo tài khoản đầu tiên
+* Có mục **KV** thì chọn KV.
+* Bản Vercel mới đưa Redis sang Marketplace: chọn **Upstash → Redis**, gói **Free**.
+
+Tạo xong bấm **Connect Project** (chọn cả Production / Preview / Development). Vercel tự
+bơm các biến kết nối, **không phải gõ tay**. Tên biến có thể là `KV_REST_API_URL` +
+`KV_REST_API_TOKEN` (kiểu KV) hoặc `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
+(kiểu Upstash) — code nhận cả hai (`api/_lib/kv.ts`), nên kiểu nào cũng chạy.
+
+### Bước 2 — Thêm `AUTH_SECRET`
+
+Project Settings → **Environment Variables** → thêm cho cả 3 môi trường:
+
+| Tên | Bắt buộc? | Giá trị |
+|---|---|---|
+| `AUTH_SECRET` | **Có** | chuỗi ngẫu nhiên dài, sinh bằng `openssl rand -hex 32` |
+| `SIGNUP_CODE` | Không | chỉ đặt khi muốn KHOÁ đăng ký bằng mã mời |
+| `MAX_USERS` | Không | trần số tài khoản, ví dụ `50` |
+
+**Xoá `JLPT_ACCESS_PASSWORD` nếu còn** — biến của thời một-mật-khẩu-chung, giờ không còn
+chỗ nào đọc nó nữa.
+
+Đổi `AUTH_SECRET` về sau sẽ làm **mọi phiên đăng nhập trên mọi máy hết hiệu lực ngay** —
+đó cũng là cách duy nhất để đá hết mọi người ra nếu nghi ngờ lộ cookie.
+
+### Bước 3 — Redeploy
+
+Vercel **không** áp dụng biến môi trường mới cho bản deploy đã build trước đó. Vào tab
+**Deployments** → bản mới nhất → **Redeploy** (hoặc push một commit bất kỳ).
+
+### Bước 4 — Đăng ký tài khoản của bạn TRƯỚC TIÊN
+
+Mở web → cuối trang chủ → **Đăng nhập để đồng bộ** → *Chưa có tài khoản? Tạo tài khoản mới*.
+
+> ⚠️ **Làm việc này ngay sau khi deploy, trước khi đưa link cho người khác.** Tài khoản
+> ĐẦU TIÊN đăng ký sẽ nhận luôn blob tiến độ toàn cục của thời một-người-dùng
+> (`nihonit:progress`). Đăng ký mở tự do, nên ai vào trước thì người đó nhận. Bản gốc trong
+> KV được giữ nguyên chứ không xoá, nhưng đừng để phải đi dọn.
+
+Muốn kiểm tra bằng dòng lệnh:
 
 ```bash
 curl -i -X POST https://<domain-cua-ban>/api/auth/register \
   -H 'content-type: application/json' \
-  -d '{"username":"hung","password":"mat-khau-cua-ban","code":"mã mời"}'
+  -d '{"username":"hung","password":"mat-khau-cua-ban"}'
 ```
 
-Mong đợi: `200`, có header `set-cookie: jlpt_auth=...`. Sai mã mời `403`, trùng tên `409`,
-mật khẩu ngắn hơn 8 ký tự `400`, thiếu biến môi trường `500` kèm tên biến còn thiếu.
+Mong đợi `200` kèm header `set-cookie: jlpt_auth=...`. Các mã lỗi hay gặp:
 
-**Tài khoản ĐẦU TIÊN đăng ký sẽ nhận luôn blob tiến độ toàn cục của thời một-người-dùng**
-(`nihonit:progress`), nên dữ liệu học cũ không mất khi chuyển sang mô hình nhiều tài khoản.
-Bản gốc được giữ nguyên chứ không xoá, để còn đường lùi. Vì vậy: hãy để chính chủ đăng ký
-trước, rồi mới mời người khác.
+| Mã | Nghĩa |
+|---|---|
+| `400` | mật khẩu ngắn hơn 8 ký tự, hoặc tên đăng nhập sai định dạng (3–24 ký tự, chữ/số/`. _ -`) |
+| `403 invalid_code` | bản deploy có đặt `SIGNUP_CODE` mà bạn gửi sai/thiếu mã |
+| `409` | tên đăng nhập đã có người dùng |
+| `429` | quá 5 lần đăng ký trong 1 giờ từ cùng một IP |
+| `500` kèm "Thiếu biến môi trường AUTH_SECRET" | chưa làm bước 2, hoặc chưa redeploy |
+| `500` kèm "Chưa nối kho dữ liệu KV" | chưa làm bước 1, hoặc chưa **Connect Project** |
 
-> Cookie đăng nhập kiểu cũ (thời một mật khẩu chung) không còn hiệu lực sau khi cập nhật:
-> nó không mang id người dùng nào cả. Mọi người sẽ phải đăng nhập lại một lần.
+> Cookie đăng nhập kiểu cũ (thời một mật khẩu chung) không còn hiệu lực: nó không mang id
+> người dùng nào cả. Mọi người sẽ phải đăng nhập lại một lần.
 
 ## Phát triển cục bộ
 
@@ -95,8 +120,8 @@ cả hai cùng lúc.
 
 | Route | Method | Cần đăng nhập? | Việc gì |
 |---|---|---|---|
-| `/api/auth/status` | GET | Không | `{authenticated, user, signupOpen}` — client dùng để biết mình là ai mà không kích 401 |
-| `/api/auth/register` | POST `{username, password, code}` | Không | Đúng mã mời → tạo tài khoản + đăng nhập luôn |
+| `/api/auth/status` | GET | Không | `{authenticated, user, signupCodeRequired}` — client dùng để biết mình là ai mà không kích 401 |
+| `/api/auth/register` | POST `{username, password, code?}` | Không | Tạo tài khoản + đăng nhập luôn (`code` chỉ cần khi có `SIGNUP_CODE`) |
 | `/api/auth/login` | POST `{username, password}` | Không | Đúng mật khẩu → set cookie 90 ngày |
 | `/api/auth/logout` | POST | Không | Xoá cookie |
 | `/api/auth/change-password` | POST `{currentPassword, newPassword}` | **Có** | Đổi mật khẩu của chính mình; cấp lại cookie mới cho máy vừa đổi |
@@ -112,7 +137,8 @@ Mọi route "Có" đều gọi `requireUser()` ở dòng đầu tiên — xem `a
 * Phiên đăng nhập là cookie `HttpOnly; Secure; SameSite=Lax` mang payload đã ký HMAC — chỉ
   ký chứ không mã hoá, vì bên trong chỉ có id/tên/hạn dùng.
 * `/api/auth/login` giới hạn **10 lần thử / 15 phút / IP**, `/api/auth/register` giới hạn
-  **5 lần / giờ / IP** (`api/_lib/rateLimit.ts`).
+  **5 lần / giờ / IP** (`api/_lib/rateLimit.ts`). Đăng ký mở tự do nên đây là tuyến phòng
+  thủ chính, cùng với trần `MAX_USERS` nếu bạn đặt.
 * Sai tên đăng nhập và sai mật khẩu trả về **cùng một thông báo** và tốn thời gian như
   nhau, để không ai dò được username nào có thật.
 * `/api/auth/change-password` giới hạn **10 lần / 15 phút / IP** như đăng nhập, và bắt buộc

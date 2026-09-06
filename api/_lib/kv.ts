@@ -1,12 +1,59 @@
 /**
- * Wrapper mỏng quanh Vercel KV — nơi duy nhất trong repo import '@vercel/kv'.
+ * Wrapper mỏng quanh KV (Upstash Redis) — nơi duy nhất trong repo import '@vercel/kv'.
  *
- * Cần tạo KV store thật trong Vercel Dashboard trước khi các route dùng file này chạy
- * được (xem api/README.md). Ở đây không che giấu lỗi thiếu cấu hình — để lộ ra ngay
- * dưới dạng lỗi rõ ràng thay vì âm thầm trả dữ liệu rỗng.
+ * Vì sao không `export { kv } from '@vercel/kv'` cho gọn: client mặc định của thư viện chỉ
+ * đọc đúng cặp biến `KV_REST_API_URL` / `KV_REST_API_TOKEN` của Vercel KV đời đầu. Tạo
+ * database qua Vercel Marketplace (Upstash) thì biến được bơm vào lại tên
+ * `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, và mọi route sẽ chết với thông báo
+ * khó hiểu dù database đã kết nối đúng. Ở đây nhận cả hai cách đặt tên.
+ *
+ * Client dựng LƯỜI (lần dùng đầu tiên) chứ không dựng lúc import, để lỗi thiếu cấu hình
+ * hiện ra thành một Response 500 có thông báo rõ ràng thay vì làm sập cả function lúc nạp.
  */
 
-export { kv } from '@vercel/kv';
+import { createClient } from '@vercel/kv';
+
+type KvClient = ReturnType<typeof createClient>;
+
+let client: KvClient | null = null;
+
+function getClient(): KvClient {
+  if (client) return client;
+
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    throw new Error(
+      'Chưa nối kho dữ liệu KV. Trong Vercel: tab Storage > tạo database Redis/KV > Connect ' +
+        'Project, rồi Redeploy. Cần có KV_REST_API_URL + KV_REST_API_TOKEN (hoặc ' +
+        'UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN) trong Environment Variables.'
+    );
+  }
+
+  client = createClient({ url, token });
+  return client;
+}
+
+/**
+ * Đúng những lệnh Redis mà web này dùng — liệt kê tường minh thay vì mở nguyên client, để
+ * nhìn một chỗ là biết ứng dụng đụng tới KV bao nhiêu, và để đổi nền lưu trữ về sau chỉ
+ * phải viết lại chừng này hàm.
+ */
+export const kv = {
+  get: <T>(key: string): Promise<T | null> => getClient().get<T>(key),
+  /** Trả về null khi dùng `{ nx: true }` mà khoá đã tồn tại — cách createUser() biết
+   * username bị người khác giành mất mà không cần đọc trước rồi ghi sau. */
+  set: (key: string, value: unknown, opts?: { nx: true }): Promise<string | null> =>
+    (opts ? getClient().set(key, value, opts) : getClient().set(key, value)) as Promise<
+      string | null
+    >,
+  del: (key: string): Promise<number> => getClient().del(key),
+  sadd: (key: string, member: string): Promise<number> => getClient().sadd(key, member),
+  scard: (key: string): Promise<number> => getClient().scard(key),
+  incr: (key: string): Promise<number> => getClient().incr(key),
+  expire: (key: string, seconds: number): Promise<number> => getClient().expire(key, seconds),
+};
 
 export const KEYS = {
   /**

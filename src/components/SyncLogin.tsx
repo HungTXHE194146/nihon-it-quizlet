@@ -22,7 +22,7 @@ import {
  * trong máy. Component này chỉ là một lối vào tuỳ chọn, đặt cạnh Xuất/Nạp tiến độ.
  */
 export const SyncButton: React.FC = () => {
-  const { authenticated, user, signupOpen, login, register, changePassword, logout } = useAuth();
+  const { authenticated, user, signupCodeRequired, login, register, changePassword, logout } = useAuth();
   const { syncState } = useProgress();
 
   const [showModal, setShowModal] = useState(false);
@@ -143,7 +143,7 @@ export const SyncButton: React.FC = () => {
                     ngu quên mật khẩu thì phải chịu 🤷
                   </span>{' '}
                   — web này không có nút khôi phục. Đường lùi duy nhất: xuất tiến độ ra file JSON,
-                  tạo tài khoản mới bằng mã mời rồi nạp lại.
+                  tạo tài khoản mới rồi nạp lại.
                 </p>
 
                 {accountNote && (
@@ -243,7 +243,9 @@ export const SyncButton: React.FC = () => {
                   {isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}
                 </h3>
                 <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                  Mỗi người một tài khoản, tiến độ học riêng và đồng bộ giữa các máy.
+                  {isRegister
+                    ? 'Ai cũng tạo được tài khoản. Tiến độ của bạn là của riêng bạn.'
+                    : 'Mỗi người một tài khoản, tiến độ học riêng và đồng bộ giữa các máy.'}
                 </p>
               </div>
               <button
@@ -274,7 +276,7 @@ export const SyncButton: React.FC = () => {
               className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
             />
 
-            {isRegister && (
+            {isRegister && signupCodeRequired && (
               <div className="space-y-1">
                 <input
                   type="text"
@@ -284,7 +286,7 @@ export const SyncButton: React.FC = () => {
                   className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
                 />
                 <p className="text-[11px] font-semibold text-slate-400 px-1">
-                  Web này không mở đăng ký tự do — hỏi người quản trị để lấy mã mời.
+                  Bản web này đang khoá đăng ký — hỏi người quản trị để lấy mã mời.
                 </p>
               </div>
             )}
@@ -298,7 +300,7 @@ export const SyncButton: React.FC = () => {
 
             <button
               type="submit"
-              disabled={busy || !username || !password || (isRegister && !code)}
+              disabled={busy || !username || !password || (isRegister && signupCodeRequired && !code)}
               className="w-full py-3 rounded-2xl bg-indigo-600 text-white font-black text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? 'Đang xử lý...' : isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}
@@ -310,8 +312,8 @@ export const SyncButton: React.FC = () => {
                   <span className="font-black text-amber-800">Ngu quên mật khẩu thì phải chịu 🤷</span>
                   <br />
                   Không email khôi phục, không câu hỏi bí mật, không admin reset hộ. Tiến độ học
-                  của bạn vẫn nằm nguyên trong máy này — cứ học tiếp ở chế độ khách, hoặc tạo tài
-                  khoản mới bằng mã mời rồi nạp lại file tiến độ đã xuất.
+                  của bạn vẫn nằm nguyên trong máy này — cứ học tiếp ở chế độ khách, hoặc tạo một
+                  tài khoản mới rồi nạp lại file tiến độ đã xuất.
                 </p>
               ) : (
                 <button
@@ -323,29 +325,27 @@ export const SyncButton: React.FC = () => {
                 </button>
               ))}
 
-            {signupOpen && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(isRegister ? 'login' : 'register');
-                  setError(null);
-                  setForgotShown(false);
-                }}
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-              >
-                {isRegister ? (
-                  <>
-                    <LogIn size={13} />
-                    Đã có tài khoản? Đăng nhập
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={13} />
-                    Chưa có tài khoản? Tạo mới bằng mã mời
-                  </>
-                )}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(isRegister ? 'login' : 'register');
+                setError(null);
+                setForgotShown(false);
+              }}
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+            >
+              {isRegister ? (
+                <>
+                  <LogIn size={13} />
+                  Đã có tài khoản? Đăng nhập
+                </>
+              ) : (
+                <>
+                  <UserPlus size={13} />
+                  Chưa có tài khoản? Tạo tài khoản mới
+                </>
+              )}
+            </button>
           </form>
         </div>
       )}

@@ -223,12 +223,14 @@ Web dùng được ở hai chế độ, chuyển qua lại lúc nào cũng đư�
 
 Nút đăng nhập / tạo tài khoản nằm ở khu **quản lý dữ liệu** cuối trang chủ. Vài điểm cần biết:
 
-* **Đăng ký cần mã mời** (`SIGNUP_CODE` do người quản trị đặt) — web không mở đăng ký tự do.
+* **Đăng ký mở tự do**: ai vào web cũng tự tạo tài khoản được. Muốn khoá lại thì người quản
+  trị đặt biến `SIGNUP_CODE` trên Vercel, khi đó form đăng ký hiện thêm ô "Mã mời".
 * **Đổi mật khẩu** nằm trong ô tài khoản (bấm vào tên mình ở cuối trang chủ), phải nhập đúng
-  mật khẩu cũ. **Không có khôi phục mật khẩu**: quên là chịu, tạo tài khoản mới bằng mã mời
-  rồi nạp lại tiến độ từ file JSON đã xuất.
+  mật khẩu cũ. **Không có khôi phục mật khẩu**: quên là chịu, tạo tài khoản mới rồi nạp lại
+  tiến độ từ file JSON đã xuất.
 * **Tài khoản đầu tiên** đăng ký sẽ nhận luôn tiến độ đã đồng bộ từ thời web còn một người
-  dùng, nên không mất gì khi nâng cấp. Hãy để chính chủ đăng ký trước.
+  dùng, nên không mất gì khi nâng cấp. Đăng ký lại mở tự do, nên chính chủ phải đăng ký
+  ngay sau khi deploy, trước khi đưa link cho người khác.
 * Đang học ở chế độ khách rồi mới tạo tài khoản: tiến độ khách được **chuyển sang tài khoản
   mới** nếu tài khoản đó chưa có dữ liệu nào trên server. Nếu tài khoản đã có dữ liệu thì
   không trộn (trên máy dùng chung, "khách" có thể là người khác) — tiến độ khách vẫn nằm

@@ -43,6 +43,11 @@ export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
+/** Tổng số tài khoản đang có — dùng cho trần MAX_USERS khi mở đăng ký tự do. */
+export async function countUsers(): Promise<number> {
+  return kv.scard(KEYS.userSet);
+}
+
 export async function getUser(usernameLower: string): Promise<UserRecord | null> {
   return (await kv.get<UserRecord>(KEYS.user(usernameLower))) ?? null;
 }

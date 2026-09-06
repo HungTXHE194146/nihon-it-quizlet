@@ -1,5 +1,5 @@
 import { checkSignupCode, createSessionToken, buildSetCookie } from '../_lib/auth';
-import { createUser, validateUsername, validatePassword } from '../_lib/users';
+import { createUser, countUsers, validateUsername, validatePassword } from '../_lib/users';
 import { hitRateLimit, clientKey } from '../_lib/rateLimit';
 import { jsonResponse } from '../_lib/requireAuth';
 import { kv, KEYS } from '../_lib/kv';
@@ -11,10 +11,12 @@ const MAX_SIGNUPS = 5;
 const WINDOW_SEC = 60 * 60;
 
 /**
- * POST {username, password, code} -> tạo tài khoản mới và đăng nhập luôn.
+ * POST {username, password, code?} -> tạo tài khoản mới và đăng nhập luôn.
  *
- * `code` là mã mời (SIGNUP_CODE, mặc định lấy JLPT_ACCESS_PASSWORD cũ) — xem giải thích
- * trong api/_lib/auth.ts về việc vì sao đăng ký không mở tự do.
+ * Mặc định ai cũng đăng ký được. `code` chỉ bắt buộc khi bản deploy có đặt `SIGNUP_CODE`
+ * (xem api/_lib/auth.ts). Vì cửa mở, hai cái van dưới đây mới là thứ giữ cho KV không bị
+ * ai đó bơm hàng nghìn tài khoản rác: hạn mức theo IP, và trần tổng số tài khoản tuỳ chọn
+ * (`MAX_USERS`, không đặt = không giới hạn).
  */
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405);
@@ -41,13 +43,16 @@ export default async function handler(req: Request): Promise<Response> {
     );
   }
 
-  let codeOk: boolean;
-  try {
-    codeOk = await checkSignupCode(typeof body.code === 'string' ? body.code : '');
-  } catch (e) {
-    return jsonResponse({ error: 'signup_closed', message: String(e) }, 500);
-  }
+  const codeOk = await checkSignupCode(typeof body.code === 'string' ? body.code : '');
   if (!codeOk) return jsonResponse({ error: 'invalid_code', message: 'Mã mời không đúng.' }, 403);
+
+  const capped = await userCapReached();
+  if (capped) {
+    return jsonResponse(
+      { error: 'signup_full', message: 'Web đã đủ số tài khoản cho phép. Hỏi người quản trị nhé.' },
+      403
+    );
+  }
 
   let created;
   try {
@@ -69,6 +74,25 @@ export default async function handler(req: Request): Promise<Response> {
       headers: { 'content-type': 'application/json', 'set-cookie': buildSetCookie(token) },
     }
   );
+}
+
+/**
+ * Trần số tài khoản, chỉ áp dụng khi đặt biến môi trường `MAX_USERS`.
+ *
+ * Van an toàn cho việc mở đăng ký tự do: KV tầng miễn phí có hạn, và một người rảnh rỗi có
+ * thể tạo tài khoản liên tục. Lỗi đọc KV thì cho qua — không để sự cố hạ tầng chặn người
+ * đăng ký thật.
+ */
+async function userCapReached(): Promise<boolean> {
+  const raw = process.env.MAX_USERS;
+  if (!raw) return false;
+  const max = Number(raw);
+  if (!Number.isFinite(max) || max <= 0) return false;
+  try {
+    return (await countUsers()) >= max;
+  } catch {
+    return false;
+  }
 }
 
 /**
