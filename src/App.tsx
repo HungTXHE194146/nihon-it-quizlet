@@ -7,6 +7,7 @@ import { StudySession } from './components/StudySession';
 import { TheoryViewer } from './components/TheoryViewer';
 import { PWAPrompt } from './components/PWAPrompt';
 import { useProgress } from './hooks/useProgress';
+import { useAuth } from './hooks/useAuth';
 import { useSubjectData } from './hooks/useSubjectData';
 import { GraduationCap, Github, ChevronRight, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
 
@@ -31,6 +32,20 @@ const ScreenLoader = () => (
 function App() {
   const { route, navigate, goBack } = useHashRoute();
   const { data, persistent } = useProgress();
+  const { authenticated, user } = useAuth();
+
+  /**
+   * Các màn hình khôi phục dữ liệu RIÊNG của người dùng (phiên học dở, bài thi dở) phải
+   * chờ biết mình là ai rồi mới được dựng.
+   *
+   * Lượt render đầu tiên luôn diễn ra trước khi /api/auth/status trả lời, nên nếu dựng
+   * ngay thì màn hình đọc khoá của "khách", khởi tạo state một lần bằng dữ liệu đó rồi
+   * lưu đè ngược lại vào khoá của tài khoản — người đang thi dở mở lại đúng đường dẫn
+   * phòng thi sẽ mất bài. Đổi khoá không tự dựng lại state, nên ngoài việc chờ còn phải
+   * `key` theo danh tính để đăng nhập/đăng xuất giữa chừng thì dựng lại từ đầu.
+   */
+  const identityReady = authenticated !== null;
+  const identityKey = user?.id ?? 'guest';
 
   // State for selected sections in current active subject
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
@@ -357,8 +372,10 @@ function App() {
           />
         )}
 
-        {route.page === 'study' && (
+        {route.page === 'study' && !identityReady && <ScreenLoader />}
+        {route.page === 'study' && identityReady && (
           <StudySession
+            key={identityKey}
             subjectId={route.subjectId}
             mode={route.mode}
             selectedSectionIds={route.sections && route.sections.length > 0 ? route.sections : selectedSectionIds}
@@ -370,8 +387,10 @@ function App() {
           />
         )}
 
-        {route.page === 'exam' && (
+        {route.page === 'exam' && !identityReady && <ScreenLoader />}
+        {route.page === 'exam' && identityReady && (
           <ExamSession
+            key={identityKey}
             subjectId={route.subjectId}
             lessons={activeLessons}
             examTags={route.examTags}
@@ -394,8 +413,9 @@ function App() {
           <JlptImportScreen onBackToHome={() => navigate('/')} onStartExam={(examId) => navigate(`/jlpt/exam/${examId}`)} />
         )}
 
-        {route.page === 'jlpt-exam' && (
-          <JlptExamRunner examId={route.examId} onExit={() => navigate('/jlpt/import')} />
+        {route.page === 'jlpt-exam' && !identityReady && <ScreenLoader />}
+        {route.page === 'jlpt-exam' && identityReady && (
+          <JlptExamRunner key={identityKey} examId={route.examId} onExit={() => navigate('/jlpt/import')} />
         )}
         </Suspense>
         )}

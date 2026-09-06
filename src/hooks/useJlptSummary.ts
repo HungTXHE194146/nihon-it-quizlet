@@ -39,7 +39,7 @@ const EMPTY: JlptSummary = {
 };
 
 export function useJlptSummary(): JlptSummary {
-  const ownerId = useJlptOwner();
+  const { ownerId, claimEpoch } = useJlptOwner();
   const [summary, setSummary] = useState<JlptSummary>({ ...EMPTY, loading: true });
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export function useJlptSummary(): JlptSummary {
     return () => {
       cancelled = true;
     };
-  }, [ownerId]);
+  }, [ownerId, claimEpoch]);
 
   return summary;
 }

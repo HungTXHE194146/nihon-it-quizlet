@@ -67,7 +67,7 @@ const CONFIDENCE_OPTIONS: { value: Confidence; label: string }[] = [
 export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }) => {
   const { recordReview } = useProgress();
   // Đề dùng chung cả máy, nhưng lượt làm bài thì của riêng người đang đăng nhập.
-  const ownerId = useJlptOwner();
+  const { ownerId, claimEpoch } = useJlptOwner();
 
   const [view, setView] = useState<View>('loading');
   const [stored, setStored] = useState<StoredJlptExam | null>(null);
@@ -121,7 +121,9 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     return () => {
       cancelled = true;
     };
-  }, [examId, ownerId]);
+    // claimEpoch: nạp lại sau khi lịch sử JLPT cũ vừa được chuyển sang tài khoản này,
+    // nếu không thì lượt làm dở từ trước khi đăng nhập sẽ không hiện ra ở sảnh.
+  }, [examId, ownerId, claimEpoch]);
 
   const questionsById = useMemo(() => {
     const map = new Map<string, JlptQuestion>();
