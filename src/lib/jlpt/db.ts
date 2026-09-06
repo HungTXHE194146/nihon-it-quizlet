@@ -10,9 +10,13 @@
  */
 
 import type { StoredJlptExam, JlptAttempt, MistakeEntry } from './schema';
+import { readJSON, writeJSON } from '../storage';
 
 const DB_NAME = 'nihonit-jlpt';
 const DB_VERSION = 2;
+
+/** Cờ "đã chuyển dữ liệu JLPT cũ cho tài khoản đầu tiên" của MÁY này — xem claimLegacyJlptData(). */
+const CLAIM_FLAG_KEY = 'jlpt-legacy-claimed';
 
 const STORE_EXAMS = 'exams';
 const STORE_ATTEMPTS = 'attempts';
@@ -90,16 +94,76 @@ export const putStoredExam = (entry: StoredJlptExam) =>
   putOne(STORE_EXAMS, entry, `Không lưu được đề "${entry.exam.id}" (có thể hết dung lượng).`);
 export const deleteStoredExam = (id: string) => deleteOne(STORE_EXAMS, id, `Không xoá được đề "${id}".`);
 
-// ─── Lượt làm bài ────────────────────────────────────────────────────
+// ─── Lượt làm bài (riêng theo tài khoản) ─────────────────────────────
 
-export const listAttempts = () => listAll<JlptAttempt>(STORE_ATTEMPTS, 'Không đọc được danh sách lượt làm bài.');
+/**
+ * Đề dùng chung cả máy, nhưng lượt làm bài và sổ tay lỗi là của RIÊNG từng người: hai
+ * người học chung một trình duyệt phải thấy đúng lịch sử của mình.
+ *
+ * Cách tách: mỗi bản ghi mang `ownerId`; đọc thì lọc theo chủ hiện tại. Không tách bằng
+ * cách mở nhiều IndexedDB (mỗi tài khoản một database) vì như thế phải nâng version và
+ * chuyển dữ liệu cũ qua database mới — rủi ro hơn nhiều so với một trường lọc.
+ *
+ * `ownerId` null = làm ở chế độ khách (chưa đăng nhập). Bản ghi cũ từ thời chưa có tài
+ * khoản không có trường này nên cũng rơi vào "khách" — cho tới khi được nhận (claim), xem
+ * claimLegacyJlptData() bên dưới.
+ */
+function ownedBy(record: { ownerId?: string | null }, ownerId: string | null): boolean {
+  return (record.ownerId ?? null) === ownerId;
+}
+
+export const listAttempts = async (ownerId: string | null): Promise<JlptAttempt[]> => {
+  const all = await listAll<JlptAttempt>(STORE_ATTEMPTS, 'Không đọc được danh sách lượt làm bài.');
+  return all.filter((a) => ownedBy(a, ownerId));
+};
+
 export const getAttempt = (id: string) => getOne<JlptAttempt>(STORE_ATTEMPTS, id, `Không đọc được lượt làm bài "${id}".`);
-export const putAttempt = (entry: JlptAttempt) =>
-  putOne(STORE_ATTEMPTS, entry, `Không lưu được lượt làm bài "${entry.id}" (có thể hết dung lượng).`);
+
+export const putAttempt = (entry: JlptAttempt, ownerId: string | null) =>
+  putOne(
+    STORE_ATTEMPTS,
+    { ...entry, ownerId },
+    `Không lưu được lượt làm bài "${entry.id}" (có thể hết dung lượng).`
+  );
+
 export const deleteAttempt = (id: string) => deleteOne(STORE_ATTEMPTS, id, `Không xoá được lượt làm bài "${id}".`);
 
-// ─── Sổ tay lỗi JLPT ─────────────────────────────────────────────────
+// ─── Sổ tay lỗi JLPT (riêng theo tài khoản) ──────────────────────────
 
-export const listMistakes = () => listAll<MistakeEntry>(STORE_MISTAKES, 'Không đọc được sổ tay lỗi JLPT.');
-export const putMistake = (entry: MistakeEntry) =>
-  putOne(STORE_MISTAKES, entry, `Không lưu được mục sổ tay lỗi "${entry.id}".`);
+export const listMistakes = async (ownerId: string | null): Promise<MistakeEntry[]> => {
+  const all = await listAll<MistakeEntry>(STORE_MISTAKES, 'Không đọc được sổ tay lỗi JLPT.');
+  return all.filter((m) => ownedBy(m, ownerId));
+};
+
+export const putMistake = (entry: MistakeEntry, ownerId: string | null) =>
+  putOne(STORE_MISTAKES, { ...entry, ownerId }, `Không lưu được mục sổ tay lỗi "${entry.id}".`);
+
+/**
+ * Chuyển dữ liệu JLPT "vô chủ" (làm từ thời web chưa có tài khoản) sang cho tài khoản
+ * đầu tiên đăng nhập trên máy này.
+ *
+ * Cùng tinh thần với việc tài khoản đầu tiên nhận blob tiến độ cũ trên server: người đang
+ * dùng web hôm nay không nên thấy lịch sử làm đề của mình biến mất chỉ vì vừa tạo tài
+ * khoản. Chạy đúng MỘT lần cho mỗi máy (cờ trong localStorage) và chỉ khi tài khoản đó
+ * chưa có lượt làm bài nào của riêng mình — máy dùng chung thì người thứ hai đăng nhập sẽ
+ * không vơ luôn lịch sử của người trước.
+ */
+export async function claimLegacyJlptData(ownerId: string): Promise<number> {
+  if (readJSON<boolean>(CLAIM_FLAG_KEY, false)) return 0;
+
+  const [attempts, mistakes] = await Promise.all([
+    listAll<JlptAttempt>(STORE_ATTEMPTS, 'Không đọc được danh sách lượt làm bài.'),
+    listAll<MistakeEntry>(STORE_MISTAKES, 'Không đọc được sổ tay lỗi JLPT.'),
+  ]);
+
+  const alreadyMine = attempts.some((a) => a.ownerId === ownerId);
+  const orphanAttempts = attempts.filter((a) => (a.ownerId ?? null) === null);
+  const orphanMistakes = mistakes.filter((m) => (m.ownerId ?? null) === null);
+
+  writeJSON(CLAIM_FLAG_KEY, true);
+  if (alreadyMine || (orphanAttempts.length === 0 && orphanMistakes.length === 0)) return 0;
+
+  for (const a of orphanAttempts) await putAttempt(a, ownerId);
+  for (const m of orphanMistakes) await putMistake(m, ownerId);
+  return orphanAttempts.length;
+}

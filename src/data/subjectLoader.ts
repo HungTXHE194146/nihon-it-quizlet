@@ -1,5 +1,5 @@
 import type { Lesson } from './lessons';
-import { subjectMeta, findSubjectMeta } from './subjectMeta';
+import { subjectMeta, findSubjectMeta, subjectsOfTrack, N3_SCOPE } from './subjectMeta';
 import { registerSubjectItems } from '../lib/itemIndex';
 
 /**
@@ -71,17 +71,29 @@ export async function loadSubjectLessons(subjectId: string): Promise<Lesson[]> {
   return promise;
 }
 
-/** Nạp toàn bộ các môn — dùng cho phiên ôn gộp và sổ tay câu sai. */
-export async function loadAllSubjects(): Promise<Lesson[]> {
-  const all = await Promise.all(subjectMeta.map((s) => loadSubjectLessons(s.id)));
+/**
+ * Các môn THẬT nằm trong một phạm vi: `'all'`, `'n3'` (nhánh luyện thi N3), hoặc chính một
+ * mã môn. Phiên ôn gộp và sổ tay câu sai đi qua đây nên chỉ cần nạp đúng phần cần thiết —
+ * ôn N3 không phải kéo theo gần 1 MB dữ liệu của các môn IT.
+ */
+export function subjectIdsInScope(scope: string): string[] {
+  if (scope === 'all') return subjectMeta.map((s) => s.id);
+  if (scope === N3_SCOPE) return subjectsOfTrack('n3').map((s) => s.id);
+  return [scope];
+}
+
+/** Nạp dữ liệu của cả một phạm vi — phiên ôn gộp N3 cần cả từ vựng lẫn Kanji. */
+export async function loadScopeLessons(scope: string): Promise<Lesson[]> {
+  const ids = subjectIdsInScope(scope);
+  const all = await Promise.all(ids.map((id) => loadSubjectLessons(id)));
   return all.flat();
 }
 
-export function areAllSubjectsLoaded(): boolean {
-  return subjectMeta.every((s) => cache.has(s.id));
+export function isScopeLoaded(scope: string): boolean {
+  return subjectIdsInScope(scope).every((id) => cache.has(id));
 }
 
-/** Toàn bộ bài học của các môn đã nạp, dùng để dựng ngay khi cache còn nóng. */
-export function getAllLoadedLessons(): Lesson[] {
-  return subjectMeta.flatMap((s) => cache.get(s.id) ?? []);
+export function getLoadedScopeLessons(scope: string): Lesson[] {
+  return subjectIdsInScope(scope).flatMap((id) => cache.get(id) ?? []);
 }
+

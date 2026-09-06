@@ -5,11 +5,11 @@ import { useHashRoute } from './hooks/useHashRoute';
 import { Homepage } from './components/Homepage';
 import { StudySession } from './components/StudySession';
 import { TheoryViewer } from './components/TheoryViewer';
-import { FakePaywallModal } from './components/FakePaywallModal';
 import { PWAPrompt } from './components/PWAPrompt';
 import { useProgress } from './hooks/useProgress';
+import { useAuth } from './hooks/useAuth';
 import { useSubjectData } from './hooks/useSubjectData';
-import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
+import { GraduationCap, Github, ChevronRight, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
 
 // Các màn hình chỉ dùng ở một nhánh route được nạp động để nhẹ lần tải đầu.
 // Riêng KanjiMasterN3Selector còn kéo theo bảng chữ Kanji, càng nên tách riêng.
@@ -32,16 +32,26 @@ const ScreenLoader = () => (
 function App() {
   const { route, navigate, goBack } = useHashRoute();
   const { data, persistent } = useProgress();
+  const { authenticated, user } = useAuth();
+
+  /**
+   * Các màn hình khôi phục dữ liệu RIÊNG của người dùng (phiên học dở, bài thi dở) phải
+   * chờ biết mình là ai rồi mới được dựng.
+   *
+   * Lượt render đầu tiên luôn diễn ra trước khi /api/auth/status trả lời, nên nếu dựng
+   * ngay thì màn hình đọc khoá của "khách", khởi tạo state một lần bằng dữ liệu đó rồi
+   * lưu đè ngược lại vào khoá của tài khoản — người đang thi dở mở lại đúng đường dẫn
+   * phòng thi sẽ mất bài. Đổi khoá không tự dựng lại state, nên ngoài việc chờ còn phải
+   * `key` theo danh tính để đăng nhập/đăng xuất giữa chừng thì dựng lại từ đầu.
+   */
+  const identityReady = authenticated !== null;
+  const identityKey = user?.id ?? 'guest';
 
   // State for selected sections in current active subject
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
     'lesson-11-vocabulary',
     'lesson-11-multiple-choice',
   ]);
-
-  // Troll Paywall state
-  const [isPaywallOpen, setIsPaywallOpen] = useState<boolean>(false);
-  const [isVipUnlocked, setIsVipUnlocked] = useState<boolean>(false);
 
   // Resolve current active subject
   const activeSubjectId =
@@ -50,7 +60,9 @@ function App() {
     route.page === 'study' ||
     route.page === 'exam'
       ? route.subjectId
-      : 'nihon-it';
+      // Web lấy N3 làm trục chính nên môn mặc định (chỉ dùng cho breadcrumb ở các trang
+      // không gắn với môn nào) là môn N3 đầu tiên, không còn là môn IT.
+      : subjectMeta[0].id;
 
   const currentSubject: SubjectMeta = findSubjectMeta(activeSubjectId) || subjectMeta[0];
 
@@ -71,14 +83,6 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [route]);
-
-  const handleStartSession = () => {
-    if (!isVipUnlocked) {
-      setIsPaywallOpen(true);
-    } else {
-      startStudyRoute();
-    }
-  };
 
   const startStudyRoute = () => {
     const queryStr = selectedSectionIds.length > 0 ? `?sections=${selectedSectionIds.join(',')}` : '';
@@ -110,17 +114,6 @@ function App() {
     () => Object.values(data.cards).filter((c) => c.wrong > 0).length,
     [data.cards]
   );
-
-  const handlePaywallSuccess = () => {
-    setIsVipUnlocked(true);
-    setIsPaywallOpen(false);
-    startStudyRoute();
-  };
-
-  const handlePaywallClose = () => {
-    setIsPaywallOpen(false);
-    startStudyRoute();
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
@@ -259,21 +252,8 @@ function App() {
               </button>
             )}
 
-            {/* VIP Status Button */}
-            <button
-              onClick={() => setIsPaywallOpen(true)}
-              className={`py-1.5 px-3 rounded-full text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
-                isVipUnlocked
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 shadow-amber-200 ring-2 ring-amber-300'
-                  : 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300 animate-pulse'
-              }`}
-            >
-              <Crown size={14} className={isVipUnlocked ? 'fill-amber-950' : 'text-amber-700'} />
-              <span>{isVipUnlocked ? 'VIP Pro Ultra Max' : 'Nâng cấp VIP (5k)'}</span>
-            </button>
-
-            <span className="hidden md:inline bg-indigo-50 text-indigo-700 py-1 px-3 rounded-full text-xs font-bold">
-              Multi-Subject
+            <span className="hidden md:inline bg-emerald-50 text-emerald-700 py-1 px-3 rounded-full text-xs font-bold">
+              JLPT N3
             </span>
 
             <a
@@ -324,6 +304,7 @@ function App() {
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
             onOpenMistakes={() => navigate('/mistakes')}
             onOpenJlptImport={() => navigate('/jlpt/import')}
+            onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
           />
         )}
 
@@ -374,7 +355,7 @@ function App() {
             lessons={activeLessons}
             selectedSectionIds={selectedSectionIds}
             setSelectedSectionIds={setSelectedSectionIds}
-            onStartSession={handleStartSession}
+            onStartSession={startStudyRoute}
             onViewTheory={(lessonId) =>
               navigate(`/subject/${currentSubject.id}/theory/${lessonId}`)
             }
@@ -391,8 +372,10 @@ function App() {
           />
         )}
 
-        {route.page === 'study' && (
+        {route.page === 'study' && !identityReady && <ScreenLoader />}
+        {route.page === 'study' && identityReady && (
           <StudySession
+            key={identityKey}
             subjectId={route.subjectId}
             mode={route.mode}
             selectedSectionIds={route.sections && route.sections.length > 0 ? route.sections : selectedSectionIds}
@@ -404,8 +387,10 @@ function App() {
           />
         )}
 
-        {route.page === 'exam' && (
+        {route.page === 'exam' && !identityReady && <ScreenLoader />}
+        {route.page === 'exam' && identityReady && (
           <ExamSession
+            key={identityKey}
             subjectId={route.subjectId}
             lessons={activeLessons}
             examTags={route.examTags}
@@ -428,8 +413,9 @@ function App() {
           <JlptImportScreen onBackToHome={() => navigate('/')} onStartExam={(examId) => navigate(`/jlpt/exam/${examId}`)} />
         )}
 
-        {route.page === 'jlpt-exam' && (
-          <JlptExamRunner examId={route.examId} onExit={() => navigate('/jlpt/import')} />
+        {route.page === 'jlpt-exam' && !identityReady && <ScreenLoader />}
+        {route.page === 'jlpt-exam' && identityReady && (
+          <JlptExamRunner key={identityKey} examId={route.examId} onExit={() => navigate('/jlpt/import')} />
         )}
         </Suspense>
         )}
@@ -438,17 +424,10 @@ function App() {
       {/* Thông báo của Service Worker: sẵn sàng offline / có bản mới */}
       <PWAPrompt />
 
-      {/* Troll Paywall Modal */}
-      <FakePaywallModal
-        isOpen={isPaywallOpen}
-        onClose={handlePaywallClose}
-        onSuccess={handlePaywallSuccess}
-      />
-
       {/* Modern Footer */}
       <footer className="bg-white border-t border-slate-200/60 py-6 text-center text-xs text-slate-400 font-medium">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} NihonIT. Nền tảng ôn tập Tiếng Nhật & CNTT Đa môn.</p>
+          <p>© {new Date().getFullYear()} NihonIT. Luyện thi JLPT N3 — từ vựng, Kanji và đề thi thử.</p>
           <div className="flex gap-4">
             <span className="hover:text-slate-600 cursor-help">Điều khoản</span>
             <span className="hover:text-slate-600 cursor-help">Bảo mật</span>

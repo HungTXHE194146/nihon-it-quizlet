@@ -1,9 +1,16 @@
 /**
- * Kho tiến độ học tập của toàn ứng dụng.
+ * Kho tiến độ học tập của toàn ứng dụng: trạng thái SRS từng thẻ, chuỗi ngày học, thống kê
+ * theo ngày, phiên học đang dở, lịch sử làm đề và vài tuỳ chọn cá nhân.
  *
- * Mọi thứ được lưu vào localStorage dưới một khoá duy nhất và không cần đăng nhập:
- * trạng thái SRS từng thẻ, chuỗi ngày học, thống kê theo ngày, phiên học đang dở,
- * lịch sử làm đề và vài tuỳ chọn cá nhân.
+ * Tiến độ tách riêng theo TỪNG TÀI KHOẢN, ở cả hai tầng lưu trữ:
+ *
+ * - localStorage: khách chưa đăng nhập ghi vào khoá `progress`; mỗi tài khoản ghi vào khoá
+ *   riêng `progress:u:<id>`. Nhờ vậy hai người dùng chung một máy (hoặc một người đăng
+ *   xuất rồi người khác đăng nhập) không ghi đè lịch ôn của nhau — đây là lý do khoá lưu
+ *   trữ là một biến chứ không còn là hằng số như bản một-người-dùng trước đây.
+ * - server: xem api/progress.ts, khoá KV gắn với id lấy từ cookie đã ký.
+ *
+ * Vẫn KHÔNG bắt đăng nhập: học "khách" là mặc định, đăng nhập chỉ thêm phần đồng bộ.
  */
 
 import React, {
@@ -19,12 +26,21 @@ import { readJSON, writeJSON, removeKey, isPersistent } from '../lib/storage';
 import { review as srsReview, isDue, isMature } from '../lib/srs';
 import type { CardState } from '../lib/srs';
 import { itemByKey, subjectIdFromKey } from '../lib/itemIndex';
-import { totalItemsOf } from '../data/subjectMeta';
+import { totalItemsOf, subjectInScope } from '../data/subjectMeta';
+import type { SubjectScope } from '../data/subjectMeta';
 import { useAuth } from './useAuth';
 import { progressApi } from '../lib/api';
 import { mergeProgress } from '../lib/progressSync';
 
-const STORE_KEY = 'progress';
+/** Khoá localStorage của người chưa đăng nhập. Cũng chính là khoá của bản một-người-dùng
+ * cũ, nên tiến độ đang có trên máy vẫn được đọc lên bình thường sau khi cập nhật. */
+const GUEST_STORE_KEY = 'progress';
+
+/** Mỗi tài khoản một khoá riêng — xem ghi chú đầu file. */
+function storeKeyFor(userId: string | null): string {
+  return userId ? `progress:u:${userId}` : GUEST_STORE_KEY;
+}
+
 const SAVE_DEBOUNCE_MS = 400;
 /** Chờ lâu hơn debounce ghi localStorage — mạng chậm hơn đĩa, và không cần đồng bộ
  * server ngay từng phím bấm. */
@@ -163,11 +179,11 @@ interface ProgressContextValue {
   recordReview: (key: string, correct: boolean) => void;
   getCard: (key: string) => CardState | undefined;
   /** Các thẻ đến hạn ôn, cộng thêm một ít thẻ mới, giới hạn theo cài đặt. */
-  buildReviewQueue: (subjectId: string | 'all', limit?: number) => string[];
+  buildReviewQueue: (scope: SubjectScope, limit?: number) => string[];
   /** Các thẻ từng trả lời sai, mới sai gần đây xếp trước. */
-  buildMistakeQueue: (subjectId: string | 'all') => string[];
-  statsFor: (subjectId: string | 'all') => SubjectStats;
-  dueCount: (subjectId: string | 'all') => number;
+  buildMistakeQueue: (scope: SubjectScope) => string[];
+  statsFor: (scope: SubjectScope) => SubjectStats;
+  dueCount: (scope: SubjectScope) => number;
   todayStat: DailyStat;
   saveSession: (session: SavedSession | null) => void;
   clearSession: () => void;
@@ -184,11 +200,19 @@ interface ProgressContextValue {
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [data, setData] = useState<ProgressData>(() => hydrate(readJSON<ProgressData | null>(STORE_KEY, null)));
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const storeKey = storeKeyFor(userId);
+
+  const [data, setData] = useState<ProgressData>(() =>
+    // Lúc mới mở app chưa biết ai đang đăng nhập (còn đang hỏi /api/auth/status), nên bắt
+    // đầu bằng dữ liệu khách; khi biết được tài khoản thì hiệu ứng đổi khoá bên dưới nạp
+    // lại đúng tiến độ của người đó.
+    hydrate(readJSON<ProgressData | null>(GUEST_STORE_KEY, null))
+  );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistent = useMemo(() => isPersistent(), []);
-  const { authenticated } = useAuth();
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
 
   // Luôn đọc được data mới nhất bên trong effect mà không phải liệt kê `data` vào deps
@@ -205,23 +229,60 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setData((prev) => ({ ...updater(prev), _localSavedAt: Date.now() }));
   }, []);
 
+  /**
+   * Đổi tài khoản (đăng nhập, đăng xuất, hoặc người khác đăng nhập trên cùng máy này):
+   * cất tiến độ đang giữ vào đúng khoá CŨ rồi nạp tiến độ của khoá MỚI.
+   *
+   * Bỏ bước này thì tiến độ của người vừa đăng xuất sẽ theo chân người tiếp theo — đúng
+   * cái lỗi mà việc tách theo tài khoản sinh ra để tránh.
+   */
+  const activeStoreKeyRef = useRef(storeKey);
+  /** Tiến độ "khách" chờ được nhận làm vốn ban đầu cho một tài khoản còn trắng — xem
+   * hiệu ứng đối chiếu server bên dưới, chỗ duy nhất đủ thông tin để quyết định. */
+  const seedRef = useRef<ProgressData | null>(null);
+
+  useEffect(() => {
+    const prevKey = activeStoreKeyRef.current;
+    if (prevKey === storeKey) return;
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    writeJSON(prevKey, dataRef.current);
+    activeStoreKeyRef.current = storeKey;
+
+    const stored = readJSON<ProgressData | null>(storeKey, null);
+    // Máy này chưa từng lưu gì cho tài khoản vừa đăng nhập: giữ lại tiến độ khách để cân
+    // nhắc chuyển sang cho họ, nhưng chỉ khi server cũng chưa có gì (tài khoản hoàn toàn
+    // mới). Nếu tài khoản đã có dữ liệu trên server thì KHÔNG trộn tiến độ "khách" vào —
+    // trên máy dùng chung, người học ở chế độ khách có thể là người khác. Dữ liệu khách
+    // không mất đi trong ca đó: nó vẫn nằm nguyên ở khoá `progress`, đăng xuất là thấy
+    // lại, hoặc dùng Xuất/Nạp tiến độ để tự chuyển sang tài khoản nếu đúng là của mình.
+    seedRef.current =
+      !stored && prevKey === GUEST_STORE_KEY && Object.keys(dataRef.current.cards).length > 0
+        ? dataRef.current
+        : null;
+
+    didInitialSyncRef.current = false;
+    setSyncState('idle');
+    setData(hydrate(stored));
+  }, [storeKey]);
+
   // Ghi xuống đĩa có debounce: một phiên flashcard có thể sinh hàng chục lần cập nhật liên tiếp.
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      writeJSON(STORE_KEY, data);
+      writeJSON(storeKey, data);
     }, SAVE_DEBOUNCE_MS);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [data]);
+  }, [data, storeKey]);
 
   // Đóng tab giữa chừng vẫn phải giữ được tiến độ vừa học.
   useEffect(() => {
-    const flush = () => writeJSON(STORE_KEY, data);
+    const flush = () => writeJSON(storeKey, data);
     window.addEventListener('pagehide', flush);
     return () => window.removeEventListener('pagehide', flush);
-  }, [data]);
+  }, [data, storeKey]);
 
   // Chữ ký nội dung "có ý nghĩa" (không tính hai trường bookkeeping _localSavedAt/
   // _syncedServerUpdatedAt) — dùng làm dependency cho việc đẩy lên server. Nếu dùng
@@ -240,28 +301,41 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [data.cards, data.daily, data.streak, data.settings, data.session, data.exams]
   );
 
-  // Đánh dấu đã đối chiếu lần đầu với server sau khi đăng nhập chưa — hiệu ứng đẩy lên
-  // (bên dưới) phải CHỜ cờ này mới được chạy, nếu không nó sẽ đẩy thêm một lần thừa
-  // ngay lúc `authenticated` vừa chuyển true, giẫm chân lên đúng việc effect đối chiếu
-  // dưới đây đang làm (gửi hai lần cùng một nội dung thay vì một).
+  // Đánh dấu đã đối chiếu lần đầu với server cho TÀI KHOẢN HIỆN TẠI chưa — hiệu ứng đẩy
+  // lên (bên dưới) phải chờ cờ này, nếu không nó sẽ đẩy tiến độ của người vừa đăng xuất
+  // lên tài khoản vừa đăng nhập, trước cả khi biết trên server đang có gì.
   const didInitialSyncRef = useRef(false);
+  /** Tăng sau mỗi lần đối chiếu đầu tiên xong, để đánh thức hiệu ứng đẩy lên ngay cả khi
+   * nội dung không đổi (ví dụ tài khoản mới: server trống, cần đẩy bản đầu tiên lên). */
+  const [syncEpoch, setSyncEpoch] = useState(0);
 
-  // Khi vừa đăng nhập: đối chiếu một lần với server (kéo về hợp nhất, hoặc gieo hạt nếu
-  // server còn trống). Chỉ chạy theo `authenticated`, không chạy lại mỗi khi data đổi.
+  // Khi biết mình là ai (đăng nhập, hoặc mở lại web với cookie còn hạn): đối chiếu một lần
+  // với server. Chỉ chạy theo `userId`, không chạy lại mỗi khi data đổi.
   useEffect(() => {
-    if (authenticated !== true) return;
+    if (!userId) {
+      setSyncState('idle');
+      return;
+    }
     let cancelled = false;
+
+    // Chỉ đánh thức hiệu ứng đẩy lên khi thật sự có gì để đẩy. Nếu lần nào mở web cũng đẩy
+    // một bản y hệt bản trên server thì vừa tốn lượt ghi KV vừa làm dấu thời gian nhảy lung
+    // tung giữa các máy.
+    let shouldPush = false;
 
     setSyncState('syncing');
     progressApi
       .get()
-      .then(async (server) => {
+      .then((server) => {
         if (cancelled) return;
 
         if (!server) {
-          const res = await progressApi.put(dataRef.current);
-          if (cancelled) return;
-          setData((prev) => ({ ...prev, _syncedServerUpdatedAt: res.updatedAt }));
+          shouldPush = true;
+          // Tài khoản chưa có gì trên server. Nếu người này vừa đăng ký ngay trên máy đang
+          // học ở chế độ khách thì mang luôn tiến độ khách sang làm vốn ban đầu — không thì
+          // họ sẽ tưởng mình vừa mất sạch lịch ôn chỉ vì tạo tài khoản.
+          const seed = seedRef.current;
+          if (seed) setData({ ...seed, _syncedServerUpdatedAt: null });
           setSyncState('synced');
           return;
         }
@@ -281,18 +355,24 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (!cancelled) setSyncState('error');
       })
       .finally(() => {
-        if (!cancelled) didInitialSyncRef.current = true;
+        if (cancelled) return;
+        seedRef.current = null;
+        didInitialSyncRef.current = true;
+        // Tài khoản mới (server còn trống): đánh thức hiệu ứng đẩy lên để bản đầu tiên được
+        // ghi lên server ngay, kể cả khi chữ ký nội dung không đổi. Các ca còn lại đã có
+        // chữ ký nội dung lo — hợp nhất có thay đổi thì tự đẩy, không thay đổi thì không cần.
+        if (shouldPush) setSyncEpoch((e) => e + 1);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [authenticated]);
+  }, [userId]);
 
   // Sau mỗi thay đổi có ý nghĩa, nếu đã đăng nhập thì đẩy lên server (debounce, vì mạng
   // chậm hơn ghi đĩa và không cần đồng bộ ngay từng phím bấm).
   useEffect(() => {
-    if (authenticated !== true) return;
+    if (!userId) return;
     if (!didInitialSyncRef.current) return; // để effect đối chiếu ở trên lo lượt đầu tiên
     if (pushTimer.current) clearTimeout(pushTimer.current);
 
@@ -314,7 +394,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (pushTimer.current) clearTimeout(pushTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cố ý dùng chữ ký nội dung, xem ghi chú ở contentSignature
-  }, [contentSignature, authenticated]);
+  }, [contentSignature, userId, syncEpoch]);
 
   const recordReview = useCallback((key: string, correct: boolean) => {
     const now = Date.now();
@@ -349,13 +429,13 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getCard = useCallback((key: string) => data.cards[key], [data.cards]);
 
   const buildReviewQueue = useCallback(
-    (subjectId: string | 'all', limit?: number) => {
+    (scope: SubjectScope, limit?: number) => {
       const now = Date.now();
       const due: { key: string; due: number }[] = [];
 
       // Thẻ đến hạn suy ra được từ tiến độ đã lưu, không cần dữ liệu bài học.
       for (const [key, card] of Object.entries(data.cards)) {
-        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         if (isDue(card, now)) due.push({ key, due: card.due });
       }
       // Thẻ quá hạn lâu nhất được ưu tiên trước.
@@ -366,7 +446,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const newLimit = data.settings.dailyNewLimit;
       for (const [key, entry] of itemByKey) {
         if (fresh.length >= newLimit) break;
-        if (subjectId !== 'all' && entry.subjectId !== subjectId) continue;
+        if (!subjectInScope(entry.subjectId, scope)) continue;
         if (!data.cards[key]) fresh.push(key);
       }
 
@@ -378,12 +458,12 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   const buildMistakeQueue = useCallback(
-    (subjectId: string | 'all') => {
+    (scope: SubjectScope) => {
       const rows: { key: string; last: number; wrong: number }[] = [];
       for (const [key, card] of Object.entries(data.cards)) {
         if (card.wrong === 0) continue;
         // Lọc theo mã môn nằm ngay trong khoá, nhờ vậy không phụ thuộc vào việc đã nạp dữ liệu.
-        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         rows.push({ key, last: card.last, wrong: card.wrong });
       }
       // Sai nhiều nhất lên đầu, cùng số lần sai thì lấy câu vừa sai gần đây.
@@ -394,17 +474,17 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   const statsFor = useCallback(
-    (subjectId: string | 'all'): SubjectStats => {
+    (scope: SubjectScope): SubjectStats => {
       const now = Date.now();
       // Tổng số mục lấy từ metadata tĩnh nên trang chủ không cần nạp dữ liệu môn nào.
-      const total = totalItemsOf(subjectId);
+      const total = totalItemsOf(scope);
       let studied = 0;
       let mature = 0;
       let due = 0;
       let wrong = 0;
 
       for (const [key, card] of Object.entries(data.cards)) {
-        if (subjectId !== 'all' && subjectIdFromKey(key) !== subjectId) continue;
+        if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         studied += 1;
         if (isMature(card)) mature += 1;
         if (isDue(card, now)) due += 1;
@@ -424,10 +504,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [data.cards]
   );
 
-  const dueCount = useCallback(
-    (subjectId: string | 'all') => statsFor(subjectId).due,
-    [statsFor]
-  );
+  const dueCount = useCallback((scope: SubjectScope) => statsFor(scope).due, [statsFor]);
 
   const todayStat = useMemo(
     () => data.daily[todayKey()] || { reviews: 0, correct: 0 },
@@ -461,21 +538,21 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       const next = hydrate(parsed);
       setDataTouched(() => next);
-      writeJSON(STORE_KEY, next);
+      writeJSON(storeKey, next);
       const count = Object.keys(next.cards).length;
       return { ok: true, message: `Đã nạp tiến độ của ${count} thẻ.` };
     } catch {
       return { ok: false, message: 'Không đọc được file JSON.' };
     }
-  }, [setDataTouched]);
+  }, [setDataTouched, storeKey]);
 
   const resetAll = useCallback(() => {
-    removeKey(STORE_KEY);
+    removeKey(storeKey);
     // Đi qua setDataTouched (không phải setData thẳng) để nếu đã đăng nhập, việc reset
     // cũng được đẩy lên server — nếu không, lần đồng bộ kế tiếp sẽ kéo dữ liệu cũ về,
     // vô hiệu hoá thao tác reset vừa làm.
     setDataTouched(() => emptyData());
-  }, [setDataTouched]);
+  }, [setDataTouched, storeKey]);
 
   const value = useMemo<ProgressContextValue>(
     () => ({
