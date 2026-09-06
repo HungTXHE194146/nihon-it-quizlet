@@ -159,6 +159,12 @@ export function validateImportFile(value: unknown): ValidationResult {
           warnings.push(
             `Câu ${qId}: "stemUnderline" trỏ tới "${q.stem.slice(from, to)}" — không có chữ Hán nào, có thể bị lệch vị trí (câu 漢字読み luôn phải gạch chân đúng chữ Hán được hỏi).`
           );
+        } else if (q.mondai === 'hyouki' && /[一-鿿]/.test(q.stem.slice(from, to))) {
+          // 表記 hỏi cách viết chữ Hán của một từ đang viết bằng hiragana — nếu phần gạch chân
+          // lại chứa chữ Hán, rất có thể vị trí đã lệch (đã gặp thực tế: gạch lố sang chữ Hán bên cạnh).
+          warnings.push(
+            `Câu ${qId}: "stemUnderline" trỏ tới "${q.stem.slice(from, to)}" — có chữ Hán, có thể bị lệch vị trí (câu 表記 luôn phải gạch chân đúng phần hiragana được hỏi).`
+          );
         }
       }
     }
