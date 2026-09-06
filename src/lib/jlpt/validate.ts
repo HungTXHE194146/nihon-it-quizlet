@@ -6,7 +6,18 @@
  * "dữ liệu không hợp lệ" — người soạn đề (kể cả một AI khác) không chắc đọc được TypeScript.
  */
 
-import { MONDAI_TYPES, type JlptImportFile, type JlptQuestion } from './schema';
+import { MONDAI_TYPES, type JlptImportFile, type JlptQuestion, type MondaiType, type ScoringSection } from './schema';
+
+const SCORING_SECTIONS: readonly ScoringSection[] = ['gengo_chishiki', 'dokkai', 'choukai'];
+
+/** Suy ra đúng scoringSection từ mondai — dùng để bắt lỗi AI tự đặt tên khác (đã gặp thực tế: "bunpou" thay vì "gengo_chishiki"). */
+const MONDAI_TO_SECTION: Record<MondaiType, ScoringSection> = {
+  kanji_yomi: 'gengo_chishiki', hyouki: 'gengo_chishiki', bunmyaku_kitei: 'gengo_chishiki',
+  iikae_ruigi: 'gengo_chishiki', youhou: 'gengo_chishiki',
+  bunpou_keishiki: 'gengo_chishiki', bun_no_kumitate: 'gengo_chishiki', bunshou_no_bunpou: 'gengo_chishiki',
+  naiyou_tan: 'dokkai', naiyou_chuu: 'dokkai', naiyou_chou: 'dokkai', jouhou_kensaku: 'dokkai',
+  kadai_rikai: 'choukai', point_rikai: 'choukai', gaiyou_rikai: 'choukai', hatsuwa_hyougen: 'choukai', sokuji_outou: 'choukai',
+};
 
 export interface ValidationResult {
   /** Có lỗi chặn thì không cho nhập gì cả. */
@@ -109,6 +120,18 @@ export function validateImportFile(value: unknown): ValidationResult {
 
     if (typeof q.scoringSection !== 'string' || !q.scoringSection) {
       errors.push(`Câu ${qId}: thiếu "scoringSection" (gengo_chishiki | dokkai | choukai).`);
+    } else if (!(SCORING_SECTIONS as readonly string[]).includes(q.scoringSection)) {
+      errors.push(
+        `Câu ${qId}: "scoringSection" = "${q.scoringSection}" không hợp lệ. Giá trị hợp lệ: ${SCORING_SECTIONS.join(', ')}.`
+      );
+    } else if (
+      typeof q.mondai === 'string' &&
+      (MONDAI_TYPES as readonly string[]).includes(q.mondai) &&
+      MONDAI_TO_SECTION[q.mondai as MondaiType] !== q.scoringSection
+    ) {
+      errors.push(
+        `Câu ${qId}: "scoringSection" = "${q.scoringSection}" không khớp với mondai "${q.mondai}" (phải là "${MONDAI_TO_SECTION[q.mondai as MondaiType]}").`
+      );
     }
 
     const choices = Array.isArray(q.choices) ? q.choices : [];
