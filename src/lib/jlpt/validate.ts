@@ -150,8 +150,16 @@ export function validateImportFile(value: unknown): ValidationResult {
 
     if (q.stemUnderline && typeof q.stem === 'string') {
       const [from, to] = q.stemUnderline;
-      if (typeof from === 'number' && typeof to === 'number' && (from < 0 || to > q.stem.length || from >= to)) {
-        warnings.push(`Câu ${qId}: "stemUnderline" [${from}, ${to}] nằm ngoài độ dài câu (${q.stem.length} ký tự).`);
+      if (typeof from === 'number' && typeof to === 'number') {
+        if (from < 0 || to > q.stem.length || from >= to) {
+          warnings.push(`Câu ${qId}: "stemUnderline" [${from}, ${to}] nằm ngoài độ dài câu (${q.stem.length} ký tự).`);
+        } else if (q.mondai === 'kanji_yomi' && !/[一-鿿]/.test(q.stem.slice(from, to))) {
+          // 漢字読み luôn hỏi cách đọc của chữ Hán — nếu phần gạch chân không chứa chữ Hán nào,
+          // rất có thể vị trí đã lệch (đã gặp thực tế: gạch trúng phần hiragana đứng sau).
+          warnings.push(
+            `Câu ${qId}: "stemUnderline" trỏ tới "${q.stem.slice(from, to)}" — không có chữ Hán nào, có thể bị lệch vị trí (câu 漢字読み luôn phải gạch chân đúng chữ Hán được hỏi).`
+          );
+        }
       }
     }
 
