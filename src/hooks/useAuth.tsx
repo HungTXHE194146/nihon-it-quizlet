@@ -25,6 +25,8 @@ interface AuthContextValue {
   signupOpen: boolean;
   login: (username: string, password: string) => Promise<AuthResult>;
   register: (username: string, password: string, code: string) => Promise<AuthResult>;
+  /** Đổi mật khẩu của chính mình. Phải biết mật khẩu cũ — không có đường khôi phục. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
 
@@ -76,6 +78,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    try {
+      await authApi.changePassword(currentPassword, newPassword);
+      return { ok: true, message: 'Đã đổi mật khẩu. Nhớ kỹ vào nhé.' };
+    } catch (e) {
+      return { ok: false, message: (e as Error).message };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -91,9 +102,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signupOpen,
       login,
       register,
+      changePassword,
       logout,
     }),
-    [user, ready, signupOpen, login, register, logout]
+    [user, ready, signupOpen, login, register, changePassword, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

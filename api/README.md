@@ -99,6 +99,7 @@ cả hai cùng lúc.
 | `/api/auth/register` | POST `{username, password, code}` | Không | Đúng mã mời → tạo tài khoản + đăng nhập luôn |
 | `/api/auth/login` | POST `{username, password}` | Không | Đúng mật khẩu → set cookie 90 ngày |
 | `/api/auth/logout` | POST | Không | Xoá cookie |
+| `/api/auth/change-password` | POST `{currentPassword, newPassword}` | **Có** | Đổi mật khẩu của chính mình; cấp lại cookie mới cho máy vừa đổi |
 | `/api/progress` | GET / PUT | **Có** | Đọc/ghi tiến độ **của chính người đang đăng nhập** |
 | `/api/jlpt/exams` | GET / POST / DELETE | **Có** | Kho đề chung; sửa/xoá giới hạn ở người đã nhập đề đó |
 
@@ -114,5 +115,12 @@ Mọi route "Có" đều gọi `requireUser()` ở dòng đầu tiên — xem `a
   **5 lần / giờ / IP** (`api/_lib/rateLimit.ts`).
 * Sai tên đăng nhập và sai mật khẩu trả về **cùng một thông báo** và tốn thời gian như
   nhau, để không ai dò được username nào có thật.
-* Đổi mật khẩu / xoá tài khoản chưa có route riêng: hiện làm bằng tay trong KV (xoá khoá
-  `nihonit:user:<tên>` và `nihonit:u:<id>:progress`).
+* `/api/auth/change-password` giới hạn **10 lần / 15 phút / IP** như đăng nhập, và bắt buộc
+  nhập đúng mật khẩu cũ.
+* **Không có đường khôi phục mật khẩu** — không email, không câu hỏi bí mật, không admin
+  reset. Cố ý: thêm luồng khôi phục là thêm email, thêm token, thêm chỗ hỏng cho một web
+  học nhóm nhỏ. Ai quên thì tạo tài khoản mới bằng mã mời rồi nạp lại tiến độ từ file JSON.
+* Đổi mật khẩu **không** làm hết hiệu lực cookie đang có trên máy khác (token đã ký, không
+  tra lại KV mỗi request). Muốn đá sạch mọi phiên: đổi `AUTH_SECRET` rồi deploy lại.
+* Xoá tài khoản chưa có route riêng: xoá tay khoá `nihonit:user:<tên>` và
+  `nihonit:u:<id>:progress` trong KV.

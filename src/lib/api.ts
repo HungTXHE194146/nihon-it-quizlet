@@ -73,6 +73,11 @@ export const authApi = {
       body: JSON.stringify({ username, password, code }),
     }),
   logout: () => request<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: true }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 };
 
 export const progressApi = {

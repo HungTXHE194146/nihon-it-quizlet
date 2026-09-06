@@ -224,6 +224,9 @@ Web dùng được ở hai chế độ, chuyển qua lại lúc nào cũng đư�
 Nút đăng nhập / tạo tài khoản nằm ở khu **quản lý dữ liệu** cuối trang chủ. Vài điểm cần biết:
 
 * **Đăng ký cần mã mời** (`SIGNUP_CODE` do người quản trị đặt) — web không mở đăng ký tự do.
+* **Đổi mật khẩu** nằm trong ô tài khoản (bấm vào tên mình ở cuối trang chủ), phải nhập đúng
+  mật khẩu cũ. **Không có khôi phục mật khẩu**: quên là chịu, tạo tài khoản mới bằng mã mời
+  rồi nạp lại tiến độ từ file JSON đã xuất.
 * **Tài khoản đầu tiên** đăng ký sẽ nhận luôn tiến độ đã đồng bộ từ thời web còn một người
   dùng, nên không mất gì khi nâng cấp. Hãy để chính chủ đăng ký trước.
 * Đang học ở chế độ khách rồi mới tạo tài khoản: tiến độ khách được **chuyển sang tài khoản
