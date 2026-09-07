@@ -10,6 +10,13 @@
 > Đó là tài liệu nghiên cứu về tâm lý học người học và đặc tả thiết kế — viết cho cả người
 > lẫn AI đọc. Nó giải thích *vì sao* từng quyết định tồn tại, và có danh sách kiểm tra ở
 > phụ lục A cần trả lời hết trước khi bắt tay code.
+>
+> **Việc cần làm tiếp theo được chia thành ticket, mỗi ticket một file, có trạng thái riêng:**
+> 👉 **[docs/tickets/README.md](docs/tickets/README.md)** — đọc mục lục đó trước để biết ticket
+> nào đang mở, ưu tiên ra sao, ai đã làm tới đâu.
+>
+> Kho đề JLPT gốc (backup có version qua git, độc lập với KV/IndexedDB):
+> 👉 **[data/jlpt-exams/README.md](data/jlpt-exams/README.md)**
 
 Dự án này là trang web ôn tập và học tập kiểu Quizlet kết hợp trắc nghiệm, viết bằng **React, Vite, TypeScript, và Tailwind CSS**.
 Giao diện tiếng Việt hiện đại, thân thiện trên di động và máy tính, chạy hoàn toàn offline bằng dữ liệu local.
