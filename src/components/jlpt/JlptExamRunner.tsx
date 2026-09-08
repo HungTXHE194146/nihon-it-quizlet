@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   Flag,
@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Sparkles,
   BookOpen,
+  Clock,
 } from 'lucide-react';
 import { useProgress } from '../../hooks/useProgress';
 import { itemByKey } from '../../lib/itemIndex';
@@ -35,6 +36,7 @@ import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake } fr
 import { jlptCardKey } from '../../lib/jlpt/srsKey';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { CONFIDENCE_LABELS } from '../../lib/jlpt/mistakeStats';
+import { formatClock } from '../../lib/format';
 import { StemText } from './StemText';
 
 interface JlptExamRunnerProps {
@@ -103,6 +105,9 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const [miniIndex, setMiniIndex] = useState(0);
   const [miniChoice, setMiniChoice] = useState<number | null>(null);
   const [miniCorrect, setMiniCorrect] = useState(0);
+
+  /** Đồng hồ hệ thống, cập nhật mỗi giây trong lúc làm bài — dùng để đếm ngược tới `deadline`. */
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -260,7 +265,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     return null;
   };
 
-  const submit = () => {
+  const submit = useCallback(() => {
     if (!attempt || !stored) return;
     // Áp tín hiệu SRS cho MỌI câu đã trả lời — làm ngay lúc nộp, không đợi mổ xẻ (có thể để
     // sau), để lịch ôn không bị treo chỉ vì người học chưa quay lại mổ xẻ.
@@ -297,12 +302,40 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     setScore(finalScore);
     setResultsAreRevisit(false);
     setView('results');
-  };
+    // `persistAttempt`/`linkedKeyFor` đóng gói lại mỗi lượt render giống `attempt`, và
+    // `submit` cũng được tạo lại theo đúng `attempt` đó (có trong deps) nên luôn thấy bản mới
+    // nhất của cả hai — liệt kê thêm chúng vào deps sẽ chỉ khiến `submit` bị tạo lại thường
+    // xuyên hơn mà không đổi hành vi gì.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt, stored, questionsById, recordReview]);
 
   const abandon = async () => {
     if (attempt) await deleteAttempt(attempt.id).catch(() => {});
     onExit();
   };
+
+  // ─── Đồng hồ đếm ngược (mode full/section) ─────────────────────────
+  //
+  // `deadline` chỉ tồn tại khi mode có hạn tính giờ (xem `createAttempt`) — mode `taste` cố ý
+  // không có, nên không đếm ngược/không tự nộp (mục 5.1: phiên "nhấm nháp" không áp lực gắt).
+
+  /** Đồng hồ chạy đúng khi đang làm bài; tách riêng khỏi effect kiểm tra hết giờ bên dưới để
+   * không phải tạo/huỷ `setInterval` mỗi lần trạng thái bài thi đổi (mỗi câu trả lời). */
+  useEffect(() => {
+    if (view !== 'taking') return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [view]);
+
+  // Cố ý liệt kê `submit` (không memo hoá) vào deps: nó đóng gói `attempt` mới nhất tại mỗi
+  // lượt render, nên effect phải chạy lại theo nó để không nộp bài bằng một bản `attempt` cũ
+  // (thiếu câu vừa chọn) khi đồng hồ vừa chạm hạn — cùng cách ExamSession.tsx đã làm.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (view !== 'taking' || !attempt || attempt.deadline === undefined) return;
+    if (attempt.status !== 'running') return; // đã nộp rồi thì đừng gọi lại
+    if (now >= attempt.deadline) submit();
+  }, [now, view, attempt, submit]);
 
   // ─── Mổ xẻ (review) ──────────────────────────────────────────────
 
@@ -567,24 +600,43 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   // ─ Taking ─
   if (view === 'taking' && attempt && currentQuestion) {
     const answer = attempt.answers[currentQuestion.id];
+    // `deadline` chỉ tồn tại ở mode full/section (mục 5.1: mode taste cố ý không có áp lực
+    // thời gian gắt — xem `createAttempt`) nên đồng hồ chỉ hiện khi có.
+    const remainingSec = attempt.deadline !== undefined ? (attempt.deadline - now) / 1000 : null;
+    const urgent = remainingSec !== null && remainingSec <= 300;
     return (
       <div className="w-full max-w-3xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-2 mb-4">
           <button
             onClick={() => setExitConfirm(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 text-xs font-extrabold shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 text-xs font-extrabold shadow-sm cursor-pointer shrink-0"
           >
             <ArrowLeft size={15} /> Thoát
           </button>
-          <p className="text-xs font-extrabold text-slate-500">
+          <p className="text-xs font-extrabold text-slate-500 text-center min-w-0">
             Câu {qIndex + 1}/{attempt.questionIds.length} · Đã trả lời {answeredCount}
           </p>
-          <button
-            onClick={() => setShowAnswerSheet((s) => !s)}
-            className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-extrabold shadow-sm cursor-pointer"
-          >
-            Phiếu trả lời
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {remainingSec !== null && (
+              <span
+                title="Thời gian còn lại — hết giờ tự động nộp bài"
+                className={`inline-flex items-center gap-1.5 py-2 px-3 rounded-xl border text-sm font-black font-mono tabular-nums ${
+                  urgent
+                    ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                <Clock size={15} />
+                {formatClock(remainingSec)}
+              </span>
+            )}
+            <button
+              onClick={() => setShowAnswerSheet((s) => !s)}
+              className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-extrabold shadow-sm cursor-pointer"
+            >
+              Phiếu trả lời
+            </button>
+          </div>
         </div>
 
         {showAnswerSheet && (

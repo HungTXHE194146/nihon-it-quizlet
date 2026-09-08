@@ -129,6 +129,14 @@ export interface JlptAttempt {
   questionIds: string[];
   startedAt: number;
   submittedAt?: number;
+  /**
+   * Hạn nộp bài (epoch ms), tính lúc `createAttempt()` từ tổng phút của (các) khối tính giờ
+   * liên quan — xem `attemptLogic.ts`. `undefined` = không có áp lực thời gian gắt (mode
+   * `taste`, mục 5.1: phiên "nhấm nháp" cố ý không đếm ngược). Lưu thẳng vào attempt (không
+   * tính lại mỗi lần mở màn) để F5/đóng tab quay lại vẫn tính đúng giờ còn lại, giống cách
+   * `ExamSession.tsx` lưu `deadline` vào phiên đang làm dở của mình.
+   */
+  deadline?: number;
   answers: Record<string, JlptAnswer>;
   predictedPercent?: number;
   reviewedQuestionIds: string[];

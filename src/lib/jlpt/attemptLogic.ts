@@ -36,7 +36,29 @@ function newAttemptId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Số phút cho đồng hồ đếm ngược của một lượt, theo đúng khối tính giờ liên quan tới `mode`.
+ * `null` = không đặt hạn cứng.
+ *
+ * Mode `taste` CỐ Ý không có hạn cứng (ticket 007): mục 5.1 mô tả đây là phiên "nhấm nháp"
+ * ~5 phút để thử, không mang áp lực thời gian gắt như thi thật — bắt đếm ngược ở đây đi
+ * ngược lại mục đích hạ chi phí khởi động của cỡ phiên này. `full`/`section` thì thi thật SAO
+ * chép y hệt cấu trúc thời gian của đề, nên phải đếm ngược và tự nộp khi hết giờ.
+ */
+function timedMinutesFor(exam: JlptExam, mode: AttemptMode, blockId?: string): number | null {
+  if (mode === 'full') {
+    const total = exam.blocks.reduce((sum, b) => sum + b.minutes, 0);
+    return total > 0 ? total : null;
+  }
+  if (mode === 'section' && blockId) {
+    return exam.blocks.find((b) => b.id === blockId)?.minutes ?? null;
+  }
+  return null;
+}
+
 export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: string): JlptAttempt {
+  const now = Date.now();
+  const minutes = timedMinutesFor(exam, mode, blockId);
   return {
     id: newAttemptId(),
     examId: exam.id,
@@ -44,7 +66,8 @@ export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: strin
     status: 'running',
     mode,
     questionIds: questionIdsForMode(exam, mode, blockId),
-    startedAt: Date.now(),
+    startedAt: now,
+    deadline: minutes !== null ? now + minutes * 60_000 : undefined,
     answers: {},
     reviewedQuestionIds: [],
   };
