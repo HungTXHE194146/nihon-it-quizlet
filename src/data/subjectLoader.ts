@@ -13,6 +13,11 @@ const LOADERS: Record<string, () => Promise<Lesson[]>> = {
   'mimi-n3-goi': () => import('./mimiN3FullData').then((m) => m.mimiN3Lessons),
   'kanji-master-n3': () => import('./kanjiMasterN3Data').then((m) => m.kanjiMasterN3Lessons),
   jfe301: () => import('./jfe301Data').then((m) => m.jfe301Lessons),
+  'try-n3': () => import('./tryN3Data').then((m) => m.tryN3Lessons),
+  // EngGrade9Selector tự nạp riêng dữ liệu của nó (đã nằm trong chunk lazy của chính nó) để
+  // vẽ hai chế độ phân loại song song — đăng ký lại ở đây để route /study chung
+  // (StudySession qua activeLessons) và việc gộp phạm vi 'all' vẫn thấy được môn này.
+  'eng-grade9-hw': () => import('./engGrade9Data').then((m) => m.allEngGrade9Lessons),
 };
 
 const cache = new Map<string, Lesson[]>();

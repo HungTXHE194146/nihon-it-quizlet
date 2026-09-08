@@ -61,13 +61,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const authApi = {
   status: () =>
-    request<{ authenticated: boolean; user: ApiUser | null; signupOpen: boolean }>('/api/auth/status'),
+    request<{ authenticated: boolean; user: ApiUser | null; signupCodeRequired: boolean }>(
+      '/api/auth/status'
+    ),
   login: (username: string, password: string) =>
     request<{ ok: true; user: ApiUser }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
-  register: (username: string, password: string, code: string) =>
+  register: (username: string, password: string, code?: string) =>
     request<{ ok: true; user: ApiUser }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, password, code }),

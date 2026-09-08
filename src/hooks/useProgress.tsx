@@ -26,6 +26,9 @@ import { readJSON, writeJSON, removeKey, isPersistent } from '../lib/storage';
 import { review as srsReview, isDue, isMature } from '../lib/srs';
 import type { CardState } from '../lib/srs';
 import { itemByKey, subjectIdFromKey } from '../lib/itemIndex';
+import { isJlptCardKey } from '../lib/jlpt/srsKey';
+import { applyConfidenceMatrix } from '../lib/jlpt/attemptLogic';
+import type { Confidence } from '../lib/jlpt/schema';
 import { totalItemsOf, subjectInScope } from '../data/subjectMeta';
 import type { SubjectScope } from '../data/subjectMeta';
 import { useAuth } from './useAuth';
@@ -175,13 +178,22 @@ export interface SubjectStats {
 interface ProgressContextValue {
   data: ProgressData;
   persistent: boolean;
-  /** Ghi nhận một lần trả lời và cập nhật lịch ôn của thẻ. */
-  recordReview: (key: string, correct: boolean) => void;
+  /**
+   * Ghi nhận một lần trả lời và cập nhật lịch ôn của thẻ.
+   *
+   * `confidence` là tuỳ chọn: bỏ qua thì dùng nguyên `review()` (SM-2 chuẩn) như trước giờ —
+   * mọi luồng ôn thẻ từ vựng/Kanji và lượt ôn JLPT thường (không hỏi lại độ chắc chắn) đều đi
+   * đường này, hành vi không đổi. Chỉ lúc NỘP một lượt thi JLPT (đã thu độ chắc chắn lúc làm
+   * bài) mới truyền vào, để áp ma trận độ chắc chắn × đúng-sai (ticket 006, mục 6.3/6.4).
+   */
+  recordReview: (key: string, correct: boolean, confidence?: Confidence) => void;
   getCard: (key: string) => CardState | undefined;
   /** Các thẻ đến hạn ôn, cộng thêm một ít thẻ mới, giới hạn theo cài đặt. */
   buildReviewQueue: (scope: SubjectScope, limit?: number) => string[];
   /** Các thẻ từng trả lời sai, mới sai gần đây xếp trước. */
   buildMistakeQueue: (scope: SubjectScope) => string[];
+  /** Câu hỏi JLPT đến hạn ôn lại — xem ghi chú tại định nghĩa hàm. */
+  buildJlptReviewQueue: (limit?: number) => string[];
   statsFor: (scope: SubjectScope) => SubjectStats;
   dueCount: (scope: SubjectScope) => number;
   todayStat: DailyStat;
@@ -396,11 +408,13 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cố ý dùng chữ ký nội dung, xem ghi chú ở contentSignature
   }, [contentSignature, userId, syncEpoch]);
 
-  const recordReview = useCallback((key: string, correct: boolean) => {
+  const recordReview = useCallback((key: string, correct: boolean, confidence?: Confidence) => {
     const now = Date.now();
     const day = todayKey();
     setDataTouched((prev) => {
-      const card = srsReview(prev.cards[key], correct, now);
+      const card = confidence
+        ? applyConfidenceMatrix(prev.cards[key], correct, confidence, now)
+        : srsReview(prev.cards[key], correct, now);
       const prevDay = prev.daily[day] || { reviews: 0, correct: 0 };
 
       let streak = prev.streak;
@@ -435,6 +449,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Thẻ đến hạn suy ra được từ tiến độ đã lưu, không cần dữ liệu bài học.
       for (const [key, card] of Object.entries(data.cards)) {
+        // Thẻ SRS của câu hỏi JLPT dùng khoá riêng (`jlpt::`) và có hàng đợi riêng
+        // (`buildJlptReviewQueue`) — scope 'all' khớp mọi subjectId vô điều kiện nên phải
+        // chặn tay ở đây, không thì câu hỏi JLPT lẫn vào hàng ôn N3/IT.
+        if (isJlptCardKey(key)) continue;
         if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         if (isDue(card, now)) due.push({ key, due: card.due });
       }
@@ -461,6 +479,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     (scope: SubjectScope) => {
       const rows: { key: string; last: number; wrong: number }[] = [];
       for (const [key, card] of Object.entries(data.cards)) {
+        if (isJlptCardKey(key)) continue;
         if (card.wrong === 0) continue;
         // Lọc theo mã môn nằm ngay trong khoá, nhờ vậy không phụ thuộc vào việc đã nạp dữ liệu.
         if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
@@ -469,6 +488,27 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Sai nhiều nhất lên đầu, cùng số lần sai thì lấy câu vừa sai gần đây.
       rows.sort((a, b) => b.wrong - a.wrong || b.last - a.last);
       return rows.map((r) => r.key);
+    },
+    [data.cards]
+  );
+
+  /**
+   * Hàng đợi ôn cho chính câu hỏi JLPT (khoá `jlpt::examId::questionId`) — tách khỏi
+   * `buildReviewQueue` vì không có khái niệm "thẻ mới" ở đây: một câu chỉ có thẻ SRS sau khi
+   * đã được làm (đúng hoặc sai) trong một lượt thi, không có kho tĩnh để rút "thẻ mới" như
+   * `itemByKey`. Vì vậy chỉ trả về thẻ ĐẾN HẠN, không có phần "fresh".
+   */
+  const buildJlptReviewQueue = useCallback(
+    (limit?: number) => {
+      const now = Date.now();
+      const due: { key: string; due: number }[] = [];
+      for (const [key, card] of Object.entries(data.cards)) {
+        if (!isJlptCardKey(key)) continue;
+        if (isDue(card, now)) due.push({ key, due: card.due });
+      }
+      due.sort((a, b) => a.due - b.due);
+      const keys = due.map((d) => d.key);
+      return typeof limit === 'number' ? keys.slice(0, limit) : keys;
     },
     [data.cards]
   );
@@ -484,6 +524,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let wrong = 0;
 
       for (const [key, card] of Object.entries(data.cards)) {
+        if (isJlptCardKey(key)) continue;
         if (!subjectInScope(subjectIdFromKey(key), scope)) continue;
         studied += 1;
         if (isMature(card)) mature += 1;
@@ -562,6 +603,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       getCard,
       buildReviewQueue,
       buildMistakeQueue,
+      buildJlptReviewQueue,
       statsFor,
       dueCount,
       todayStat,
@@ -581,6 +623,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       getCard,
       buildReviewQueue,
       buildMistakeQueue,
+      buildJlptReviewQueue,
       statsFor,
       dueCount,
       todayStat,

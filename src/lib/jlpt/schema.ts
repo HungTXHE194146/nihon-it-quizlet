@@ -129,6 +129,14 @@ export interface JlptAttempt {
   questionIds: string[];
   startedAt: number;
   submittedAt?: number;
+  /**
+   * Hạn nộp bài (epoch ms), tính lúc `createAttempt()` từ tổng phút của (các) khối tính giờ
+   * liên quan — xem `attemptLogic.ts`. `undefined` = không có áp lực thời gian gắt (mode
+   * `taste`, mục 5.1: phiên "nhấm nháp" cố ý không đếm ngược). Lưu thẳng vào attempt (không
+   * tính lại mỗi lần mở màn) để F5/đóng tab quay lại vẫn tính đúng giờ còn lại, giống cách
+   * `ExamSession.tsx` lưu `deadline` vào phiên đang làm dở của mình.
+   */
+  deadline?: number;
   answers: Record<string, JlptAnswer>;
   predictedPercent?: number;
   reviewedQuestionIds: string[];
@@ -141,6 +149,15 @@ export interface JlptAttempt {
   ownerId?: string | null;
   /** % đúng lúc nộp bài, chốt sẵn để trang chủ khỏi phải nạp lại cả đề để tính điểm. */
   scorePercent?: number;
+  /**
+   * Các câu làm sai, chốt sẵn lúc nộp bài.
+   *
+   * Cùng lý do với `scorePercent`: biết "còn bao nhiêu câu chưa mổ xẻ" (hiệu số với
+   * `reviewedQuestionIds`) mà không phải nạp lại cả đề — trang chủ và danh sách đề cần con
+   * số này cho mọi đề cùng lúc. Lượt làm bài từ trước khi có trường này sẽ thiếu, khi đó
+   * phải tính lại bằng `scoreAttempt()` — xem `wrongIdsOf()` trong attemptLogic.ts.
+   */
+  wrongQuestionIds?: string[];
 }
 
 // ─── Sổ tay lỗi riêng cho JLPT (mục 6.2-6.4) ─────────────────────────

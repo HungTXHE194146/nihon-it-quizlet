@@ -15,9 +15,10 @@ export type AppRoute =
       mode: StudyMode;
     }
   | { page: 'exam'; subjectId: string; examTags: string[]; qType: string; durationMin: number }
-  | { page: 'mistakes' }
+  | { page: 'mistakes'; tab: 'srs' | 'jlpt' }
   | { page: 'jlpt-import' }
-  | { page: 'jlpt-exam'; examId: string };
+  | { page: 'jlpt-exam'; examId: string }
+  | { page: 'jlpt-review' };
 
 function parseHash(hash: string): AppRoute {
   // Chuẩn hoá hash, ví dụ "#/subject/nihon-it/theory/16" -> "/subject/nihon-it/theory/16"
@@ -32,9 +33,10 @@ function parseHash(hash: string): AppRoute {
   const segments = pathPart.split('/').filter(Boolean);
   const params = new URLSearchParams(queryPart || '');
 
-  // #/mistakes — sổ tay câu sai gộp mọi môn
+  // #/mistakes?tab=jlpt — sổ tay câu sai gộp mọi môn; tab nằm trên URL để dẫn thẳng vào
+  // đúng loại sổ tay từ trang chủ (và để bấm Back quay lại đúng tab đang xem).
   if (segments[0] === 'mistakes') {
-    return { page: 'mistakes' };
+    return { page: 'mistakes', tab: params.get('tab') === 'jlpt' ? 'jlpt' : 'srs' };
   }
 
   // #/jlpt/import — nhập đề JLPT từ JSON/file ngoài vào
@@ -45,6 +47,11 @@ function parseHash(hash: string): AppRoute {
   // #/jlpt/exam/:examId — làm một đề JLPT đã nhập
   if (segments[0] === 'jlpt' && segments[1] === 'exam' && segments[2]) {
     return { page: 'jlpt-exam', examId: segments[2] };
+  }
+
+  // #/jlpt/review — ôn lại câu hỏi JLPT đến hạn (ticket 005)
+  if (segments[0] === 'jlpt' && segments[1] === 'review') {
+    return { page: 'jlpt-review' };
   }
 
   // #/subject/:subjectId  (subjectId có thể là "all" cho phiên gộp mọi môn)

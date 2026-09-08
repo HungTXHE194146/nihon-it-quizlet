@@ -11,6 +11,8 @@ import type {
   ScoringSection,
   Confidence,
 } from './schema';
+import { review, withIntervalDays, dropEaseExtra, asFreshLearning } from '../srs';
+import type { CardState } from '../srs';
 
 /** Cỡ phiên mặc định là NHỎ NHẤT theo mục 5.1 — hạ chi phí khởi động. */
 export const DEFAULT_ATTEMPT_MODE: AttemptMode = 'taste';
@@ -34,7 +36,29 @@ function newAttemptId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Số phút cho đồng hồ đếm ngược của một lượt, theo đúng khối tính giờ liên quan tới `mode`.
+ * `null` = không đặt hạn cứng.
+ *
+ * Mode `taste` CỐ Ý không có hạn cứng (ticket 007): mục 5.1 mô tả đây là phiên "nhấm nháp"
+ * ~5 phút để thử, không mang áp lực thời gian gắt như thi thật — bắt đếm ngược ở đây đi
+ * ngược lại mục đích hạ chi phí khởi động của cỡ phiên này. `full`/`section` thì thi thật SAO
+ * chép y hệt cấu trúc thời gian của đề, nên phải đếm ngược và tự nộp khi hết giờ.
+ */
+function timedMinutesFor(exam: JlptExam, mode: AttemptMode, blockId?: string): number | null {
+  if (mode === 'full') {
+    const total = exam.blocks.reduce((sum, b) => sum + b.minutes, 0);
+    return total > 0 ? total : null;
+  }
+  if (mode === 'section' && blockId) {
+    return exam.blocks.find((b) => b.id === blockId)?.minutes ?? null;
+  }
+  return null;
+}
+
 export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: string): JlptAttempt {
+  const now = Date.now();
+  const minutes = timedMinutesFor(exam, mode, blockId);
   return {
     id: newAttemptId(),
     examId: exam.id,
@@ -42,7 +66,8 @@ export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: strin
     status: 'running',
     mode,
     questionIds: questionIdsForMode(exam, mode, blockId),
-    startedAt: Date.now(),
+    startedAt: now,
+    deadline: minutes !== null ? now + minutes * 60_000 : undefined,
     answers: {},
     reviewedQuestionIds: [],
   };
@@ -107,13 +132,86 @@ export function scoreAttempt(attempt: JlptAttempt, questionsById: Map<string, Jl
   };
 }
 
+// ─── Tiến độ mổ xẻ của một lượt làm bài ──────────────────────────────
+
 /**
- * Góc dưới-phải của ma trận mục 6.3 ("Đúng + Đoán") là dương tính giả — nguy hiểm nhất, vì hệ
- * thống sẽ tưởng người học đã biết. `recordReview()` hiện có chỉ nhận đúng/sai nhị phân, nên áp
- * dụng đúng MỘT điều chỉnh khả thi mà không phải dựng thêm hệ thống: coi trường hợp này như sai
- * để SRS không tin nhầm và bắt ôn lại sớm. Các ô còn lại của ma trận dùng nguyên tín hiệu thật.
+ * Các câu đã làm sai của một lượt.
+ *
+ * Ưu tiên bản đã chốt sẵn lúc nộp (`attempt.wrongQuestionIds`) để nơi gọi không cần cầm theo
+ * nội dung đề — trang chủ và danh sách đề cần con số này cho nhiều đề cùng lúc, nạp cả đề chỉ
+ * để đếm câu sai thì quá đắt. Lượt làm bài cũ (nộp trước khi có trường đó) thì tính lại từ đề,
+ * nên vẫn nhận `questionsById` làm tham số tuỳ chọn.
+ *
+ * Trả về mảng rỗng khi không đủ dữ liệu để biết — nơi gọi tự quyết định coi đó là "chưa rõ"
+ * hay "không có câu sai nào".
  */
-export function srsSignalForMatrix(wasCorrect: boolean, confidence: Confidence): boolean {
-  if (wasCorrect && confidence === 'guess') return false;
-  return wasCorrect;
+export function wrongIdsOf(
+  attempt: JlptAttempt,
+  questionsById?: Map<string, JlptQuestion>
+): string[] {
+  if (attempt.wrongQuestionIds) return attempt.wrongQuestionIds;
+  if (!questionsById) return [];
+  return scoreAttempt(attempt, questionsById).wrongQuestionIds;
+}
+
+/** Câu sai còn CHƯA mổ xẻ. Đây là "việc dở dang" mà trang chủ phải nhắc (mục 4.3, 5.3.1). */
+export function pendingReviewIdsOf(
+  attempt: JlptAttempt,
+  questionsById?: Map<string, JlptQuestion>
+): string[] {
+  const done = new Set(attempt.reviewedQuestionIds);
+  return wrongIdsOf(attempt, questionsById).filter((id) => !done.has(id));
+}
+
+/** Lượt đã nộp và đã mổ xẻ hết câu sai chưa? Lượt đang làm dở (`running`) luôn là chưa. */
+export function isFullyReviewed(
+  attempt: JlptAttempt,
+  questionsById?: Map<string, JlptQuestion>
+): boolean {
+  if (attempt.status === 'running') return false;
+  return pendingReviewIdsOf(attempt, questionsById).length === 0;
+}
+
+/** "Sai + chắc chắn" là dấu hiệu hiểu sai tận gốc (mục 6.3) — giảm ease thêm để thẻ quay lại
+ * sớm hơn một lỗi phân vân bình thường. */
+const CONFIDENT_MISTAKE_EXTRA_EASE_DROP = 0.15;
+
+/** "Đúng + phân vân": vẫn tăng khoảng ôn, nhưng dè dặt hơn mức bình thường (mục 6.4: ×0.6). */
+const UNSURE_CORRECT_INTERVAL_FACTOR = 0.6;
+
+/**
+ * Áp ma trận độ chắc chắn × đúng-sai (mục 6.3, 6.4 tài liệu thiết kế) lên MỘT thẻ SRS.
+ *
+ * Chỉ chỉnh TRẠNG THÁI KHỞI ĐẦU sau khi `review()` (SM-2 chuẩn, `src/lib/srs.ts`) đã chạy —
+ * không dựng thuật toán ôn tập thứ hai (mục 6.4: "không nên dựng hệ thứ hai"). Đúng 6 ô xử lý
+ * khác nhau, đừng "sửa" cho giống nhau hết — đây là chủ ý:
+ *
+ * | Ô | Vì sao xử lý vậy |
+ * |---|---|
+ * | Sai + chắc chắn  | Hiểu sai tận gốc — `ease` giảm thêm để quay lại sớm hơn lỗi thường. |
+ * | Sai + phân vân   | Lỗi bình thường — dùng nguyên `review(false)`, không chỉnh gì thêm. |
+ * | Sai + đoán       | Chưa từng học, không phải "quên" — không tính lapse, coi như học lần đầu (`asFreshLearning`). |
+ * | Đúng + đoán      | DƯƠNG TÍNH GIẢ, nguy hiểm nhất (mục 6.3) — ép ôn lại sau đúng 1 ngày dù vừa trả lời đúng. |
+ * | Đúng + phân vân  | Chưa thật chắc — tăng khoảng ôn dè dặt hơn (×0.6) thay vì đầy đủ. |
+ * | Đúng + chắc chắn | Bình thường — dùng nguyên `review(true)`. |
+ */
+export function applyConfidenceMatrix(
+  prev: CardState | undefined,
+  wasCorrect: boolean,
+  confidence: Confidence,
+  now = Date.now()
+): CardState {
+  if (!wasCorrect) {
+    if (confidence === 'guess') return asFreshLearning(prev, now);
+    const card = review(prev, false, now);
+    return confidence === 'sure' ? dropEaseExtra(card, CONFIDENT_MISTAKE_EXTRA_EASE_DROP) : card;
+  }
+
+  const card = review(prev, true, now);
+  if (confidence === 'guess') return withIntervalDays(card, 1, now);
+  if (confidence === 'unsure') {
+    const scaled = Math.max(1, Math.round(card.interval * UNSURE_CORRECT_INTERVAL_FACTOR));
+    return withIntervalDays(card, scaled, now);
+  }
+  return card;
 }

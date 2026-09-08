@@ -17,10 +17,13 @@ const LessonSelector = lazy(() => import('./components/LessonSelector').then((m)
 const MimiN3Selector = lazy(() => import('./components/MimiN3Selector').then((m) => ({ default: m.MimiN3Selector })));
 const JFE301Selector = lazy(() => import('./components/JFE301Selector').then((m) => ({ default: m.JFE301Selector })));
 const KanjiMasterN3Selector = lazy(() => import('./components/KanjiMasterN3Selector').then((m) => ({ default: m.KanjiMasterN3Selector })));
+const EngGrade9Selector = lazy(() => import('./components/EngGrade9Selector').then((m) => ({ default: m.EngGrade9Selector })));
+const TryN3Selector = lazy(() => import('./components/TryN3Selector').then((m) => ({ default: m.TryN3Selector })));
 const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({ default: m.ExamSession })));
 const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
 const JlptImportScreen = lazy(() => import('./components/jlpt/JlptImportScreen').then((m) => ({ default: m.JlptImportScreen })));
 const JlptExamRunner = lazy(() => import('./components/jlpt/JlptExamRunner').then((m) => ({ default: m.JlptExamRunner })));
+const JlptReviewSession = lazy(() => import('./components/jlpt/JlptReviewSession').then((m) => ({ default: m.JlptReviewSession })));
 
 const ScreenLoader = () => (
   <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
@@ -72,7 +75,12 @@ function App() {
    */
   const requiredSubject =
     route.page === 'mistakes'
-      ? 'all'
+      // Tab câu sai đề JLPT đọc thẳng từ IndexedDB, không đụng tới bài học của các môn —
+      // bắt nó chờ tải gần 1 MB dữ liệu từ vựng chỉ để đọc lại ghi chú là vô lý. Bấm sang
+      // tab thẻ SRS sẽ đổi URL, và lúc đó mới nạp.
+      ? route.tab === 'jlpt'
+        ? null
+        : 'all'
       : route.page === 'subject' || route.page === 'study' || route.page === 'exam'
       ? route.subjectId
       : null;
@@ -303,8 +311,10 @@ function App() {
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
             onOpenMistakes={() => navigate('/mistakes')}
+            onOpenJlptMistakes={() => navigate('/mistakes?tab=jlpt')}
             onOpenJlptImport={() => navigate('/jlpt/import')}
             onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
+            onOpenJlptReview={() => navigate('/jlpt/review')}
           />
         )}
 
@@ -347,10 +357,31 @@ function App() {
           />
         )}
 
-        {route.page === 'subject' && 
-          currentSubject.id !== 'mimi-n3-goi' && 
-          currentSubject.id !== 'jfe301' && 
-          currentSubject.id !== 'kanji-master-n3' && (
+        {route.page === 'subject' && currentSubject.id === 'eng-grade9-hw' && (
+          <EngGrade9Selector
+            onStartBySections={(sections) =>
+              navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
+            }
+            onBackToHome={() => navigate('/')}
+          />
+        )}
+
+        {route.page === 'subject' && currentSubject.id === 'try-n3' && (
+          <TryN3Selector
+            lessons={activeLessons}
+            onStartBySections={(sections) =>
+              navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
+            }
+            onBackToHome={() => navigate('/')}
+          />
+        )}
+
+        {route.page === 'subject' &&
+          currentSubject.id !== 'mimi-n3-goi' &&
+          currentSubject.id !== 'jfe301' &&
+          currentSubject.id !== 'kanji-master-n3' &&
+          currentSubject.id !== 'eng-grade9-hw' &&
+          currentSubject.id !== 'try-n3' && (
           <LessonSelector
             lessons={activeLessons}
             selectedSectionIds={selectedSectionIds}
@@ -402,10 +433,15 @@ function App() {
 
         {route.page === 'mistakes' && (
           <MistakeNotebook
+            tab={route.tab}
+            onChangeTab={(tab) => navigate(tab === 'jlpt' ? '/mistakes?tab=jlpt' : '/mistakes')}
             onBackToHome={() => navigate('/')}
             onStartReview={(subjectId) =>
               navigate(`/subject/${subjectId}/study?mode=mistakes`)
             }
+            onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
+            onOpenJlptImport={() => navigate('/jlpt/import')}
+            onOpenJlptReview={() => navigate('/jlpt/review')}
           />
         )}
 
@@ -416,6 +452,11 @@ function App() {
         {route.page === 'jlpt-exam' && !identityReady && <ScreenLoader />}
         {route.page === 'jlpt-exam' && identityReady && (
           <JlptExamRunner key={identityKey} examId={route.examId} onExit={() => navigate('/jlpt/import')} />
+        )}
+
+        {route.page === 'jlpt-review' && !identityReady && <ScreenLoader />}
+        {route.page === 'jlpt-review' && identityReady && (
+          <JlptReviewSession key={identityKey} onExit={() => navigate('/')} />
         )}
         </Suspense>
         )}

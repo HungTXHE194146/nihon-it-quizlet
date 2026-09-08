@@ -3,6 +3,7 @@ import { subjectMeta, subjectsOfTrack, N3_SCOPE } from '../data/subjectMeta';
 import type { SubjectMeta } from '../data/subjectMeta';
 import { useProgress } from '../hooks/useProgress';
 import { useJlptSummary } from '../hooks/useJlptSummary';
+import { pickTodayAction } from '../lib/todayAction';
 import { InstallButton } from './PWAPrompt';
 import { SyncButton } from './SyncLogin';
 import {
@@ -30,6 +31,8 @@ import {
   ClipboardList,
   ChevronDown,
   Timer,
+  PartyPopper,
+  RotateCcw,
 } from 'lucide-react';
 
 interface HomepageProps {
@@ -37,8 +40,12 @@ interface HomepageProps {
   /** Mở phiên ôn theo lịch SRS cho một phạm vi ("n3" = gộp các môn N3, "all" = mọi môn). */
   onStartReview: (scope: string) => void;
   onOpenMistakes: () => void;
+  /** Sổ tay lỗi JLPT — cùng màn với sổ tay câu sai, mở sẵn tab đề JLPT. */
+  onOpenJlptMistakes: () => void;
   onOpenJlptImport: () => void;
   onOpenJlptExam: (examId: string) => void;
+  /** Ôn câu hỏi JLPT đến hạn (ticket 005) — nhánh "Hôm nay" #3. */
+  onOpenJlptReview: () => void;
 }
 
 const N3_SUBJECTS = subjectsOfTrack('n3');
@@ -63,10 +70,12 @@ export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
   onStartReview,
   onOpenMistakes,
+  onOpenJlptMistakes,
   onOpenJlptImport,
   onOpenJlptExam,
+  onOpenJlptReview,
 }) => {
-  const { data, statsFor, todayStat, exportData, importData, resetAll } = useProgress();
+  const { data, statsFor, todayStat, exportData, importData, resetAll, buildJlptReviewQueue } = useProgress();
   const jlpt = useJlptSummary();
   const [searchQuery, setSearchQuery] = useState('');
   const [showOthers, setShowOthers] = useState(false);
@@ -80,6 +89,59 @@ export const Homepage: React.FC<HomepageProps> = ({
   const otherDue = allStats.due - n3Stats.due;
   const isNewLearner = n3Stats.studied === 0;
   const firstSessionSize = Math.min(data.settings.dailyNewLimit, n3Stats.total);
+
+  /**
+   * Khối "Hôm nay": MỘT hành động duy nhất, không bắt người học so sánh hai lối đi ngang
+   * hàng (ôn N3 / phòng thi JLPT) như trước — xem lib/todayAction.ts để biết thứ tự ưu tiên.
+   */
+  const firstExam = jlpt.exams[0];
+  const jlptReviewDue = useMemo(() => buildJlptReviewQueue().length, [buildJlptReviewQueue]);
+  const todayAction = useMemo(
+    () =>
+      pickTodayAction(
+        { due: n3Stats.due, newCards: n3Stats.newCards, isNewLearner, firstSessionSize },
+        {
+          running: jlpt.running,
+          pendingReview: jlpt.pendingReview,
+          reviewDueCount: jlptReviewDue,
+          mostRecentExam: firstExam ? { examId: firstExam.id, examTitle: firstExam.title } : null,
+        }
+      ),
+    [
+      n3Stats.due,
+      n3Stats.newCards,
+      isNewLearner,
+      firstSessionSize,
+      jlpt.running,
+      jlpt.pendingReview,
+      jlptReviewDue,
+      firstExam,
+    ]
+  );
+
+  // Việc tồn đọng KHÔNG được chọn làm hành động chính vẫn phải hiện ra — chỉ nhỏ hơn, không
+  // phải một CTA ngang hàng — theo đúng thứ tự ưu tiên, không nhánh nào bị chọn làm chính thì
+  // mới lọt xuống đây được (xem pickTodayAction).
+  const todaySecondary: { label: string; onClick: () => void }[] = [];
+  if (todayAction.kind !== 'jlpt-pending-review' && jlpt.pendingReview) {
+    const pr = jlpt.pendingReview;
+    todaySecondary.push({
+      label: `Còn ${pr.pendingCount} câu sai chưa mổ xẻ: ${pr.examTitle}`,
+      onClick: () => onOpenJlptExam(pr.examId),
+    });
+  }
+  if (todayAction.kind !== 'jlpt-review-due' && jlptReviewDue > 0) {
+    todaySecondary.push({
+      label: `${jlptReviewDue} câu JLPT khác cũng đến hạn ôn`,
+      onClick: onOpenJlptReview,
+    });
+  }
+  if (todayAction.kind !== 'n3-due' && n3Stats.due > 0) {
+    todaySecondary.push({
+      label: `${n3Stats.due} thẻ N3 khác cũng đã đến hạn`,
+      onClick: () => onStartReview(N3_SCOPE),
+    });
+  }
 
   const perSubjectStats = useMemo(
     () => Object.fromEntries(subjectMeta.map((s) => [s.id, statsFor(s.id)])),
@@ -279,6 +341,93 @@ export const Homepage: React.FC<HomepageProps> = ({
         </div>
       </div>
 
+      {/* Khối "Hôm nay": một CTA duy nhất, đứng trên cùng, không bắt người học so sánh hai
+          lối đi ngang hàng bên dưới (ôn N3 / phòng thi JLPT) — xem lib/todayAction.ts. */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 md:p-8 shadow-xl">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-6">
+          <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
+            {todayAction.kind === 'jlpt-running' && <Timer className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-pending-review' && <AlertTriangle className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-review-due' && <RotateCcw className="w-7 h-7" />}
+            {todayAction.kind === 'n3-due' && <CalendarCheck className="w-7 h-7" />}
+            {todayAction.kind === 'n3-new' && <Sparkles className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-taste' && <Zap className="w-7 h-7" />}
+            {todayAction.kind === 'all-done' && <PartyPopper className="w-7 h-7" />}
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-indigo-200 mb-1">Hôm nay</p>
+            <h2 className="text-xl md:text-2xl font-extrabold leading-snug">
+              {todayAction.kind === 'jlpt-running' && `Đang làm dở: ${todayAction.examTitle}`}
+              {todayAction.kind === 'jlpt-pending-review' &&
+                `Còn ${todayAction.pendingCount} câu sai chưa mổ xẻ`}
+              {todayAction.kind === 'jlpt-review-due' && `${todayAction.count} câu JLPT đến hạn ôn`}
+              {todayAction.kind === 'n3-due' && `${todayAction.count} thẻ N3 đến hạn ôn`}
+              {todayAction.kind === 'n3-new' &&
+                (todayAction.isNewLearner ? 'Bắt đầu lộ trình N3' : `Học thêm ${todayAction.count} thẻ N3 mới`)}
+              {todayAction.kind === 'jlpt-taste' && `Thử nhấm nháp: ${todayAction.examTitle}`}
+              {todayAction.kind === 'all-done' && 'Bạn đã ôn hết mọi thứ hôm nay!'}
+            </h2>
+            <p className="text-sm text-indigo-100 font-medium mt-1.5 max-w-xl leading-relaxed">
+              {todayAction.kind === 'jlpt-running' &&
+                'Bài đang chờ giữa chừng — ngữ cảnh còn nguyên trong đầu, làm nốt trước khi phải đọc lại đề từ đầu.'}
+              {todayAction.kind === 'jlpt-pending-review' &&
+                `Mổ xẻ "${todayAction.examTitle}" — đây là bước tạo ra học tập thật, "để sau" rất dễ thành "không bao giờ".`}
+              {todayAction.kind === 'jlpt-review-due' &&
+                'Những câu ngữ pháp/đọc hiểu/nghe bạn từng làm nay đã tới lúc ôn lại, đúng lúc sắp quên.'}
+              {todayAction.kind === 'n3-due' &&
+                'Đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.'}
+              {todayAction.kind === 'n3-new' &&
+                (todayAction.isNewLearner
+                  ? 'Từ vựng và Kanji N3 nằm chung một hàng đợi ôn ngắt quãng.'
+                  : 'Không còn thẻ nào đến hạn — học thêm thẻ mới trong lúc chờ.')}
+              {todayAction.kind === 'jlpt-taste' &&
+                'Thẻ N3 đã ôn hết hôm nay. Làm thử vài câu (khoảng 5 phút) để đổi món.'}
+              {todayAction.kind === 'all-done' &&
+                'Không còn thẻ N3 nào đến hạn và chưa có đề JLPT nào trong kho. Nghỉ ngơi, hoặc nhập đề đầu tiên.'}
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              if (todayAction.kind === 'jlpt-running') onOpenJlptExam(todayAction.examId);
+              else if (todayAction.kind === 'jlpt-pending-review') onOpenJlptExam(todayAction.examId);
+              else if (todayAction.kind === 'jlpt-review-due') onOpenJlptReview();
+              else if (todayAction.kind === 'n3-due') onStartReview(N3_SCOPE);
+              else if (todayAction.kind === 'n3-new') onStartReview(N3_SCOPE);
+              else if (todayAction.kind === 'jlpt-taste') onOpenJlptExam(todayAction.examId);
+              else onOpenJlptImport();
+            }}
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-indigo-700 text-sm font-extrabold shadow-lg hover:bg-indigo-50 active:scale-95 transition-all cursor-pointer"
+          >
+            <Play size={16} fill="currentColor" />
+            {todayAction.kind === 'jlpt-running' && 'Tiếp tục làm bài'}
+            {todayAction.kind === 'jlpt-pending-review' && 'Mổ xẻ ngay'}
+            {todayAction.kind === 'jlpt-review-due' && 'Ôn ngay'}
+            {todayAction.kind === 'n3-due' && 'Ôn N3 ngay'}
+            {todayAction.kind === 'n3-new' && (todayAction.isNewLearner ? 'Bắt đầu' : 'Học thẻ mới')}
+            {todayAction.kind === 'jlpt-taste' && 'Làm thử'}
+            {todayAction.kind === 'all-done' && 'Nhập đề JLPT'}
+          </button>
+        </div>
+
+        {/* Việc tồn đọng khác — chỉ để biết, không phải một lựa chọn ngang hàng với CTA ở trên. */}
+        {todaySecondary.length > 0 && (
+          <div className="relative z-10 mt-5 pt-4 border-t border-white/15 flex flex-wrap gap-2">
+            {todaySecondary.map((item, i) => (
+              <button
+                key={i}
+                onClick={item.onClick}
+                className="text-xs font-bold text-indigo-100 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full border border-white/15 transition-all cursor-pointer"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Bảng điều khiển: hàng đợi ôn N3 hôm nay */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
@@ -377,13 +526,26 @@ export const Homepage: React.FC<HomepageProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={onOpenJlptImport}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
-          >
-            <FileJson className="w-4 h-4" />
-            {jlpt.exams.length > 0 ? 'Quản lý & nhập đề' : 'Nhập đề JLPT đầu tiên'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {/* Đường quay lại chỗ người học đã bỏ công viết quy tắc cho từng câu sai — không
+                có lối vào này thì bước 4 của quy trình mổ xẻ chỉ là gõ chữ rồi vứt đi. */}
+            {jlpt.mistakeCount > 0 && (
+              <button
+                onClick={onOpenJlptMistakes}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-bold hover:bg-rose-100 active:scale-95 transition-all cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Sổ tay lỗi JLPT ({jlpt.mistakeCount})
+              </button>
+            )}
+            <button
+              onClick={onOpenJlptImport}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+            >
+              <FileJson className="w-4 h-4" />
+              {jlpt.exams.length > 0 ? 'Quản lý & nhập đề' : 'Nhập đề JLPT đầu tiên'}
+            </button>
+          </div>
         </div>
 
         {jlpt.running && (
@@ -397,6 +559,24 @@ export const Homepage: React.FC<HomepageProps> = ({
             </span>
             <span className="text-xs font-extrabold text-amber-700 flex items-center gap-1">
               Tiếp tục <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {/* Nộp bài xong mà chưa mổ xẻ hết câu sai là việc dở dang quan trọng nhất: mổ xẻ mới
+            là chỗ tạo ra học tập thật, còn điểm số chỉ là dữ liệu chẩn đoán. Không nhắc ở đây
+            thì "để sau" sẽ thành "không bao giờ". */}
+        {jlpt.pendingReview && (
+          <button
+            onClick={() => onOpenJlptExam(jlpt.pendingReview!.examId)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-indigo-50 border border-indigo-200 text-left hover:bg-indigo-100 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-indigo-900">
+              <AlertTriangle className="w-4 h-4" />
+              Còn {jlpt.pendingReview.pendingCount} câu sai chưa mổ xẻ: {jlpt.pendingReview.examTitle}
+            </span>
+            <span className="text-xs font-extrabold text-indigo-700 flex items-center gap-1">
+              Mổ xẻ <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
         )}

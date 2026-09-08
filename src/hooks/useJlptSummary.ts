@@ -9,7 +9,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { listStoredExams, listAttempts } from '../lib/jlpt/db';
+import { listStoredExams, listAttempts, listMistakes } from '../lib/jlpt/db';
+import { pendingReviewIdsOf } from '../lib/jlpt/attemptLogic';
 import { useJlptOwner } from './useJlptOwner';
 
 export interface JlptExamBrief {
@@ -27,7 +28,23 @@ export interface JlptSummary {
   running: { attemptId: string; examId: string; examTitle: string } | null;
   /** Lần nộp bài gần nhất; `percent` có thể null với lượt làm từ trước khi web chốt sẵn điểm. */
   last: { examId: string; examTitle: string; percent: number | null; at: number } | null;
+  /**
+   * Bài đã nộp nhưng còn câu sai CHƯA mổ xẻ — việc dở dang đáng nhắc nhất, vì mổ xẻ mới là
+   * chỗ tạo ra học tập thật (mục 5.3 của tài liệu thiết kế), còn nộp bài chỉ là lấy dữ liệu.
+   *
+   * Đếm được mà không cần nạp nội dung đề nhờ `wrongQuestionIds` chốt sẵn lúc nộp; lượt làm
+   * từ trước khi có trường đó sẽ không đếm được và bị bỏ qua ở đây (chấp nhận được: chúng đã
+   * cũ, và người học vẫn vào lại được qua sảnh của từng đề).
+   */
+  pendingReview: { examId: string; examTitle: string; pendingCount: number } | null;
   submittedCount: number;
+  /**
+   * Số câu đã mổ xẻ xong và nằm trong sổ tay lỗi JLPT.
+   *
+   * Đây là lối vào duy nhất tới công sức người học bỏ ra ở bước 4 (tự viết quy tắc); không
+   * đếm ở đây thì trang chủ không có cớ gì để dẫn họ quay lại đọc.
+   */
+  mistakeCount: number;
 }
 
 const EMPTY: JlptSummary = {
@@ -35,7 +52,9 @@ const EMPTY: JlptSummary = {
   exams: [],
   running: null,
   last: null,
+  pendingReview: null,
   submittedCount: 0,
+  mistakeCount: 0,
 };
 
 export function useJlptSummary(): JlptSummary {
@@ -47,9 +66,10 @@ export function useJlptSummary(): JlptSummary {
 
     (async () => {
       try {
-        const [storedExams, attempts] = await Promise.all([
+        const [storedExams, attempts, mistakes] = await Promise.all([
           listStoredExams(),
           listAttempts(ownerId),
+          listMistakes(ownerId),
         ]);
         if (cancelled) return;
 
@@ -61,6 +81,10 @@ export function useJlptSummary(): JlptSummary {
           .filter((a) => a.status !== 'running' && a.submittedAt)
           .sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0));
         const latest = submitted[0];
+
+        // Không truyền questionsById: ở đây cố ý KHÔNG nạp nội dung đề (mỗi đề cả trăm KB,
+        // trang chủ có thể có nhiều đề). Lượt cũ thiếu wrongQuestionIds sẽ ra 0 và bị bỏ qua.
+        const pending = submitted.find((a) => pendingReviewIdsOf(a).length > 0);
 
         setSummary({
           loading: false,
@@ -84,7 +108,15 @@ export function useJlptSummary(): JlptSummary {
                 at: latest.submittedAt ?? 0,
               }
             : null,
+          pendingReview: pending
+            ? {
+                examId: pending.examId,
+                examTitle: titleOf(pending.examId),
+                pendingCount: pendingReviewIdsOf(pending).length,
+              }
+            : null,
           submittedCount: submitted.length,
+          mistakeCount: mistakes.length,
         });
       } catch {
         if (!cancelled) setSummary(EMPTY);

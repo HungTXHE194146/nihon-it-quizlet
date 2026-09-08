@@ -3,6 +3,7 @@ import { useProgress } from '../hooks/useProgress';
 import { itemByKey } from '../lib/itemIndex';
 import { isLeech, formatInterval, LEECH_THRESHOLD } from '../lib/srs';
 import { subjectMeta, n3ScopeMeta, N3_SCOPE } from '../data/subjectMeta';
+import { JlptMistakeList } from './jlpt/JlptMistakeList';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -12,22 +13,43 @@ import {
   BookOpen,
   Trash2,
   CheckCircle2,
+  Layers,
+  ClipboardList,
 } from 'lucide-react';
 
+export type MistakeTab = 'srs' | 'jlpt';
+
 interface MistakeNotebookProps {
+  /** Tab đang mở, do URL quyết định (`#/mistakes?tab=jlpt`) để còn dẫn thẳng từ nơi khác vào. */
+  tab: MistakeTab;
+  onChangeTab: (tab: MistakeTab) => void;
   onBackToHome: () => void;
   onStartReview: (subjectId: string) => void;
+  onOpenJlptExam: (examId: string) => void;
+  onOpenJlptImport: () => void;
+  onOpenJlptReview: () => void;
 }
 
 /**
- * Sổ tay câu sai gộp mọi môn.
+ * Sổ tay câu sai — một chỗ duy nhất cho "điểm yếu của tôi", chia hai tab vì hai loại câu sai
+ * có hình dạng dữ liệu khác hẳn nhau:
  *
- * Trước đây "học lại câu sai" chỉ tồn tại trong một phiên; ở đây mọi câu từng trả lời sai
- * đều được giữ lại kèm số lần sai, và thẻ sai từ 3 lần trở lên bị đánh dấu "leech".
+ * - Thẻ SRS (từ vựng/Kanji): có `subjectId`, có lịch ôn, học lại được theo hàng đợi.
+ * - Câu sai đề JLPT (`MistakeEntry`): gắn với một đề + một lượt làm bài, mang nguyên nhân do
+ *   người học tự phân loại và quy tắc họ tự viết — không có khái niệm "môn" để lọc chung.
+ *
+ * Gộp cứng hai loại vào một danh sách thì bộ lọc theo môn và nút "học lại" đều vô nghĩa với
+ * một nửa số dòng; tách thành hai màn hình riêng thì người học phải nhớ điểm yếu của mình
+ * nằm ở đâu. Tab là đường giữa.
  */
 export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
+  tab,
+  onChangeTab,
   onBackToHome,
   onStartReview,
+  onOpenJlptExam,
+  onOpenJlptImport,
+  onOpenJlptReview,
 }) => {
   const { data, buildMistakeQueue } = useProgress();
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
@@ -74,10 +96,17 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
     []
   );
 
+  const tabClass = (active: boolean) =>
+    `flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold border transition-all cursor-pointer ${
+      active
+        ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-100'
+        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+    }`;
+
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="relative text-center mb-8">
+      <div className="relative text-center mb-6">
         <button
           onClick={onBackToHome}
           className="sm:absolute left-0 top-1/2 sm:-translate-y-1/2 mb-4 sm:mb-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 text-xs font-extrabold shadow-sm transition-all cursor-pointer"
@@ -89,11 +118,27 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
           Sổ Tay Câu Sai
         </h1>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          Mọi câu bạn từng trả lời sai, gộp từ tất cả các môn
+          {tab === 'srs'
+            ? 'Mọi câu bạn từng trả lời sai, gộp từ tất cả các môn'
+            : 'Mọi câu sai đề JLPT bạn đã mổ xẻ, kèm quy tắc bạn tự rút ra'}
         </p>
       </div>
 
-      {rows.length === 0 ? (
+      {/* Chọn loại sổ tay */}
+      <div className="flex gap-2 mb-6 justify-center">
+        <button onClick={() => onChangeTab('srs')} className={tabClass(tab === 'srs')}>
+          <Layers size={15} />
+          Thẻ từ vựng &amp; Kanji
+        </button>
+        <button onClick={() => onChangeTab('jlpt')} className={tabClass(tab === 'jlpt')}>
+          <ClipboardList size={15} />
+          Câu sai đề JLPT
+        </button>
+      </div>
+
+      {tab === 'jlpt' ? (
+        <JlptMistakeList onOpenExam={onOpenJlptExam} onOpenImport={onOpenJlptImport} onOpenReview={onOpenJlptReview} />
+      ) : rows.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 size={28} />

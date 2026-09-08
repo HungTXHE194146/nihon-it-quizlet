@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Upload,
@@ -17,13 +17,16 @@ import {
   Play,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { jlptExamsApi } from '../../lib/api';
 import { MONDAI_TYPES, type JlptImportFile, type JlptLevel, type MondaiType } from '../../lib/jlpt/schema';
 import type { StoredJlptExam } from '../../lib/jlpt/schema';
 import { parseImportJSON, validateImportFile, asImportFile, type ValidationResult } from '../../lib/jlpt/validate';
 import { suggestLinkedItemKeys } from '../../lib/jlpt/linkSuggest';
 import { toStoredExam, toSyncPayload, fromSyncPayload, type JlptSyncPayload } from '../../lib/jlpt/convert';
-import { listStoredExams, putStoredExam, deleteStoredExam } from '../../lib/jlpt/db';
+import { listStoredExams, putStoredExam, deleteStoredExam, listAttempts } from '../../lib/jlpt/db';
+import { pendingReviewIdsOf } from '../../lib/jlpt/attemptLogic';
+import type { JlptAttempt } from '../../lib/jlpt/schema';
 import { buildAiPrompt } from '../../lib/jlpt/aiPrompt';
 
 const LEVELS: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -45,9 +48,13 @@ function downloadJSON(filename: string, data: unknown) {
 
 export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome, onStartExam }) => {
   const { authenticated } = useAuth();
+  const { ownerId, claimEpoch } = useJlptOwner();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [exams, setExams] = useState<StoredJlptExam[]>([]);
+  /** Lượt làm bài của chính người đang đăng nhập, gom theo mã đề — để mỗi dòng đề nói được
+   * "đang làm dở" / "còn N câu chưa mổ xẻ" / "đã xong", chứ không chỉ là một dòng tĩnh. */
+  const [attemptsByExam, setAttemptsByExam] = useState<Map<string, JlptAttempt[]>>(new Map());
   const [listBusy, setListBusy] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [syncNote, setSyncNote] = useState<string | null>(null);
@@ -74,6 +81,17 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
     setExams(list);
   };
 
+  const refreshAttempts = useCallback(async () => {
+    const all = await listAttempts(ownerId).catch(() => []);
+    const byExam = new Map<string, JlptAttempt[]>();
+    for (const a of all) {
+      const list = byExam.get(a.examId) ?? [];
+      list.push(a);
+      byExam.set(a.examId, list);
+    }
+    setAttemptsByExam(byExam);
+  }, [ownerId]);
+
   // Nạp danh sách đề: đọc IndexedDB cục bộ trước, rồi nếu đã đăng nhập thì đối chiếu với
   // server — đề nào bên server mới hơn (hoặc máy này chưa có) thì kéo về, để mở web ở máy
   // khác (đã đăng nhập) là thấy đề luôn, không phải nhập lại từng máy.
@@ -85,6 +103,7 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
       setListError(null);
       try {
         await refreshLocalList();
+        await refreshAttempts();
       } catch (e) {
         if (!cancelled) setListError((e as Error).message);
       }
@@ -117,7 +136,7 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
     return () => {
       cancelled = true;
     };
-  }, [authenticated]);
+  }, [authenticated, claimEpoch, refreshAttempts]);
 
   const runValidate = (text: string) => {
     setSaveMessage(null);
@@ -320,6 +339,21 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
               const incomplete = entry.questions.some((q) =>
                 q.choices.some((c) => !c.note || !c.note.trim())
               );
+
+              // Trạng thái làm bài của riêng người đang đăng nhập với đề này. Truyền
+              // questionsById để lượt cũ (nộp trước khi web chốt sẵn wrongQuestionIds) vẫn
+              // đếm được — ở màn này nội dung đề đã nằm sẵn trong tay, không tốn thêm gì.
+              const questionsById = new Map(entry.questions.map((q) => [q.id, q]));
+              const myAttempts = attemptsByExam.get(entry.exam.id) ?? [];
+              const running = myAttempts.find((a) => a.status === 'running');
+              const pending = myAttempts
+                .filter((a) => a.status !== 'running')
+                .map((a) => pendingReviewIdsOf(a, questionsById).length)
+                .find((n) => n > 0);
+              const lastDone = myAttempts
+                .filter((a) => a.status !== 'running' && a.submittedAt)
+                .sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0))[0];
+
               return (
                 <div
                   key={entry.exam.id}
@@ -345,6 +379,22 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
                           <AlertTriangle size={11} /> Chưa đầy đủ lời giải
                         </span>
                       )}
+
+                      {/* Việc còn dở với đề này — ưu tiên hiện thứ người học làm tiếp được */}
+                      {running ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5">
+                          <Play size={11} /> Đang làm dở
+                        </span>
+                      ) : pending ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full px-2 py-0.5">
+                          <AlertTriangle size={11} /> Còn {pending} câu chưa mổ xẻ
+                        </span>
+                      ) : lastDone ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                          <CheckCircle2 size={11} /> Đã mổ xẻ xong
+                          {lastDone.scorePercent !== undefined && ` · ${lastDone.scorePercent}%`}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">

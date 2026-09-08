@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { StudyItem } from '../data/lessons';
 import { RefreshCw, Check, X, HelpCircle, Eye, EyeOff, Volume2, CornerDownLeft } from 'lucide-react';
+import { renderFormattedText } from '../utils/formatText';
 import { speak, speakableText, ttsSupported, cancelSpeech } from '../lib/tts';
 import { matchesReading, isTypeableReading, romajiToHiragana } from '../lib/kana';
 
@@ -266,7 +267,7 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
                     <div className="mt-2 h-12 flex items-center justify-center">
                       {showHira ? (
                         <p className="text-slate-500 font-semibold text-sm md:text-base select-text flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/50 animate-fadeIn">
-                          <span>[{item.reading}]</span>
+                          <span>[{renderFormattedText(item.reading)}]</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -374,19 +375,19 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
                     {item.term}
                   </h3>
                   <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
-                    {item.reading && <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">[{item.reading}]</span>}
-                    <span>{item.meaning || item.answer}</span>
+                    {item.reading && <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">[{renderFormattedText(item.reading)}]</span>}
+                    <span>{renderFormattedText(item.meaning || item.answer || "")}</span>
                   </div>
                 </>
               ) : (
                 <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 leading-tight select-text">
-                  {item.meaning || item.answer}
+                  {renderFormattedText(item.meaning || item.answer || "")}
                 </h3>
               )}
               {item.explanation && (
-                <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left text-xs md:text-sm text-slate-500 max-w-md w-full select-text">
+                <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left text-xs md:text-sm text-slate-500 max-w-md w-full select-text whitespace-pre-line">
                   <span className="font-bold text-slate-700 block mb-0.5">Giải thích:</span>
-                  {item.explanation}
+                  {renderFormattedText(item.explanation)}
                 </div>
               )}
 
@@ -434,7 +435,7 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
                         </button>
                       </div>
                       <p className="font-medium whitespace-pre-line leading-relaxed text-slate-800">
-                        {item.example}
+                        {renderFormattedText(item.example)}
                       </p>
                     </div>
                   )}

@@ -51,7 +51,9 @@ export const subjectMeta: SubjectMeta[] = [
     gradient: 'from-emerald-600 to-teal-600',
     badge: 'Trọn bộ 12 Bài',
     totalLessons: 12,
-    totalItems: 1066,
+    // Cập nhật theo bộ từ vựng 880 từ (12 Unit, đúng giáo trình) — xem Nhật ký ticket sửa lỗi
+    // merge upstream 2026-09-08.
+    totalItems: 880,
     isAvailable: true,
     isFlashcardOnly: true,
   },
@@ -59,15 +61,32 @@ export const subjectMeta: SubjectMeta[] = [
     id: 'kanji-master-n3',
     track: 'n3',
     title: 'Kanji Master N3',
-    japaneseTitle: '漢字マスター N3 (Chương 3, 4, 5 & 6)',
+    japaneseTitle: '漢字マスター N3 (Chương 1 - 10)',
     description:
-      'Giáo trình Kanji Master N3 chuyên sâu. Luyện tập các chữ Kanji (âm Hán, số nét, cách đọc) và học từ vựng đi kèm bằng Flashcard sinh động.',
+      'Giáo trình Kanji Master N3 chuyên sâu, trọn bộ 10 chương. Luyện tập các chữ Kanji (âm Hán, số nét, cách đọc) và học từ vựng đi kèm bằng Flashcard sinh động.',
     category: 'Chữ Hán N3',
     icon: 'award',
     gradient: 'from-rose-600 to-red-600',
-    badge: 'Chương 3, 4, 5 & 6',
-    totalLessons: 30,
-    totalItems: 529,
+    badge: 'Chương 1 - 10',
+    // Cập nhật theo dữ liệu mở rộng thêm Chương 1, 2, 9, 10 (47 bài, đúng
+    // kanjiMasterN3Lessons.length) — xem Nhật ký ticket sửa lỗi merge upstream 2026-09-08.
+    totalLessons: 47,
+    totalItems: 846,
+    isAvailable: true,
+  },
+  {
+    id: 'try-n3',
+    track: 'n3',
+    title: 'TRY! N3 - Ngữ Pháp Tiếng Nhật',
+    japaneseTitle: 'TRY! 日本語能力試験 N3 文法から伸ばす日本語',
+    description:
+      'Giáo trình Ngữ pháp N3 kinh điển theo phương pháp ngữ cảnh (Chương 1: Lần đầu leo núi Phú Sĩ). Học mẫu câu, cấu trúc, ví dụ song ngữ và luyện bài tập trắc nghiệm củng cố.',
+    category: 'Ngữ pháp N3',
+    icon: 'languages',
+    gradient: 'from-blue-600 via-indigo-600 to-sky-600',
+    badge: 'Chương 1',
+    totalLessons: 1,
+    totalItems: 170,
     isAvailable: true,
   },
   {
@@ -98,6 +117,21 @@ export const subjectMeta: SubjectMeta[] = [
     badge: '6 Chương',
     totalLessons: 6,
     totalItems: 440,
+    isAvailable: true,
+  },
+  {
+    id: 'eng-grade9-hw',
+    track: 'it',
+    title: 'Tiếng Anh Lớp 9 - Bài Tập Về Nhà & Từ Vựng',
+    japaneseTitle: 'Grade 9 English Vocabulary & Homework',
+    description:
+      'Học từ vựng Tiếng Anh Lớp 9 linh hoạt theo 2 chế độ phân loại song song: Theo Chủ đề (Topic) và Theo Từ loại (Danh từ, Động từ, Tính từ,...). Tích hợp Flashcard và Bài tập Trắc nghiệm củng cố.',
+    category: 'Tiếng Anh Lớp 9',
+    icon: 'globe',
+    gradient: 'from-amber-500 via-orange-600 to-red-600',
+    badge: 'Lớp 9',
+    totalLessons: 12,
+    totalItems: 728,
     isAvailable: true,
   },
 ];

@@ -5,6 +5,7 @@ import { useProgress } from '../hooks/useProgress';
 import type { ExamResult } from '../hooks/useProgress';
 import { cardKey } from '../lib/itemIndex';
 import { readJSON, writeJSON, removeKey } from '../lib/storage';
+import { formatClock } from '../lib/format';
 import { useAuth } from '../hooks/useAuth';
 import {
   ArrowLeft,
@@ -59,16 +60,6 @@ function formatExamLabel(tag: string): string {
   const match = tag.match(/^de(\d+)$/);
   if (match) return `Đề ${match[1]}`;
   return tag.toUpperCase();
-}
-
-function formatClock(totalSec: number): string {
-  const s = Math.max(0, Math.floor(totalSec));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const mm = String(m).padStart(2, '0');
-  const ss = String(sec).padStart(2, '0');
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 export const ExamSession: React.FC<ExamSessionProps> = ({

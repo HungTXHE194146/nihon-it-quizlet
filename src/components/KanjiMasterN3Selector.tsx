@@ -38,30 +38,42 @@ export const KanjiMasterN3Selector: React.FC<KanjiMasterN3SelectorProps> = ({
   const [selectedChapter, setSelectedChapter] = useState<number | 'all'>('all');
 
   const CHAPTERS = [
+    { num: 1, name: 'Chương 1: Đời sống (生活)', badge: 'C1: Đời sống (Bài 1-5)', color: 'from-teal-500 to-emerald-500' },
+    { num: 2, name: 'Chương 2: Nhà cửa (家)', badge: 'C2: Nhà cửa (Bài 1-5)', color: 'from-amber-600 to-yellow-500' },
     { num: 3, name: 'Chương 3: Ẩm thực (料理)', badge: 'C3: Ẩm thực (Bài 1-5)', color: 'from-amber-500 to-orange-500' },
     { num: 4, name: 'Chương 4: Bệnh viện (病院)', badge: 'C4: Bệnh viện (Bài 6-10)', color: 'from-rose-500 to-pink-500' },
     { num: 5, name: 'Chương 5: Thể thao (スポーツ)', badge: 'C5: Thể thao (Bài 11-15)', color: 'from-emerald-500 to-teal-500' },
     { num: 6, name: 'Chương 6: Cảm xúc (感情)', badge: 'C6: Cảm xúc (Bài 16-20)', color: 'from-purple-500 to-indigo-500' },
     { num: 7, name: 'Chương 7: Kết hôn (結婚)', badge: 'C7: Kết hôn (Bài 21-25)', color: 'from-pink-500 to-rose-500' },
     { num: 8, name: 'Chương 8: Quan hệ (関係)', badge: 'C8: Quan hệ (Bài 26-30)', color: 'from-sky-500 to-blue-500' },
+    { num: 9, name: 'Chương 9: Đơn vị (単位)', badge: 'C9: Đơn vị (Bài 31-32)', color: 'from-indigo-500 to-cyan-500' },
+    { num: 10, name: 'Chương 10: Trường học (学校)', badge: 'C10: Trường học (Bài 33-37)', color: 'from-blue-500 to-indigo-500' },
   ];
 
   const getChapterInfo = (lessonId: number) => {
+    if (lessonId >= 101 && lessonId <= 105) return { num: 1, name: 'Đời sống (生活)', color: 'from-teal-500 to-emerald-500' };
+    if (lessonId >= 201 && lessonId <= 205) return { num: 2, name: 'Nhà cửa (家)', color: 'from-amber-600 to-yellow-500' };
     if (lessonId <= 5) return { num: 3, name: 'Ẩm thực (料理)', color: 'from-amber-500 to-orange-500' };
     if (lessonId <= 10) return { num: 4, name: 'Bệnh viện (病院)', color: 'from-rose-500 to-pink-500' };
     if (lessonId <= 15) return { num: 5, name: 'Thể thao (スポーツ)', color: 'from-emerald-500 to-teal-500' };
     if (lessonId <= 20) return { num: 6, name: 'Cảm xúc (感情)', color: 'from-purple-500 to-indigo-500' };
     if (lessonId <= 25) return { num: 7, name: 'Kết hôn (結婚)', color: 'from-pink-500 to-rose-500' };
-    return { num: 8, name: 'Quan hệ (関係)', color: 'from-sky-500 to-blue-500' };
+    if (lessonId <= 30) return { num: 8, name: 'Quan hệ (関係)', color: 'from-sky-500 to-blue-500' };
+    if (lessonId <= 32) return { num: 9, name: 'Đơn vị (単位)', color: 'from-indigo-500 to-cyan-500' };
+    return { num: 10, name: 'Trường học (学校)', color: 'from-blue-500 to-indigo-500' };
   };
 
   const getLessonNumInChapter = (lessonId: number) => {
+    if (lessonId >= 101 && lessonId <= 105) return lessonId - 100;
+    if (lessonId >= 201 && lessonId <= 205) return lessonId - 200;
     if (lessonId <= 5) return lessonId;
     if (lessonId <= 10) return lessonId - 5;
     if (lessonId <= 15) return lessonId - 10;
     if (lessonId <= 20) return lessonId - 15;
     if (lessonId <= 25) return lessonId - 20;
-    return lessonId - 25;
+    if (lessonId <= 30) return lessonId - 25;
+    if (lessonId <= 32) return lessonId - 30;
+    return lessonId - 32;
   };
 
   const handleToggleChapter = (chapterNum: number) => {

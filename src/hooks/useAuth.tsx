@@ -21,10 +21,10 @@ interface AuthContextValue {
   user: ApiUser | null;
   /** null = chưa biết; false = khách; true = đã đăng nhập. */
   authenticated: boolean | null;
-  /** Bản deploy này có cho tạo tài khoản mới không (server đã đặt mã mời chưa). */
-  signupOpen: boolean;
+  /** Bản deploy này có bắt nhập mã mời khi đăng ký không (mặc định: không, ai cũng tạo được). */
+  signupCodeRequired: boolean;
   login: (username: string, password: string) => Promise<AuthResult>;
-  register: (username: string, password: string, code: string) => Promise<AuthResult>;
+  register: (username: string, password: string, code?: string) => Promise<AuthResult>;
   /** Đổi mật khẩu của chính mình. Phải biết mật khẩu cũ — không có đường khôi phục. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
@@ -35,7 +35,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [ready, setReady] = useState(false);
-  const [signupOpen, setSignupOpen] = useState(false);
+  const [signupCodeRequired, setSignupCodeRequired] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((r) => {
         if (cancelled) return;
         setUser(r.user ?? null);
-        setSignupOpen(Boolean(r.signupOpen));
+        setSignupCodeRequired(Boolean(r.signupCodeRequired));
       })
       .catch(() => {
         // Không gọi được /api (offline, hoặc bản deploy chưa có API riêng) — coi như khách,
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const register = useCallback(async (username: string, password: string, code: string) => {
+  const register = useCallback(async (username: string, password: string, code?: string) => {
     try {
       const res = await authApi.register(username, password, code);
       setUser(res.user);
@@ -99,13 +99,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => ({
       user,
       authenticated: ready ? user !== null : null,
-      signupOpen,
+      signupCodeRequired,
       login,
       register,
       changePassword,
       logout,
     }),
-    [user, ready, signupOpen, login, register, changePassword, logout]
+    [user, ready, signupCodeRequired, login, register, changePassword, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
