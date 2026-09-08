@@ -9,8 +9,28 @@ import { PWAPrompt } from './components/PWAPrompt';
 import { useProgress } from './hooks/useProgress';
 import { useAuth } from './hooks/useAuth';
 import { useSubjectData } from './hooks/useSubjectData';
-import { FakePaywallModal } from './components/FakePaywallModal';
-import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
+import { GraduationCap, Github, ChevronRight, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
+
+// Các màn hình chỉ dùng ở một nhánh route được nạp động để nhẹ lần tải đầu.
+// Riêng KanjiMasterN3Selector còn kéo theo bảng chữ Kanji, càng nên tách riêng.
+const LessonSelector = lazy(() => import('./components/LessonSelector').then((m) => ({ default: m.LessonSelector })));
+const MimiN3Selector = lazy(() => import('./components/MimiN3Selector').then((m) => ({ default: m.MimiN3Selector })));
+const JFE301Selector = lazy(() => import('./components/JFE301Selector').then((m) => ({ default: m.JFE301Selector })));
+const KanjiMasterN3Selector = lazy(() => import('./components/KanjiMasterN3Selector').then((m) => ({ default: m.KanjiMasterN3Selector })));
+const EngGrade9Selector = lazy(() => import('./components/EngGrade9Selector').then((m) => ({ default: m.EngGrade9Selector })));
+const TryN3Selector = lazy(() => import('./components/TryN3Selector').then((m) => ({ default: m.TryN3Selector })));
+const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({ default: m.ExamSession })));
+const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
+const JlptImportScreen = lazy(() => import('./components/jlpt/JlptImportScreen').then((m) => ({ default: m.JlptImportScreen })));
+const JlptExamRunner = lazy(() => import('./components/jlpt/JlptExamRunner').then((m) => ({ default: m.JlptExamRunner })));
+const JlptReviewSession = lazy(() => import('./components/jlpt/JlptReviewSession').then((m) => ({ default: m.JlptReviewSession })));
+
+const ScreenLoader = () => (
+  <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
+    <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" />
+    <p className="text-sm font-bold text-slate-500">Đang tải dữ liệu bài học...</p>
+  </div>
+);
 
 function App() {
   const { route, navigate, goBack } = useHashRoute();
@@ -228,18 +248,6 @@ function App() {
               </span>
             )}
 
-            {/* VIP Status Button */}
-            <button
-              onClick={() => setIsPaywallOpen(true)}
-              className={`py-1.5 px-3 rounded-full text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${isVipUnlocked
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 shadow-amber-200 ring-2 ring-amber-300'
-                  : 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300 animate-pulse'
-                }`}
-            >
-              <Crown size={14} className={isVipUnlocked ? 'fill-amber-950' : 'text-amber-700'} />
-              <span>{isVipUnlocked ? 'VIP Pro Ultra Max' : 'Nâng cấp VIP (5k)'}</span>
-            </button>
-
             {/* Lối tắt vào sổ tay câu sai */}
             {mistakeCount > 0 && route.page !== 'mistakes' && (
               <button
@@ -354,32 +362,13 @@ function App() {
             onStartBySections={(sections) =>
               navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
             }
-          />
-        )}
-
-        {route.page === 'subject' && 
-          currentSubject.id !== 'mimi-n3-goi' && 
-          currentSubject.id !== 'jfe301' && 
-          currentSubject.id !== 'kanji-master-n3' && currentSubject.id !== 'eng-grade9-hw' && (
-          <LessonSelector
-            lessons={activeLessons}
-            selectedSectionIds={selectedSectionIds}
-            setSelectedSectionIds={setSelectedSectionIds}
-            onStartSession={startStudyRoute}
-            onViewTheory={(lessonId) =>
-              navigate(`/subject/${currentSubject.id}/theory/${lessonId}`)
-            }
-            onBackToHome={() => navigate('/')}
-          />
-        )}
-            }
             onBackToHome={() => navigate('/')}
           />
         )}
 
         {route.page === 'subject' && currentSubject.id === 'try-n3' && (
           <TryN3Selector
-            lessons={currentSubject.lessons}
+            lessons={activeLessons}
             onStartBySections={(sections) =>
               navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
             }
@@ -393,19 +382,19 @@ function App() {
           currentSubject.id !== 'kanji-master-n3' &&
           currentSubject.id !== 'eng-grade9-hw' &&
           currentSubject.id !== 'try-n3' && (
-            <LessonSelector
-              lessons={currentSubject.lessons}
-              selectedSectionIds={selectedSectionIds}
-              setSelectedSectionIds={setSelectedSectionIds}
-              onStartSession={handleStartSession}
-              onViewTheory={(lessonId) =>
-                navigate(`/subject/${currentSubject.id}/theory/${lessonId}`)
-              }
-              subjectTitle={currentSubject.title}
-              subjectJapaneseTitle={currentSubject.japaneseTitle}
-              onBackToHome={() => navigate('/')}
-            />
-          )}
+          <LessonSelector
+            lessons={activeLessons}
+            selectedSectionIds={selectedSectionIds}
+            setSelectedSectionIds={setSelectedSectionIds}
+            onStartSession={startStudyRoute}
+            onViewTheory={(lessonId) =>
+              navigate(`/subject/${currentSubject.id}/theory/${lessonId}`)
+            }
+            subjectTitle={currentSubject.title}
+            subjectJapaneseTitle={currentSubject.japaneseTitle}
+            onBackToHome={() => navigate('/')}
+          />
+        )}
 
         {route.page === 'theory' && (
           <TheoryViewer
