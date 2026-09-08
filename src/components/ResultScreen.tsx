@@ -1,6 +1,7 @@
 import React from 'react';
 import type { StudyItem } from '../data/lessons';
 import { Award, RotateCcw, AlertTriangle, CheckCircle2, XCircle, ChevronRight, BookOpen } from 'lucide-react';
+import { renderFormattedText } from '../utils/formatText';
 
 interface WrongAnswerRecord {
   item: StudyItem;
@@ -179,8 +180,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                   {item.explanation && (
                     <div className="flex items-start gap-2.5 pt-2 border-t border-slate-200/60">
                       <XCircle className="text-slate-400 shrink-0 mt-0.5" size={16} />
-                      <div className="text-xs text-slate-500 leading-relaxed">
-                        <span className="font-bold text-slate-600">Giải thích:</span> {item.explanation}
+                      <div className="text-xs text-slate-500 leading-relaxed whitespace-pre-line">
+                        <span className="font-bold text-slate-600">Giải thích:</span> {renderFormattedText(item.explanation)}
                       </div>
                     </div>
                   )}

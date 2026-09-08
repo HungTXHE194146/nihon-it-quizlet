@@ -7759,7 +7759,7 @@ export const lessons: Lesson[] = [
           {
             id: "l19-v-11",
             term: "プログラムの生成",
-            reading: "program の生成",
+            reading: "ぷろぐらむのせいせい",
             answer: "tạo ra chương trình",
             meaning: "tạo ra chương trình"
           },
