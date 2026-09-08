@@ -105,3 +105,5 @@ toàn bộ khối.
   đề, v.v.) mà một CTA duy nhất không thay được. Nhánh "có lỗi JLPT cần ôn" (ticket 005) chưa
   cắm vào `pickTodayAction` vì chưa có `isDue` cho câu hỏi JLPT — đã để lại comment rõ vị trí
   cần chèn.
+- 2026-09-08: Ticket 005 xong, đã cắm nhánh #3 ("có câu JLPT đến hạn ôn") đúng chỗ để trống ở
+  trên — nay `pickTodayAction` có đủ 6 nhánh, không còn nhánh nào bị bỏ qua vì thiếu dữ liệu.

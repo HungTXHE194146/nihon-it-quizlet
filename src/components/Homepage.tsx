@@ -32,6 +32,7 @@ import {
   ChevronDown,
   Timer,
   PartyPopper,
+  RotateCcw,
 } from 'lucide-react';
 
 interface HomepageProps {
@@ -43,6 +44,8 @@ interface HomepageProps {
   onOpenJlptMistakes: () => void;
   onOpenJlptImport: () => void;
   onOpenJlptExam: (examId: string) => void;
+  /** Ôn câu hỏi JLPT đến hạn (ticket 005) — nhánh "Hôm nay" #3. */
+  onOpenJlptReview: () => void;
 }
 
 const N3_SUBJECTS = subjectsOfTrack('n3');
@@ -70,8 +73,9 @@ export const Homepage: React.FC<HomepageProps> = ({
   onOpenJlptMistakes,
   onOpenJlptImport,
   onOpenJlptExam,
+  onOpenJlptReview,
 }) => {
-  const { data, statsFor, todayStat, exportData, importData, resetAll } = useProgress();
+  const { data, statsFor, todayStat, exportData, importData, resetAll, buildJlptReviewQueue } = useProgress();
   const jlpt = useJlptSummary();
   const [searchQuery, setSearchQuery] = useState('');
   const [showOthers, setShowOthers] = useState(false);
@@ -91,6 +95,7 @@ export const Homepage: React.FC<HomepageProps> = ({
    * hàng (ôn N3 / phòng thi JLPT) như trước — xem lib/todayAction.ts để biết thứ tự ưu tiên.
    */
   const firstExam = jlpt.exams[0];
+  const jlptReviewDue = useMemo(() => buildJlptReviewQueue().length, [buildJlptReviewQueue]);
   const todayAction = useMemo(
     () =>
       pickTodayAction(
@@ -98,10 +103,20 @@ export const Homepage: React.FC<HomepageProps> = ({
         {
           running: jlpt.running,
           pendingReview: jlpt.pendingReview,
+          reviewDueCount: jlptReviewDue,
           mostRecentExam: firstExam ? { examId: firstExam.id, examTitle: firstExam.title } : null,
         }
       ),
-    [n3Stats.due, n3Stats.newCards, isNewLearner, firstSessionSize, jlpt.running, jlpt.pendingReview, firstExam]
+    [
+      n3Stats.due,
+      n3Stats.newCards,
+      isNewLearner,
+      firstSessionSize,
+      jlpt.running,
+      jlpt.pendingReview,
+      jlptReviewDue,
+      firstExam,
+    ]
   );
 
   // Việc tồn đọng KHÔNG được chọn làm hành động chính vẫn phải hiện ra — chỉ nhỏ hơn, không
@@ -113,6 +128,12 @@ export const Homepage: React.FC<HomepageProps> = ({
     todaySecondary.push({
       label: `Còn ${pr.pendingCount} câu sai chưa mổ xẻ: ${pr.examTitle}`,
       onClick: () => onOpenJlptExam(pr.examId),
+    });
+  }
+  if (todayAction.kind !== 'jlpt-review-due' && jlptReviewDue > 0) {
+    todaySecondary.push({
+      label: `${jlptReviewDue} câu JLPT khác cũng đến hạn ôn`,
+      onClick: onOpenJlptReview,
     });
   }
   if (todayAction.kind !== 'n3-due' && n3Stats.due > 0) {
@@ -328,6 +349,7 @@ export const Homepage: React.FC<HomepageProps> = ({
           <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
             {todayAction.kind === 'jlpt-running' && <Timer className="w-7 h-7" />}
             {todayAction.kind === 'jlpt-pending-review' && <AlertTriangle className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-review-due' && <RotateCcw className="w-7 h-7" />}
             {todayAction.kind === 'n3-due' && <CalendarCheck className="w-7 h-7" />}
             {todayAction.kind === 'n3-new' && <Sparkles className="w-7 h-7" />}
             {todayAction.kind === 'jlpt-taste' && <Zap className="w-7 h-7" />}
@@ -340,6 +362,7 @@ export const Homepage: React.FC<HomepageProps> = ({
               {todayAction.kind === 'jlpt-running' && `Đang làm dở: ${todayAction.examTitle}`}
               {todayAction.kind === 'jlpt-pending-review' &&
                 `Còn ${todayAction.pendingCount} câu sai chưa mổ xẻ`}
+              {todayAction.kind === 'jlpt-review-due' && `${todayAction.count} câu JLPT đến hạn ôn`}
               {todayAction.kind === 'n3-due' && `${todayAction.count} thẻ N3 đến hạn ôn`}
               {todayAction.kind === 'n3-new' &&
                 (todayAction.isNewLearner ? 'Bắt đầu lộ trình N3' : `Học thêm ${todayAction.count} thẻ N3 mới`)}
@@ -351,6 +374,8 @@ export const Homepage: React.FC<HomepageProps> = ({
                 'Bài đang chờ giữa chừng — ngữ cảnh còn nguyên trong đầu, làm nốt trước khi phải đọc lại đề từ đầu.'}
               {todayAction.kind === 'jlpt-pending-review' &&
                 `Mổ xẻ "${todayAction.examTitle}" — đây là bước tạo ra học tập thật, "để sau" rất dễ thành "không bao giờ".`}
+              {todayAction.kind === 'jlpt-review-due' &&
+                'Những câu ngữ pháp/đọc hiểu/nghe bạn từng làm nay đã tới lúc ôn lại, đúng lúc sắp quên.'}
               {todayAction.kind === 'n3-due' &&
                 'Đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.'}
               {todayAction.kind === 'n3-new' &&
@@ -368,6 +393,7 @@ export const Homepage: React.FC<HomepageProps> = ({
             onClick={() => {
               if (todayAction.kind === 'jlpt-running') onOpenJlptExam(todayAction.examId);
               else if (todayAction.kind === 'jlpt-pending-review') onOpenJlptExam(todayAction.examId);
+              else if (todayAction.kind === 'jlpt-review-due') onOpenJlptReview();
               else if (todayAction.kind === 'n3-due') onStartReview(N3_SCOPE);
               else if (todayAction.kind === 'n3-new') onStartReview(N3_SCOPE);
               else if (todayAction.kind === 'jlpt-taste') onOpenJlptExam(todayAction.examId);
@@ -378,6 +404,7 @@ export const Homepage: React.FC<HomepageProps> = ({
             <Play size={16} fill="currentColor" />
             {todayAction.kind === 'jlpt-running' && 'Tiếp tục làm bài'}
             {todayAction.kind === 'jlpt-pending-review' && 'Mổ xẻ ngay'}
+            {todayAction.kind === 'jlpt-review-due' && 'Ôn ngay'}
             {todayAction.kind === 'n3-due' && 'Ôn N3 ngay'}
             {todayAction.kind === 'n3-new' && (todayAction.isNewLearner ? 'Bắt đầu' : 'Học thẻ mới')}
             {todayAction.kind === 'jlpt-taste' && 'Làm thử'}

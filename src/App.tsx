@@ -21,6 +21,7 @@ const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({
 const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
 const JlptImportScreen = lazy(() => import('./components/jlpt/JlptImportScreen').then((m) => ({ default: m.JlptImportScreen })));
 const JlptExamRunner = lazy(() => import('./components/jlpt/JlptExamRunner').then((m) => ({ default: m.JlptExamRunner })));
+const JlptReviewSession = lazy(() => import('./components/jlpt/JlptReviewSession').then((m) => ({ default: m.JlptReviewSession })));
 
 const ScreenLoader = () => (
   <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
@@ -311,6 +312,7 @@ function App() {
             onOpenJlptMistakes={() => navigate('/mistakes?tab=jlpt')}
             onOpenJlptImport={() => navigate('/jlpt/import')}
             onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
+            onOpenJlptReview={() => navigate('/jlpt/review')}
           />
         )}
 
@@ -416,6 +418,7 @@ function App() {
             }
             onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
             onOpenJlptImport={() => navigate('/jlpt/import')}
+            onOpenJlptReview={() => navigate('/jlpt/review')}
           />
         )}
 
@@ -426,6 +429,11 @@ function App() {
         {route.page === 'jlpt-exam' && !identityReady && <ScreenLoader />}
         {route.page === 'jlpt-exam' && identityReady && (
           <JlptExamRunner key={identityKey} examId={route.examId} onExit={() => navigate('/jlpt/import')} />
+        )}
+
+        {route.page === 'jlpt-review' && !identityReady && <ScreenLoader />}
+        {route.page === 'jlpt-review' && identityReady && (
+          <JlptReviewSession key={identityKey} onExit={() => navigate('/')} />
         )}
         </Suspense>
         )}

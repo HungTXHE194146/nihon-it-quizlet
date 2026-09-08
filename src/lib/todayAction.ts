@@ -13,8 +13,8 @@
  *    đầu, để càng lâu càng phải đọc lại đề từ đầu.
  * 2. Đã nộp bài nhưng còn câu chưa mổ xẻ — mổ xẻ mới là chỗ tạo ra học tập thật (nộp bài chỉ
  *    là lấy dữ liệu), càng để lâu càng quên bối cảnh lúc làm sai.
- * 3. (Chừa chỗ cho ticket 005 — thẻ SRS cho câu hỏi JLPT: khi đó chèn thêm một nhánh "có lỗi
- *    JLPT đến hạn ôn" vào giữa đây và nhánh N3, dùng `isDue` như thẻ thường.)
+ * 3. Có câu hỏi JLPT đến hạn ôn lại (ticket 005 — SRS riêng cho câu hỏi JLPT, không cần trùng
+ *    từ vựng với Mimi/Kanji Master).
  * 4. Có thẻ N3 (từ vựng/Kanji) đến hạn ôn — lịch ôn ngắt quãng đã tính sẵn, đây là việc "phải
  *    làm" gần nhất kể cả khi không có gì dở dang.
  * 5. Không có gì tồn đọng — gợi ý khởi động nhẹ: học thẻ N3 mới (người mới hoặc còn thẻ mới),
@@ -32,6 +32,12 @@ export interface N3TodayInput {
 export interface JlptTodayInput {
   running: { examId: string; examTitle: string } | null;
   pendingReview: { examId: string; examTitle: string; pendingCount: number } | null;
+  /**
+   * Số câu hỏi JLPT đã đến hạn ôn lại (khoá `jlpt::` trong `data.cards`, xem
+   * `useProgress().buildJlptReviewQueue()` — ticket 005). Trước ticket 005 nhánh này luôn
+   * bằng 0 (chưa có SRS riêng cho câu hỏi JLPT).
+   */
+  reviewDueCount: number;
   /** Đề gần cập nhật nhất trong kho — dùng làm gợi ý "nhấm nháp" khi không còn việc gì khác. */
   mostRecentExam: { examId: string; examTitle: string } | null;
 }
@@ -39,6 +45,7 @@ export interface JlptTodayInput {
 export type TodayAction =
   | { kind: 'jlpt-running'; examId: string; examTitle: string }
   | { kind: 'jlpt-pending-review'; examId: string; examTitle: string; pendingCount: number }
+  | { kind: 'jlpt-review-due'; count: number }
   | { kind: 'n3-due'; count: number }
   | { kind: 'n3-new'; count: number; isNewLearner: boolean }
   | { kind: 'jlpt-taste'; examId: string; examTitle: string }
@@ -55,6 +62,9 @@ export function pickTodayAction(n3: N3TodayInput, jlpt: JlptTodayInput): TodayAc
       examTitle: jlpt.pendingReview.examTitle,
       pendingCount: jlpt.pendingReview.pendingCount,
     };
+  }
+  if (jlpt.reviewDueCount > 0) {
+    return { kind: 'jlpt-review-due', count: jlpt.reviewDueCount };
   }
   if (n3.due > 0) {
     return { kind: 'n3-due', count: n3.due };

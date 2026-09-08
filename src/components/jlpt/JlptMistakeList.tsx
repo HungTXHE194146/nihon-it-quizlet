@@ -16,11 +16,15 @@ import { listMistakes, getStoredExam } from '../../lib/jlpt/db';
 import { countByCause, causeLabel, CONFIDENCE_LABELS } from '../../lib/jlpt/mistakeStats';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { useAuth } from '../../hooks/useAuth';
+import { useProgress } from '../../hooks/useProgress';
 import { StemText } from './StemText';
 
 interface JlptMistakeListProps {
   onOpenExam: (examId: string) => void;
   onOpenImport: () => void;
+  /** Ôn ngay các câu JLPT đến hạn (ticket 005) — chỗ tự nhiên nhất để nhắc, vì đây đã là màn
+   * "điểm yếu JLPT của tôi". */
+  onOpenReview: () => void;
 }
 
 /** Một mục sổ tay đã ghép được (hoặc không ghép được) với câu hỏi gốc trong đề. */
@@ -46,9 +50,29 @@ const CONFIDENCE_STYLE: Record<Confidence, string> = {
  * mình là ai (`authenticated !== null`) rồi mới đọc — đọc sớm sẽ ra sổ tay của "khách" rồi
  * nháy sang sổ tay thật.
  */
-export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, onOpenImport }) => {
+export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, onOpenImport, onOpenReview }) => {
   const { authenticated } = useAuth();
   const { ownerId, claimEpoch } = useJlptOwner();
+  const { buildJlptReviewQueue } = useProgress();
+  const reviewDueCount = useMemo(() => buildJlptReviewQueue().length, [buildJlptReviewQueue]);
+
+  // Câu hỏi JLPT vào lịch ôn ngay lúc nộp bài (không cần mổ xẻ), nên có thể có câu đến hạn dù
+  // sổ tay lỗi (chỉ chứa câu mổ xẻ) đang trống — banner này phải hiện độc lập với rows.length.
+  const reviewBanner =
+    reviewDueCount > 0 ? (
+      <button
+        onClick={onOpenReview}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-left hover:bg-indigo-100 transition-colors cursor-pointer mb-5"
+      >
+        <span className="flex items-center gap-2 text-sm font-bold text-indigo-900">
+          <RotateCcw className="w-4 h-4" />
+          {reviewDueCount} câu JLPT đã đến hạn ôn lại
+        </span>
+        <span className="text-xs font-extrabold text-indigo-700 flex items-center gap-1">
+          Ôn ngay <ArrowRight className="w-3.5 h-3.5" />
+        </span>
+      </button>
+    ) : null;
 
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -175,22 +199,25 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
 
   if (rows.length === 0) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-          <FileQuestion size={28} />
+      <>
+        {reviewBanner}
+        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <FileQuestion size={28} />
+          </div>
+          <h3 className="text-lg font-extrabold text-slate-800 mb-1">Chưa mổ xẻ câu nào</h3>
+          <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto leading-relaxed">
+            Sổ tay này chỉ đầy lên khi bạn làm một đề JLPT rồi mổ xẻ từng câu sai. Mỗi câu mổ xẻ
+            xong để lại ở đây: nguyên nhân sai và quy tắc bạn tự viết.
+          </p>
+          <button
+            onClick={onOpenImport}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
+          >
+            Tới phòng thi JLPT
+          </button>
         </div>
-        <h3 className="text-lg font-extrabold text-slate-800 mb-1">Chưa mổ xẻ câu nào</h3>
-        <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto leading-relaxed">
-          Sổ tay này chỉ đầy lên khi bạn làm một đề JLPT rồi mổ xẻ từng câu sai. Mỗi câu mổ xẻ xong
-          để lại ở đây: nguyên nhân sai và quy tắc bạn tự viết.
-        </p>
-        <button
-          onClick={onOpenImport}
-          className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
-        >
-          Tới phòng thi JLPT
-        </button>
-      </div>
+      </>
     );
   }
 
@@ -198,6 +225,8 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
 
   return (
     <>
+      {reviewBanner}
+
       {/* Thống kê nguyên nhân — thứ mà từng câu lẻ không nói được */}
       <div className="bg-white rounded-3xl border border-slate-200 p-5 mb-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">

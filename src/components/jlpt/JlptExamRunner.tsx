@@ -33,6 +33,7 @@ import {
   type AttemptScore,
 } from '../../lib/jlpt/attemptLogic';
 import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake } from '../../lib/jlpt/db';
+import { jlptCardKey } from '../../lib/jlpt/srsKey';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { CONFIDENCE_LABELS } from '../../lib/jlpt/mistakeStats';
 import { StemText } from './StemText';
@@ -262,16 +263,19 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   const submit = () => {
     if (!attempt || !stored) return;
-    // Áp tín hiệu SRS cho MỌI câu đã trả lời có nối được thẻ — làm ngay lúc nộp, không đợi
-    // mổ xẻ (có thể để sau), để lịch ôn không bị treo chỉ vì người học chưa quay lại mổ xẻ.
+    // Áp tín hiệu SRS cho MỌI câu đã trả lời — làm ngay lúc nộp, không đợi mổ xẻ (có thể để
+    // sau), để lịch ôn không bị treo chỉ vì người học chưa quay lại mổ xẻ.
     for (const qId of attempt.questionIds) {
       const q = questionsById.get(qId);
       const ans = attempt.answers[qId];
       if (!q || !ans || ans.chosenIndex === null) continue;
-      const key = linkedKeyFor(q);
-      if (!key) continue;
       const wasCorrect = ans.chosenIndex === q.answerIndex;
-      recordReview(key, srsSignalForMatrix(wasCorrect, ans.confidence));
+      const signal = srsSignalForMatrix(wasCorrect, ans.confidence);
+      // Chính câu hỏi luôn vào lịch ôn của nó, bất kể có nối được thẻ từ vựng hay không —
+      // phần lớn câu 文法/読解/聴解 của một đề thật không có từ vựng nào để nối (ticket 005).
+      recordReview(jlptCardKey(stored.exam.id, qId), signal);
+      const key = linkedKeyFor(q);
+      if (key) recordReview(key, signal);
     }
 
     const finalScore = scoreAttempt(attempt, questionsById);

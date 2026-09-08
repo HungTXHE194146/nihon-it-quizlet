@@ -27,6 +27,7 @@ interface MistakeNotebookProps {
   onStartReview: (subjectId: string) => void;
   onOpenJlptExam: (examId: string) => void;
   onOpenJlptImport: () => void;
+  onOpenJlptReview: () => void;
 }
 
 /**
@@ -48,6 +49,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
   onStartReview,
   onOpenJlptExam,
   onOpenJlptImport,
+  onOpenJlptReview,
 }) => {
   const { data, buildMistakeQueue } = useProgress();
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
@@ -135,7 +137,7 @@ export const MistakeNotebook: React.FC<MistakeNotebookProps> = ({
       </div>
 
       {tab === 'jlpt' ? (
-        <JlptMistakeList onOpenExam={onOpenJlptExam} onOpenImport={onOpenJlptImport} />
+        <JlptMistakeList onOpenExam={onOpenJlptExam} onOpenImport={onOpenJlptImport} onOpenReview={onOpenJlptReview} />
       ) : rows.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
