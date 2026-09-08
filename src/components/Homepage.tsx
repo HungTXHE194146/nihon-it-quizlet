@@ -401,6 +401,24 @@ export const Homepage: React.FC<HomepageProps> = ({
           </button>
         )}
 
+        {/* Nộp bài xong mà chưa mổ xẻ hết câu sai là việc dở dang quan trọng nhất: mổ xẻ mới
+            là chỗ tạo ra học tập thật, còn điểm số chỉ là dữ liệu chẩn đoán. Không nhắc ở đây
+            thì "để sau" sẽ thành "không bao giờ". */}
+        {jlpt.pendingReview && (
+          <button
+            onClick={() => onOpenJlptExam(jlpt.pendingReview!.examId)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-indigo-50 border border-indigo-200 text-left hover:bg-indigo-100 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-indigo-900">
+              <AlertTriangle className="w-4 h-4" />
+              Còn {jlpt.pendingReview.pendingCount} câu sai chưa mổ xẻ: {jlpt.pendingReview.examTitle}
+            </span>
+            <span className="text-xs font-extrabold text-indigo-700 flex items-center gap-1">
+              Mổ xẻ <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
         {jlpt.last && (
           <p className="text-xs font-semibold text-slate-500">
             Lần thi gần nhất: <span className="text-slate-800 font-bold">{jlpt.last.examTitle}</span>

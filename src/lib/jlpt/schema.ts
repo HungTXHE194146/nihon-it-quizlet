@@ -141,6 +141,15 @@ export interface JlptAttempt {
   ownerId?: string | null;
   /** % đúng lúc nộp bài, chốt sẵn để trang chủ khỏi phải nạp lại cả đề để tính điểm. */
   scorePercent?: number;
+  /**
+   * Các câu làm sai, chốt sẵn lúc nộp bài.
+   *
+   * Cùng lý do với `scorePercent`: biết "còn bao nhiêu câu chưa mổ xẻ" (hiệu số với
+   * `reviewedQuestionIds`) mà không phải nạp lại cả đề — trang chủ và danh sách đề cần con
+   * số này cho mọi đề cùng lúc. Lượt làm bài từ trước khi có trường này sẽ thiếu, khi đó
+   * phải tính lại bằng `scoreAttempt()` — xem `wrongIdsOf()` trong attemptLogic.ts.
+   */
+  wrongQuestionIds?: string[];
 }
 
 // ─── Sổ tay lỗi riêng cho JLPT (mục 6.2-6.4) ─────────────────────────

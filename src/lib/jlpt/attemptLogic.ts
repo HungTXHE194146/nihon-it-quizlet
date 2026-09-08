@@ -107,6 +107,46 @@ export function scoreAttempt(attempt: JlptAttempt, questionsById: Map<string, Jl
   };
 }
 
+// ─── Tiến độ mổ xẻ của một lượt làm bài ──────────────────────────────
+
+/**
+ * Các câu đã làm sai của một lượt.
+ *
+ * Ưu tiên bản đã chốt sẵn lúc nộp (`attempt.wrongQuestionIds`) để nơi gọi không cần cầm theo
+ * nội dung đề — trang chủ và danh sách đề cần con số này cho nhiều đề cùng lúc, nạp cả đề chỉ
+ * để đếm câu sai thì quá đắt. Lượt làm bài cũ (nộp trước khi có trường đó) thì tính lại từ đề,
+ * nên vẫn nhận `questionsById` làm tham số tuỳ chọn.
+ *
+ * Trả về mảng rỗng khi không đủ dữ liệu để biết — nơi gọi tự quyết định coi đó là "chưa rõ"
+ * hay "không có câu sai nào".
+ */
+export function wrongIdsOf(
+  attempt: JlptAttempt,
+  questionsById?: Map<string, JlptQuestion>
+): string[] {
+  if (attempt.wrongQuestionIds) return attempt.wrongQuestionIds;
+  if (!questionsById) return [];
+  return scoreAttempt(attempt, questionsById).wrongQuestionIds;
+}
+
+/** Câu sai còn CHƯA mổ xẻ. Đây là "việc dở dang" mà trang chủ phải nhắc (mục 4.3, 5.3.1). */
+export function pendingReviewIdsOf(
+  attempt: JlptAttempt,
+  questionsById?: Map<string, JlptQuestion>
+): string[] {
+  const done = new Set(attempt.reviewedQuestionIds);
+  return wrongIdsOf(attempt, questionsById).filter((id) => !done.has(id));
+}
+
+/** Lượt đã nộp và đã mổ xẻ hết câu sai chưa? Lượt đang làm dở (`running`) luôn là chưa. */
+export function isFullyReviewed(
+  attempt: JlptAttempt,
+  questionsById?: Map<string, JlptQuestion>
+): boolean {
+  if (attempt.status === 'running') return false;
+  return pendingReviewIdsOf(attempt, questionsById).length === 0;
+}
+
 /**
  * Góc dưới-phải của ma trận mục 6.3 ("Đúng + Đoán") là dương tính giả — nguy hiểm nhất, vì hệ
  * thống sẽ tưởng người học đã biết. `recordReview()` hiện có chỉ nhận đúng/sai nhị phân, nên áp

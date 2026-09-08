@@ -1,7 +1,7 @@
 # 002 — Lịch sử làm bài JLPT: xem lại, tiếp tục mổ xẻ dở
 
 - **Ưu tiên:** P0
-- **Trạng thái:** Chưa bắt đầu
+- **Trạng thái:** Xong
 - **Phụ thuộc:** —
 
 ## Bối cảnh
@@ -48,14 +48,13 @@ hoặc bỏ dở vĩnh viễn.
 
 ## Tiêu chí hoàn thành
 
-- [ ] Bấm "Để sau" ở màn kết quả rồi quay lại đúng đề đó → có đường vào lại mổ xẻ nốt các câu
+- [x] Bấm "Để sau" ở màn kết quả rồi quay lại đúng đề đó → có đường vào lại mổ xẻ nốt các câu
       còn thiếu, không phải làm lại từ đầu.
-- [ ] Thoát giữa chừng lúc đang mổ xẻ (ví dụ mổ xẻ xong 5/12 câu) → mở lại đúng đề → tiếp tục
+- [x] Thoát giữa chừng lúc đang mổ xẻ (ví dụ mổ xẻ xong 5/12 câu) → mở lại đúng đề → tiếp tục
       từ câu thứ 6, không lặp lại 5 câu đã xong.
-- [ ] Đề đã mổ xẻ xong hết vẫn xem lại được kết quả (chỉ đọc).
-- [ ] Không có console error / crash khi `stored` hoặc `questionsById` chưa sẵn sàng lúc dựng
-      lại `score` từ một attempt cũ (cần `useMemo`/effect tính lại `score` từ attempt đã lưu,
-      không chỉ từ state `score` vốn chỉ được set ngay sau khi vừa `submit()`).
+- [x] Đề đã mổ xẻ xong hết vẫn xem lại được kết quả (chỉ đọc).
+- [x] Không có console error / crash khi `stored` hoặc `questionsById` chưa sẵn sàng lúc dựng
+      lại `score` từ một attempt cũ.
 
 ## File / vùng code liên quan
 
@@ -70,3 +69,32 @@ hoặc bỏ dở vĩnh viễn.
 ## Nhật ký
 
 - 2026-09-07: Ticket tạo từ buổi audit UX luồng JLPT. Chưa có ai bắt đầu.
+- 2026-09-08: **Làm xong toàn bộ mục 1-3.** Chi tiết:
+  - `JlptAttempt` có thêm `wrongQuestionIds` (chốt lúc nộp, cùng lý do với `scorePercent`):
+    nhờ đó đếm được "còn bao nhiêu câu chưa mổ xẻ" mà không phải nạp nội dung đề — trang chủ
+    và danh sách đề cần con số này cho nhiều đề cùng lúc.
+  - `attemptLogic.ts` có 3 hàm thuần dùng chung: `wrongIdsOf`, `pendingReviewIdsOf`,
+    `isFullyReviewed` (đều nhận `questionsById` tuỳ chọn để lượt cũ thiếu `wrongQuestionIds`
+    vẫn tính lại được).
+  - `finishOneReview()` ghi `reviewedQuestionIds` **tăng dần** sau mỗi câu; `finishAttempt()`
+    chỉ đánh dấu `reviewed` khi thật sự không còn câu nào chờ (trước đây ghi đè cả loạt, nói
+    dối là đã mổ xẻ hết).
+  - `JlptExamRunner` giữ **cả danh sách** lượt làm bài của đề (`attempts`) thay vì chỉ
+    running + last; sảnh có 3 lối vào tách bạch: làm tiếp bài dở / mổ xẻ nốt N câu / xem lại
+    kết quả lần trước. `openResults()` dựng lại `score` từ lượt đã lưu bằng `scoreAttempt`.
+  - Hàng đợi mổ xẻ (`reviewQueue`) chốt một lần lúc bắt đầu và **chỉ chứa câu chưa mổ xẻ** —
+    quay lại lần sau đếm "1/2" chứ không phải "10/12".
+  - Màn kết quả: so sánh với đúng lượt **liền trước lượt đang xem** (trước đây luôn lấy lượt
+    gần nhất, nên mở lại chính nó sẽ ra "lần trước 72% → lần này 72%"); có cờ
+    `resultsAreRevisit` để đổi lời chào khi xem lại bài cũ.
+  - Trang chủ (`useJlptSummary` + `Homepage`) nhắc "Còn N câu sai chưa mổ xẻ"; danh sách đề
+    (`JlptImportScreen`) có badge "Đang làm dở" / "Còn N câu chưa mổ xẻ" / "Đã mổ xẻ xong".
+  - **Mục 4 (màn lịch sử liệt kê MỌI lượt của MỌI đề) cố ý chưa làm** — mọi việc người học
+    làm tiếp được đều đã nổi lên ở trang chủ + sảnh từng đề, một màn danh sách nữa sẽ trùng
+    lặp. Nếu sau này muốn xem tiến bộ theo thời gian (biểu đồ điểm qua các lần) thì mở ticket
+    riêng, đừng nhét vào đây.
+  - Kiểm chứng bằng trình duyệt thật (Playwright, hai kịch bản đầy đủ): nộp bài → "Để sau" →
+    trang chủ + danh sách đề đều nhắc → vào lại mổ xẻ 1/3 câu → bỏ ngang → còn đúng 2 câu và
+    tiếp tục từ **câu số 2** (không lặp câu 1) → mổ xẻ nốt → trạng thái trong IndexedDB thành
+    `reviewed(2/2)` → sảnh chuyển sang "Xem lại kết quả lần trước", màn kết quả chỉ còn nút
+    "Xong", trang chủ thôi nhắc.

@@ -30,7 +30,7 @@ không cần đọc lại toàn bộ lịch sử hội thoại.
 | # | Ticket | Ưu tiên | Trạng thái | Phụ thuộc |
 |---|---|---|---|---|
 | [001](001-kho-de-jlpt-dang-file.md) | Kho đề JLPT dạng file trong repo (backup + nguồn thật) | P0 | Xong | — |
-| [002](002-lich-su-lam-bai-jlpt.md) | Lịch sử làm bài JLPT: xem lại, tiếp tục mổ xẻ dở | P0 | Chưa bắt đầu | — |
+| [002](002-lich-su-lam-bai-jlpt.md) | Lịch sử làm bài JLPT: xem lại, tiếp tục mổ xẻ dở | P0 | Xong | — |
 | [003](003-so-tay-loi-jlpt-hien-thi.md) | Sổ tay lỗi JLPT: hiển thị được, gộp với sổ tay câu sai | P0 | Chưa bắt đầu | — |
 | [004](004-man-hom-nay.md) | Màn "Hôm nay": một CTA duy nhất mỗi ngày | P0 | Chưa bắt đầu | 002, 003 |
 | [005](005-the-srs-cho-cau-hoi-jlpt.md) | Thẻ SRS cho chính câu hỏi JLPT (không cần linkedItemKey) | P1 | Chưa bắt đầu | — |

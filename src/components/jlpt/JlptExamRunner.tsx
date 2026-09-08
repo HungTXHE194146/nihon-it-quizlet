@@ -27,6 +27,8 @@ import {
   createAttempt,
   scoreAttempt,
   srsSignalForMatrix,
+  wrongIdsOf,
+  pendingReviewIdsOf,
   SECTION_LABELS,
   type AttemptScore,
 } from '../../lib/jlpt/attemptLogic';
@@ -71,8 +73,15 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   const [view, setView] = useState<View>('loading');
   const [stored, setStored] = useState<StoredJlptExam | null>(null);
-  const [resumableAttempt, setResumableAttempt] = useState<JlptAttempt | null>(null);
-  const [previousAttempt, setPreviousAttempt] = useState<JlptAttempt | null>(null);
+  /**
+   * MỌI lượt làm bài của đề này (của riêng người đang đăng nhập), mới nhất trước.
+   *
+   * Giữ cả danh sách chứ không chỉ "lượt đang dở" + "lượt gần nhất" như trước: sảnh cần phân
+   * biệt được ba việc khác nhau (làm tiếp bài dở / mổ xẻ nốt bài đã nộp / xem lại kết quả cũ),
+   * và màn kết quả cần tìm đúng lượt LIỀN TRƯỚC lượt đang xem để so sánh — không phải lúc nào
+   * cũng là lượt gần nhất.
+   */
+  const [attempts, setAttempts] = useState<JlptAttempt[]>([]);
 
   const [mode, setMode] = useState<AttemptMode>('taste');
   const [blockId, setBlockId] = useState<string | undefined>(undefined);
@@ -85,7 +94,17 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const [submitConfirm, setSubmitConfirm] = useState(false);
 
   const [score, setScore] = useState<AttemptScore | null>(null);
+  /** Màn kết quả đang mở lại một lượt cũ (từ sảnh) hay vừa nộp bài xong? Lời chào khác nhau. */
+  const [resultsAreRevisit, setResultsAreRevisit] = useState(false);
 
+  /**
+   * Danh sách câu sai của LƯỢT MỔ XẺ hiện tại, chốt một lần lúc bắt đầu mổ xẻ.
+   *
+   * Không tính lại theo `attempt.reviewedQuestionIds` ở mỗi lần render: mỗi câu mổ xẻ xong sẽ
+   * bị loại khỏi danh sách "còn phải mổ xẻ", làm cả mảng dồn lên một ô và `reviewIndex` nhảy
+   * cóc qua câu kế tiếp.
+   */
+  const [reviewQueue, setReviewQueue] = useState<string[]>([]);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewStep, setReviewStep] = useState<1 | 2 | 3 | 4>(1);
   const [reattemptIndex, setReattemptIndex] = useState<number | null>(null);
@@ -108,14 +127,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         return;
       }
       setStored(entry);
-      const attempts = await listAttempts(ownerId).catch(() => []);
-      const forThisExam = attempts.filter((a) => a.examId === examId);
-      const running = forThisExam.find((a) => a.status === 'running') ?? null;
-      const lastSubmitted = forThisExam
-        .filter((a) => a.status !== 'running' && a.submittedAt)
-        .sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0))[0];
-      setResumableAttempt(running);
-      setPreviousAttempt(lastSubmitted ?? null);
+      const all = await listAttempts(ownerId).catch(() => []);
+      const forThisExam = all
+        .filter((a) => a.examId === examId)
+        // Mới nhất trước; lượt đang làm dở chưa có submittedAt nên xếp theo startedAt.
+        .sort((a, b) => (b.submittedAt ?? b.startedAt) - (a.submittedAt ?? a.startedAt));
+      setAttempts(forThisExam);
       setView('lobby');
     })();
     return () => {
@@ -145,8 +162,30 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   const answeredCount = attempt ? Object.values(attempt.answers).filter((a) => a.chosenIndex !== null).length : 0;
 
+  // ─── Các lượt làm bài cũ, phân theo việc người học có thể làm tiếp với chúng ─────
+
+  /** Bài đang làm dở — làm tiếp được. */
+  const runningAttempt = attempts.find((a) => a.status === 'running') ?? null;
+
+  /** Bài đã nộp nhưng còn câu sai chưa mổ xẻ — đây là "việc dở dang" quan trọng nhất. */
+  const pendingReviewAttempt =
+    attempts.find(
+      (a) => a.status !== 'running' && pendingReviewIdsOf(a, questionsById).length > 0
+    ) ?? null;
+
+  /** Bài đã nộp gần nhất (dù đã mổ xẻ xong hay chưa) — để xem lại kết quả. */
+  const lastSubmittedAttempt = attempts.find((a) => a.status !== 'running' && a.submittedAt) ?? null;
+
   const persistAttempt = (next: JlptAttempt) => {
     setAttempt(next);
+    // Giữ danh sách lượt làm bài khớp với bản vừa ghi, để sảnh và màn kết quả không hiện
+    // thông tin cũ sau khi nộp bài / mổ xẻ xong.
+    setAttempts((prev) => {
+      const rest = prev.filter((a) => a.id !== next.id);
+      return [next, ...rest].sort(
+        (a, b) => (b.submittedAt ?? b.startedAt) - (a.submittedAt ?? a.startedAt)
+      );
+    });
     putAttempt(next, ownerId).catch(() => {
       // Lưu IndexedDB thất bại (hiếm, hết dung lượng) — bài vẫn tiếp tục được trong bộ nhớ
       // của phiên này; không chặn người học đang làm dở, nhưng không giấu người dùng khỏi
@@ -165,10 +204,24 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   };
 
   const resume = () => {
-    if (!resumableAttempt) return;
-    setAttempt(resumableAttempt);
+    if (!runningAttempt) return;
+    setAttempt(runningAttempt);
     setQIndex(0);
     setView('taking');
+  };
+
+  /**
+   * Mở lại màn kết quả của một lượt đã nộp trước đó.
+   *
+   * Trước đây chỉ vào được màn kết quả ngay sau khi bấm Nộp bài — rời đi là mất luôn đường
+   * quay lại mổ xẻ (đúng cái bẫy "để sau = không bao giờ" mà mục 5.3.1 của tài liệu thiết kế
+   * cảnh báo). `score` được tính lại từ chính lượt đã lưu nên không cần state cũ còn sống.
+   */
+  const openResults = (a: JlptAttempt) => {
+    setAttempt(a);
+    setScore(scoreAttempt(a, questionsById));
+    setResultsAreRevisit(true);
+    setView('results');
   };
 
   const setAnswer = (chosenIndex: number) => {
@@ -245,9 +298,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         finalScore.totalQuestions > 0
           ? Math.round((finalScore.totalCorrect / finalScore.totalQuestions) * 100)
           : 0,
+      // Cùng lý do: danh sách câu sai cho phép đếm "còn bao nhiêu câu chưa mổ xẻ" ở trang chủ
+      // và danh sách đề mà không phải mở đề ra.
+      wrongQuestionIds: finalScore.wrongQuestionIds,
     };
     persistAttempt(submitted);
     setScore(finalScore);
+    setResultsAreRevisit(false);
     setView('results');
   };
 
@@ -258,8 +315,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   // ─── Mổ xẻ (review) ──────────────────────────────────────────────
 
+  /** Câu sai còn phải mổ xẻ của lượt đang xem — bỏ qua những câu đã mổ xẻ ở lần trước. */
+  const pendingReviewIds = attempt ? pendingReviewIdsOf(attempt, questionsById) : [];
+
   const startReview = () => {
-    if (!score) return;
+    if (!attempt || pendingReviewIds.length === 0) return;
+    setReviewQueue(pendingReviewIds);
     setReviewIndex(0);
     setReviewStep(1);
     setReattemptIndex(null);
@@ -270,7 +331,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   };
 
   const currentWrongQuestion: JlptQuestion | null =
-    score && score.wrongQuestionIds[reviewIndex] ? questionsById.get(score.wrongQuestionIds[reviewIndex]) ?? null : null;
+    reviewQueue[reviewIndex] ? questionsById.get(reviewQueue[reviewIndex]) ?? null : null;
 
   const finishOneReview = async () => {
     if (!attempt || !stored || !currentWrongQuestion) return;
@@ -291,8 +352,19 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       srsKey: key ?? undefined,
     }, ownerId).catch(() => {});
 
+    // Ghi nhận NGAY câu vừa mổ xẻ xong, không đợi hết cả loạt: bỏ dở giữa chừng (đóng tab,
+    // bấm back) thì lần sau vẫn tiếp tục đúng chỗ thay vì phải mổ xẻ lại từ câu đầu.
+    const reviewedId = currentWrongQuestion.id;
+    const alreadyReviewed = attempt.reviewedQuestionIds.includes(reviewedId);
+    persistAttempt({
+      ...attempt,
+      reviewedQuestionIds: alreadyReviewed
+        ? attempt.reviewedQuestionIds
+        : [...attempt.reviewedQuestionIds, reviewedId],
+    });
+
     const nextIndex = reviewIndex + 1;
-    if (score && nextIndex < score.wrongQuestionIds.length) {
+    if (nextIndex < reviewQueue.length) {
       setReviewIndex(nextIndex);
       setReviewStep(1);
       setReattemptIndex(null);
@@ -300,8 +372,8 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       setMyRule('');
       setMyExample('');
     } else {
-      // Bước 7: mini-quiz với tối đa 5 câu vừa mổ xẻ.
-      const ids = (score?.wrongQuestionIds ?? []).slice(0, 5);
+      // Bước 7: mini-quiz với tối đa 5 câu vừa mổ xẻ trong lượt này.
+      const ids = reviewQueue.slice(0, 5);
       if (ids.length > 0) {
         setMiniQuizIds(ids);
         setMiniIndex(0);
@@ -315,13 +387,21 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   };
 
   const finishAttempt = () => {
-    if (attempt && score) {
-      const reviewed: JlptAttempt = {
-        ...attempt,
-        status: 'reviewed',
-        reviewedQuestionIds: score.wrongQuestionIds,
-      };
-      persistAttempt(reviewed);
+    if (attempt) {
+      // Chỉ đánh dấu 'reviewed' khi thật sự không còn câu nào chờ mổ xẻ. Câu vừa mổ xẻ trong
+      // lượt này đã được ghi vào reviewedQuestionIds ở finishOneReview, nên chỉ cần đối chiếu
+      // lại với danh sách câu sai — không ghi đè bằng cả loạt như trước (sẽ nói dối là đã mổ
+      // xẻ hết trong khi người học mới làm một phần).
+      const stillPending = pendingReviewIdsOf(attempt, questionsById).filter(
+        (id) => !reviewQueue.slice(0, reviewIndex + 1).includes(id)
+      );
+      if (stillPending.length === 0 && attempt.status !== 'reviewed') {
+        persistAttempt({
+          ...attempt,
+          status: 'reviewed',
+          reviewedQuestionIds: wrongIdsOf(attempt, questionsById),
+        });
+      }
     }
     setView('done');
   };
@@ -396,12 +476,33 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           hổng chỗ nào.
         </div>
 
-        {resumableAttempt && (
+        {runningAttempt && (
           <button
             onClick={resume}
             className="w-full mb-4 py-3.5 rounded-2xl bg-amber-500 text-white font-black text-sm shadow-md hover:bg-amber-600 active:scale-95 transition-all cursor-pointer"
           >
-            Tiếp tục bài đang làm dở ({Object.values(resumableAttempt.answers).filter((a) => a.chosenIndex !== null).length}/{resumableAttempt.questionIds.length} câu)
+            Tiếp tục bài đang làm dở ({Object.values(runningAttempt.answers).filter((a) => a.chosenIndex !== null).length}/{runningAttempt.questionIds.length} câu)
+          </button>
+        )}
+
+        {/* Việc dở dang quan trọng nhất: đã nộp bài nhưng chưa mổ xẻ hết câu sai. Đặt trên
+            phần chọn cỡ phiên vì mổ xẻ câu đã sai có giá trị hơn làm thêm một lượt mới. */}
+        {pendingReviewAttempt && (
+          <button
+            onClick={() => openResults(pendingReviewAttempt)}
+            className="w-full mb-4 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+          >
+            Mổ xẻ nốt {pendingReviewIdsOf(pendingReviewAttempt, questionsById).length} câu sai của lần trước →
+          </button>
+        )}
+
+        {lastSubmittedAttempt && lastSubmittedAttempt.id !== pendingReviewAttempt?.id && (
+          <button
+            onClick={() => openResults(lastSubmittedAttempt)}
+            className="w-full mb-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+          >
+            Xem lại kết quả lần trước
+            {lastSubmittedAttempt.scorePercent !== undefined && ` (${lastSubmittedAttempt.scorePercent}%)`}
           </button>
         )}
 
@@ -676,15 +777,27 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'results' && attempt && score) {
     const elapsedMin = formatMinutes((attempt.submittedAt ?? Date.now()) - attempt.startedAt);
     const percent = score.totalQuestions > 0 ? Math.round((score.totalCorrect / score.totalQuestions) * 100) : 0;
+    // Lượt LIỀN TRƯỚC lượt đang xem — không phải lượt gần nhất, vì màn này còn dùng để xem
+    // lại một lượt cũ (khi đó "lần trước" phải là lượt cũ hơn nữa, không phải chính nó).
+    const previousAttempt =
+      attempts.find(
+        (a) => a.id !== attempt.id && a.submittedAt && a.submittedAt < (attempt.submittedAt ?? 0)
+      ) ?? null;
     const prevScore = previousAttempt ? scoreAttempt(previousAttempt, questionsById) : null;
     const prevPercent = prevScore && prevScore.totalQuestions > 0 ? Math.round((prevScore.totalCorrect / prevScore.totalQuestions) * 100) : null;
 
     return (
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
         <div className="text-center mb-6">
-          <p className="text-sm font-bold text-slate-500">
-            Bạn vừa hoàn thành {elapsedMin} phút làm bài. Đó là một buổi luyện tập nghiêm túc.
-          </p>
+          {resultsAreRevisit ? (
+            <p className="text-sm font-bold text-slate-500">
+              Bài đã nộp {new Date(attempt.submittedAt ?? 0).toLocaleDateString('vi-VN')} · làm trong {elapsedMin} phút.
+            </p>
+          ) : (
+            <p className="text-sm font-bold text-slate-500">
+              Bạn vừa hoàn thành {elapsedMin} phút làm bài. Đó là một buổi luyện tập nghiêm túc.
+            </p>
+          )}
         </div>
 
         {prevPercent !== null && (
@@ -754,25 +867,34 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
         <div className="text-center mb-6">
           <p className="text-lg font-black text-slate-800">
-            {score.wrongQuestionIds.length > 0
-              ? `${score.wrongQuestionIds.length} câu sai = ${score.wrongQuestionIds.length} cơ hội tìm ra lỗ hổng.`
+            {pendingReviewIds.length > 0
+              ? `${pendingReviewIds.length} câu sai = ${pendingReviewIds.length} cơ hội tìm ra lỗ hổng.`
+              : score.wrongQuestionIds.length > 0
+              ? 'Đã mổ xẻ xong toàn bộ câu sai của bài này.'
               : 'Không sai câu nào — thử một đề khó hơn xem sao!'}
           </p>
+          {/* Đã mổ xẻ được một phần rồi mới quay lại: nói rõ đã làm tới đâu, để không tưởng
+              là phải bắt đầu lại từ câu đầu. */}
+          {pendingReviewIds.length > 0 && attempt.reviewedQuestionIds.length > 0 && (
+            <p className="text-xs font-bold text-slate-400 mt-1">
+              (đã mổ xẻ {attempt.reviewedQuestionIds.length}/{score.wrongQuestionIds.length} câu ở lần trước)
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">
-          {score.wrongQuestionIds.length > 0 ? (
+          {pendingReviewIds.length > 0 ? (
             <button onClick={startReview} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-base shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer">
-              Bắt đầu mổ xẻ {score.wrongQuestionIds.length} câu →
+              {attempt.reviewedQuestionIds.length > 0 ? 'Mổ xẻ nốt' : 'Bắt đầu mổ xẻ'} {pendingReviewIds.length} câu →
             </button>
           ) : (
             <button onClick={finishAttempt} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-base shadow-lg cursor-pointer">
               Xong
             </button>
           )}
-          {score.wrongQuestionIds.length > 0 && (
+          {pendingReviewIds.length > 0 && (
             <button onClick={onExit} className="text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer">
-              Để sau
+              Để sau — bài này vẫn chờ bạn ở danh sách đề
             </button>
           )}
         </div>
@@ -781,12 +903,14 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   }
 
   // ─ Review (mổ xẻ 7 bước) ─
-  if (view === 'review' && currentWrongQuestion && score) {
+  if (view === 'review' && currentWrongQuestion) {
     const answer = attempt?.answers[currentWrongQuestion.id];
     return (
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
+        {/* Đếm theo hàng đợi của LƯỢT MỔ XẺ NÀY, không theo tổng số câu sai: quay lại mổ xẻ
+            nốt 3 câu còn thiếu thì phải là "1/3", không phải "10/12". */}
         <p className="text-xs font-extrabold text-slate-400 mb-4 text-center">
-          Mổ xẻ câu {reviewIndex + 1}/{score.wrongQuestionIds.length}
+          Mổ xẻ câu {reviewIndex + 1}/{reviewQueue.length}
         </p>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">

@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { listStoredExams, listAttempts } from '../lib/jlpt/db';
+import { pendingReviewIdsOf } from '../lib/jlpt/attemptLogic';
 import { useJlptOwner } from './useJlptOwner';
 
 export interface JlptExamBrief {
@@ -27,6 +28,15 @@ export interface JlptSummary {
   running: { attemptId: string; examId: string; examTitle: string } | null;
   /** Lần nộp bài gần nhất; `percent` có thể null với lượt làm từ trước khi web chốt sẵn điểm. */
   last: { examId: string; examTitle: string; percent: number | null; at: number } | null;
+  /**
+   * Bài đã nộp nhưng còn câu sai CHƯA mổ xẻ — việc dở dang đáng nhắc nhất, vì mổ xẻ mới là
+   * chỗ tạo ra học tập thật (mục 5.3 của tài liệu thiết kế), còn nộp bài chỉ là lấy dữ liệu.
+   *
+   * Đếm được mà không cần nạp nội dung đề nhờ `wrongQuestionIds` chốt sẵn lúc nộp; lượt làm
+   * từ trước khi có trường đó sẽ không đếm được và bị bỏ qua ở đây (chấp nhận được: chúng đã
+   * cũ, và người học vẫn vào lại được qua sảnh của từng đề).
+   */
+  pendingReview: { examId: string; examTitle: string; pendingCount: number } | null;
   submittedCount: number;
 }
 
@@ -35,6 +45,7 @@ const EMPTY: JlptSummary = {
   exams: [],
   running: null,
   last: null,
+  pendingReview: null,
   submittedCount: 0,
 };
 
@@ -62,6 +73,10 @@ export function useJlptSummary(): JlptSummary {
           .sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0));
         const latest = submitted[0];
 
+        // Không truyền questionsById: ở đây cố ý KHÔNG nạp nội dung đề (mỗi đề cả trăm KB,
+        // trang chủ có thể có nhiều đề). Lượt cũ thiếu wrongQuestionIds sẽ ra 0 và bị bỏ qua.
+        const pending = submitted.find((a) => pendingReviewIdsOf(a).length > 0);
+
         setSummary({
           loading: false,
           exams: storedExams
@@ -82,6 +97,13 @@ export function useJlptSummary(): JlptSummary {
                 examTitle: titleOf(latest.examId),
                 percent: latest.scorePercent ?? null,
                 at: latest.submittedAt ?? 0,
+              }
+            : null,
+          pendingReview: pending
+            ? {
+                examId: pending.examId,
+                examTitle: titleOf(pending.examId),
+                pendingCount: pendingReviewIdsOf(pending).length,
               }
             : null,
           submittedCount: submitted.length,
