@@ -3,8 +3,12 @@ import type { Lesson } from '../data/lessons';
 import {
   tryN3GrammarPoints,
   tryN3Chapter1Story,
+  tryN3Chapter1Part2Story,
+  tryN3Chapter2Story,
+  tryN3Chapter2Part2Story,
   type GrammarPoint,
 } from '../data/tryN3Data';
+import { renderFormattedText } from '../utils/formatText';
 import {
   ArrowLeft,
   BookOpen,
@@ -12,13 +16,12 @@ import {
   CheckCircle2,
   FileText,
   HelpCircle,
-  Play,
   Layers,
   ChevronDown,
   ChevronUp,
-  Star,
   Compass,
-  Check
+  Zap,
+  Award,
 } from 'lucide-react';
 
 interface TryN3SelectorProps {
@@ -35,281 +38,501 @@ export const TryN3Selector: React.FC<TryN3SelectorProps> = ({
   const [activeTab, setActiveTab] = useState<'chapters' | 'story' | 'handbook'>('chapters');
   const [selectedGrammarModal, setSelectedGrammarModal] = useState<GrammarPoint | null>(null);
   const [expandedGrammarId, setExpandedGrammarId] = useState<string | null>('try-n3-c1-g1');
-  const [showVietnameseTranslation, setShowVietnameseTranslation] = useState(true);
+  const [showVietnameseTranslation, setShowVietnameseTranslation] = useState(false);
+  const [selectedStoryPart, setSelectedStoryPart] = useState<1 | 2 | 3 | 4>(1);
+  const [handbookFilter, setHandbookFilter] = useState<'all' | 'part1' | 'part2' | 'part3' | 'part4'>('all');
 
-  const chapter1Lesson = lessons.find((l) => l.id === 1) || lessons[0];
-  const flashcardSection = chapter1Lesson.sections.find((s) => s.type === 'vocabulary');
-  const exerciseSection = chapter1Lesson.sections.find((s) => s.id === 'try-n3-c1-exercises');
-  const checkSection = chapter1Lesson.sections.find((s) => s.id === 'try-n3-c1-check');
+  // Unified Lesson & Sections
+  const mainLesson = lessons.find((l) => l.id === 1) || lessons[0];
+  const flashcardAllSection = mainLesson?.sections.find((s) => s.id === 'try-n3-flashcard-all') || mainLesson?.sections.find((s) => s.type === 'vocabulary');
+  const flashcardP1Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c1-flashcard');
+  const flashcardP3Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-flashcard');
+  const flashcardP4Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-p2-flashcard');
 
-  const handleStartFlashcard = () => {
-    if (flashcardSection) {
-      onStartBySections([flashcardSection.id]);
+  const ex1Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c1-exercises');
+  const ex2Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c1-exercises-p2');
+  const ex3Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-exercises');
+  const ex4Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-exercises-p2');
+
+  const check1Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c1-check');
+  const check2Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c1-check-p2');
+  const check3Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-check');
+  const check4Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-check-p2');
+
+  const matome1Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c1-matome');
+  const matome2Section = mainLesson?.sections.find((s) => s.id === 'try-n3-c2-matome');
+
+  const handleStartFlashcardAll = () => {
+    if (flashcardAllSection) {
+      onStartBySections([flashcardAllSection.id]);
+    } else {
+      const ids: string[] = [];
+      if (flashcardP1Section) ids.push(flashcardP1Section.id);
+      if (flashcardP3Section) ids.push(flashcardP3Section.id);
+      if (flashcardP4Section) ids.push(flashcardP4Section.id);
+      if (ids.length) onStartBySections(ids);
     }
   };
 
-  const handleStartExercises = () => {
-    if (exerciseSection) {
-      onStartBySections([exerciseSection.id]);
-    }
+  const handleStartFlashcardP1 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (flashcardP1Section) onStartBySections([flashcardP1Section.id]);
   };
 
-  const handleStartCheck = () => {
-    if (checkSection) {
-      onStartBySections([checkSection.id]);
-    }
+  const handleStartFlashcardP3 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (flashcardP3Section) onStartBySections([flashcardP3Section.id]);
   };
 
-  const handleStartAll = () => {
-    onStartBySections(chapter1Lesson.sections.map((s) => s.id));
+  const handleStartFlashcardP4 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (flashcardP4Section) onStartBySections([flashcardP4Section.id]);
   };
+
+  const handleStartExercisesAll = () => {
+    const ids: string[] = [];
+    if (ex1Section) ids.push(ex1Section.id);
+    if (ex2Section) ids.push(ex2Section.id);
+    if (ex3Section) ids.push(ex3Section.id);
+    if (ex4Section) ids.push(ex4Section.id);
+    if (ids.length) onStartBySections(ids);
+  };
+
+  const handleStartExercisesP1 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (ex1Section) onStartBySections([ex1Section.id]);
+  };
+
+  const handleStartExercisesP2 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (ex2Section) onStartBySections([ex2Section.id]);
+  };
+
+  const handleStartExercisesP3 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (ex3Section) onStartBySections([ex3Section.id]);
+  };
+
+  const handleStartExercisesP4 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (ex4Section) onStartBySections([ex4Section.id]);
+  };
+
+  const handleStartCheckAll = () => {
+    const ids: string[] = [];
+    if (check1Section) ids.push(check1Section.id);
+    if (check2Section) ids.push(check2Section.id);
+    if (check3Section) ids.push(check3Section.id);
+    if (check4Section) ids.push(check4Section.id);
+    if (ids.length) onStartBySections(ids);
+  };
+
+  const handleStartCheckP1 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (check1Section) onStartBySections([check1Section.id]);
+  };
+
+  const handleStartCheckP2 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (check2Section) onStartBySections([check2Section.id]);
+  };
+
+  const handleStartCheckP3 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (check3Section) onStartBySections([check3Section.id]);
+  };
+
+  const handleStartCheckP4 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (check4Section) onStartBySections([check4Section.id]);
+  };
+
+  const handleStartMatome1 = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (matome1Section) onStartBySections([matome1Section.id]);
+  };
+
+  const handleStartMatome2 = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (matome2Section) onStartBySections([matome2Section.id]);
+  };
+
+  const handleStartMatomeAll = () => {
+    const ids: string[] = [];
+    if (matome1Section) ids.push(matome1Section.id);
+    if (matome2Section) ids.push(matome2Section.id);
+    if (ids.length) onStartBySections(ids);
+  };
+
+  const currentStory = selectedStoryPart === 1
+    ? tryN3Chapter1Story
+    : selectedStoryPart === 2
+    ? tryN3Chapter1Part2Story
+    : selectedStoryPart === 3
+    ? tryN3Chapter2Story
+    : tryN3Chapter2Part2Story;
+
+  const part1Points = tryN3GrammarPoints.filter((g) => g.number <= 5);
+  const part2Points = tryN3GrammarPoints.filter((g) => g.number > 5 && g.number <= 10);
+  const part3Points = tryN3GrammarPoints.filter((g) => g.number >= 11 && g.number <= 16);
+  const part4Points = tryN3GrammarPoints.filter((g) => g.number >= 17 && g.number <= 20);
+
+  const filteredGrammarPoints = tryN3GrammarPoints.filter((g) => {
+    if (handbookFilter === 'part1') return g.number <= 5;
+    if (handbookFilter === 'part2') return g.number > 5 && g.number <= 10;
+    if (handbookFilter === 'part3') return g.number >= 11 && g.number <= 16;
+    if (handbookFilter === 'part4') return g.number >= 17 && g.number <= 20;
+    return true;
+  });
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-4 space-y-6">
-      {/* Navigation Header */}
-      <div className="flex items-center justify-between">
+    <div className="w-full max-w-4xl mx-auto px-4 py-6 space-y-6 font-['Space_Grotesk',sans-serif]">
+      {/* 1. Header Navigation Bar */}
+      <div className="flex items-center justify-between gap-3">
         <button
           onClick={onBackToHome}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-white border border-slate-200/80 transition-all font-semibold text-sm shadow-sm cursor-pointer"
+          className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border-3 border-black text-black font-black uppercase text-xs shadow-[3px_3px_0px_0px_#000] hover:bg-[#7DD3FC] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 cursor-pointer"
         >
-          <ArrowLeft size={16} />
-          <span>Về trang chủ</span>
+          <ArrowLeft size={15} strokeWidth={3} />
+          <span>Trang chủ</span>
         </button>
 
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1.5">
-            <Sparkles size={12} className="text-amber-600 animate-pulse" />
-            Giáo trình TRY! N3 (文法)
+        <span className="px-3 py-1.5 bg-[#7DD3FC] border-3 border-black text-black text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000]">
+          TRY! N3 • 文法
+        </span>
+      </div>
+
+      {/* 2. Minimalist Hero Banner */}
+      <div className="bg-[#F0F9FF] border-4 border-black p-5 md:p-6 shadow-[6px_6px_0px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase tracking-wider">
+              TRY! N3
+            </span>
+            <span className="text-xs font-bold text-slate-700">
+              富士登山 & ぼくの犬、クロ (Phần 1 ➔ 4)
+            </span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-black uppercase tracking-tight">
+            Ngữ Pháp TRY! N3
+          </h1>
+          <p className="text-xs font-bold text-slate-500">
+            20 Mẫu ngữ pháp trọng tâm • 5 Mẫu mở rộng • Trắc nghiệm やっみよう! & Tổng ôn thi thử JLPT
+          </p>
+        </div>
+
+        <div className="self-start sm:self-center shrink-0">
+          <span className="px-3 py-2 bg-[#7DD3FC] border-3 border-black text-black font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] inline-flex items-center gap-1.5">
+            <Zap size={14} strokeWidth={3} />
+            <span>145 Thẻ & Câu hỏi</span>
           </span>
         </div>
       </div>
 
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-blue-800 to-indigo-950 text-white p-6 md:p-8 shadow-xl border border-indigo-500/20">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-72 h-72 rounded-full bg-blue-400/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 w-60 h-60 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/10 text-blue-200 text-xs font-semibold backdrop-blur-sm">
-            <BookOpen size={14} />
-            <span>TRY! 日本語能力試験 N3 文法から伸ばす日本語</span>
-          </div>
-
-          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight">
-            Ngữ Pháp N3 - Chuẩn Giáo Trình TRY! N3
-          </h1>
-
-          <p className="text-blue-100 text-sm md:text-base leading-relaxed">
-            Học ngữ pháp trong ngữ cảnh thực tế theo từng chủ đề bài đọc sinh động. Nắm vững cấu trúc, ý nghĩa, câu ví dụ thực tế và luyện bài tập trắc nghiệm củng cố ngay sau bài học.
-          </p>
-
-          <div className="pt-2 flex flex-wrap gap-2 text-xs">
-            <span className="bg-white/15 px-3 py-1.5 rounded-xl backdrop-blur-sm font-medium flex items-center gap-1.5">
-              <Check size={14} className="text-emerald-300" />
-              Chương 1: Lần đầu leo núi Phú Sĩ (1)
-            </span>
-            <span className="bg-emerald-500/25 text-emerald-200 border border-emerald-300/30 px-3 py-1.5 rounded-xl backdrop-blur-sm font-medium flex items-center gap-1.5">
-              <CheckCircle2 size={14} className="text-emerald-300" />
-              Hoàn thiện trọn vẹn 100% Chương 1 (Trang 16 - 21)
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-1">
+      {/* 3. Navigation Tabs */}
+      <div className="flex gap-2.5 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab('chapters')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2.5 border-3 border-black font-black text-xs md:text-sm uppercase tracking-wider transition-all duration-100 cursor-pointer whitespace-nowrap select-none ${
             activeTab === 'chapters'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
+              ? 'bg-[#7DD3FC] text-black shadow-[4px_4px_0px_0px_#000] -translate-y-0.5'
+              : 'bg-white text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#F0F9FF] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
           }`}
         >
-          <Layers size={16} />
-          <span>Lộ trình & Bài học</span>
+          <Layers size={15} strokeWidth={3} />
+          <span>Lộ trình luyện tập</span>
         </button>
 
         <button
           onClick={() => setActiveTab('story')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2.5 border-3 border-black font-black text-xs md:text-sm uppercase tracking-wider transition-all duration-100 cursor-pointer whitespace-nowrap select-none ${
             activeTab === 'story'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
+              ? 'bg-[#7DD3FC] text-black shadow-[4px_4px_0px_0px_#000] -translate-y-0.5'
+              : 'bg-white text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#F0F9FF] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
           }`}
         >
-          <FileText size={16} />
-          <span>Bài đọc ngữ cảnh (富士登山)</span>
+          <FileText size={15} strokeWidth={3} />
+          <span>Bài đọc ngữ cảnh</span>
         </button>
 
         <button
           onClick={() => setActiveTab('handbook')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2.5 border-3 border-black font-black text-xs md:text-sm uppercase tracking-wider transition-all duration-100 cursor-pointer whitespace-nowrap select-none ${
             activeTab === 'handbook'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-              : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
+              ? 'bg-[#7DD3FC] text-black shadow-[4px_4px_0px_0px_#000] -translate-y-0.5'
+              : 'bg-white text-black shadow-[2px_2px_0px_0px_#000] hover:bg-[#F0F9FF] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
           }`}
         >
-          <BookOpen size={16} />
-          <span>Sổ tay Ngữ pháp (5 Mẫu & Plus)</span>
+          <BookOpen size={15} strokeWidth={3} />
+          <span>Sổ tay Ngữ pháp</span>
         </button>
       </div>
 
-      {/* TAB 1: CHAPTERS & STUDY ACTIONS */}
+      {/* TAB 1: CHAPTERS & ACTIONS */}
       {activeTab === 'chapters' && (
         <div className="space-y-6">
-          {/* Chapter 1 Card */}
-          <div className="bg-white rounded-2xl border-2 border-indigo-100 p-6 shadow-sm hover:border-indigo-300 transition-all space-y-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-xs font-extrabold uppercase">
-                    Bài 1
+          {/* Main Action Box */}
+          <div className="bg-white border-4 border-black p-5 md:p-6 shadow-[6px_6px_0px_0px_#000] space-y-6">
+            {/* 4 Focused Mode Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Flashcard */}
+              <div
+                onClick={handleStartFlashcardAll}
+                className="p-4 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 flex flex-col justify-between text-left cursor-pointer select-none space-y-3"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2 text-black font-black text-sm uppercase">
+                    <Sparkles size={16} strokeWidth={3} />
+                    <span>Flashcard</span>
                   </span>
-                  <span className="text-xs font-bold text-slate-400">
-                    5 mẫu chính + 2 mở rộng
-                  </span>
+                  <span className="bg-black text-white px-2 py-0.5 text-xs font-black">25</span>
                 </div>
-                <h3 className="text-xl font-extrabold text-slate-800">
-                  Chương 1: 初めての富士登山 (1)
-                </h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Chủ đề: Lần đầu leo núi Phú Sĩ (1) - Kinh nghiệm & cảm nghĩ lần đầu làm một việc gì đó.
-                </p>
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                  <button
+                    onClick={handleStartFlashcardP1}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P1&2: 14 thẻ
+                  </button>
+                  <button
+                    onClick={handleStartFlashcardP3}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P3: 6 thẻ
+                  </button>
+                  <button
+                    onClick={handleStartFlashcardP4}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P4: 5 thẻ
+                  </button>
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  onClick={handleStartAll}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-200 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                >
-                  <Play size={14} className="fill-white" />
-                  <span>Học Tất Cả (36 Thẻ & Câu)</span>
-                </button>
+              {/* Bài tập やっみよう */}
+              <div
+                onClick={handleStartExercisesAll}
+                className="p-4 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 flex flex-col justify-between text-left cursor-pointer select-none space-y-3"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2 text-black font-black text-sm uppercase">
+                    <HelpCircle size={16} strokeWidth={3} />
+                    <span>Bài tập</span>
+                  </span>
+                  <span className="bg-black text-white px-2 py-0.5 text-xs font-black">70</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold">
+                  <button
+                    onClick={handleStartExercisesP1}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P1: 23c
+                  </button>
+                  <button
+                    onClick={handleStartExercisesP2}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P2: 17c
+                  </button>
+                  <button
+                    onClick={handleStartExercisesP3}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P3: 18c
+                  </button>
+                  <button
+                    onClick={handleStartExercisesP4}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    P4: 12c
+                  </button>
+                </div>
+              </div>
+
+              {/* Kiểm tra Check 📖 */}
+              <div
+                onClick={handleStartCheckAll}
+                className="p-4 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 flex flex-col justify-between text-left cursor-pointer select-none space-y-3"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2 text-black font-black text-sm uppercase">
+                    <CheckCircle2 size={16} strokeWidth={3} />
+                    <span>Kiểm tra Check</span>
+                  </span>
+                  <span className="bg-black text-white px-2 py-0.5 text-xs font-black">20</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold">
+                  <button
+                    onClick={handleStartCheckP1}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    Check 1: 6c
+                  </button>
+                  <button
+                    onClick={handleStartCheckP2}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    Check 2: 6c
+                  </button>
+                  <button
+                    onClick={handleStartCheckP3}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    Check 3: 5c
+                  </button>
+                  <button
+                    onClick={handleStartCheckP4}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    Check 4: 3c
+                  </button>
+                </div>
+              </div>
+
+              {/* Tổng ôn まとめ問題 */}
+              <div
+                onClick={handleStartMatomeAll}
+                className="p-4 bg-[#7DD3FC] hover:bg-[#38BDF8] border-3 border-black shadow-[4px_4px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 flex flex-col justify-between text-left cursor-pointer select-none space-y-3"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2 text-black font-black text-sm uppercase">
+                    <Award size={16} strokeWidth={3} />
+                    <span>Tổng ôn Matome</span>
+                  </span>
+                  <span className="bg-black text-white px-2 py-0.5 text-xs font-black">30</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold">
+                  <button
+                    onClick={handleStartMatome1}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    C1: 15c
+                  </button>
+                  <button
+                    onClick={handleStartMatome2}
+                    className="px-1.5 py-0.5 bg-white border border-black hover:bg-black hover:text-white transition-colors"
+                  >
+                    C2: 15c
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartMatomeAll();
+                    }}
+                    className="px-1.5 py-0.5 bg-black text-white border border-black hover:bg-white hover:text-black transition-colors"
+                  >
+                    Cả 2: 30c
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Quick overview of Grammar items */}
-            <div className="space-y-3">
-              <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-                Các mẫu ngữ pháp trong bài
+            {/* Quick Grammar Buttons: Phần 1 (1 - 5) */}
+            <div className="pt-4 border-t-3 border-black/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                  Phần 1 • 第一次の富士登山 (1) [Mẫu 1 ➔ 5]:
+                </span>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {tryN3GrammarPoints.map((g) => (
-                  <div
+              <div className="flex flex-wrap gap-2.5">
+                {part1Points.map((g) => (
+                  <button
                     key={g.id}
-                    onClick={() => {
-                      setExpandedGrammarId(g.id);
-                      setActiveTab('handbook');
-                    }}
-                    className="p-3.5 rounded-xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 transition-all cursor-pointer group"
+                    onClick={() => setSelectedGrammarModal(g)}
+                    className="px-3.5 py-2.5 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black font-black text-sm text-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 cursor-pointer flex items-center gap-2 select-none"
+                    title={`Xem chi tiết ${g.pattern}: ${g.translationVi}`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-black text-indigo-700 group-hover:text-indigo-800">
-                        {g.number}. {g.pattern}
-                      </span>
-                      <div className="flex items-center gap-0.5 text-amber-500">
-                        {Array.from({ length: g.stars }).map((_, i) => (
-                          <Star key={i} size={10} className="fill-amber-400" />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-xs font-bold text-slate-700 line-clamp-1">
-                      {g.title}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1 line-clamp-1">
-                      {g.meaningVi}
-                    </div>
-                  </div>
+                    <span className="w-6 h-6 bg-black text-white text-xs font-black flex items-center justify-center shrink-0">
+                      {g.number}
+                    </span>
+                    <span>{g.pattern}</span>
+                    <span className="text-xs font-bold text-slate-700 bg-white px-1.5 py-0.5 border border-black/30">
+                      {g.translationVi}
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* Sub-modes selection (Flashcard vs Exercise vs Check Test) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-2">
-              <div
-                onClick={handleStartFlashcard}
-                className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 hover:border-emerald-300 transition-all cursor-pointer group flex flex-col justify-between"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 uppercase">
-                      <Sparkles size={12} />
-                      Flashcard
-                    </span>
-                    <span className="p-1.5 rounded-lg bg-emerald-600 text-white group-hover:scale-105 transition-transform shadow-sm">
-                      <Play size={12} className="fill-white" />
-                    </span>
-                  </div>
-                  <h4 className="font-extrabold text-slate-800 text-sm group-hover:text-emerald-700 transition-colors">
-                    Thuộc mẫu câu & Ví dụ
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    7 thẻ học: 5 mẫu chính + 2 mở rộng (〜終わる, 〜そうもない).
-                  </p>
-                </div>
+            {/* Quick Grammar Buttons: Phần 2 (6 - 10) */}
+            <div className="pt-4 border-t-3 border-black/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                  Phần 2 • 第一次の富士登山 (2) [Mẫu 6 ➔ 10]:
+                </span>
               </div>
-
-              <div
-                onClick={handleStartExercises}
-                className="p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 hover:border-purple-300 transition-all cursor-pointer group flex flex-col justify-between"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 uppercase">
-                      <HelpCircle size={12} />
-                      Trắc nghiệm やっみよう!
+              <div className="flex flex-wrap gap-2.5">
+                {part2Points.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => setSelectedGrammarModal(g)}
+                    className="px-3.5 py-2.5 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black font-black text-sm text-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 cursor-pointer flex items-center gap-2 select-none"
+                    title={`Xem chi tiết ${g.pattern}: ${g.translationVi}`}
+                  >
+                    <span className="w-6 h-6 bg-black text-white text-xs font-black flex items-center justify-center shrink-0">
+                      {g.number}
                     </span>
-                    <span className="p-1.5 rounded-lg bg-purple-600 text-white group-hover:scale-105 transition-transform shadow-sm">
-                      <Play size={12} className="fill-white" />
+                    <span>{g.pattern}</span>
+                    <span className="text-xs font-bold text-slate-700 bg-white px-1.5 py-0.5 border border-black/30">
+                      {g.translationVi}
                     </span>
-                  </div>
-                  <h4 className="font-extrabold text-slate-800 text-sm group-hover:text-purple-700 transition-colors">
-                    23 Câu luyện tập củng cố
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Toàn bộ bài tập やっみよう! (trang 17-21) chuẩn sách TRY! N3.
-                  </p>
-                </div>
-              </div>
-
-              <div
-                onClick={handleStartCheck}
-                className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-sky-50 border border-blue-200 hover:border-blue-300 transition-all cursor-pointer group flex flex-col justify-between"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 uppercase">
-                      <BookOpen size={12} />
-                      Check 📖 Tổng kết
-                    </span>
-                    <span className="p-1.5 rounded-lg bg-blue-600 text-white group-hover:scale-105 transition-transform shadow-sm">
-                      <Play size={12} className="fill-white" />
-                    </span>
-                  </div>
-                  <h4 className="font-extrabold text-slate-800 text-sm group-hover:text-blue-700 transition-colors">
-                    Kiểm tra Check (6 câu)
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Bài test tổng hợp chốt kiến thức cuối Chương 1 (trang 21).
-                  </p>
-                </div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Completion Note */}
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-900 font-medium">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
-                <span>
-                  Trọn vẹn Chương 1 (Trang 16, 17, 18, 19, 20, 21) đã được số hóa hoàn tất 100%!
+            {/* Quick Grammar Buttons: Phần 3 (11 - 16) */}
+            <div className="pt-4 border-t-3 border-black/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                  Phần 3 • ぼくの犬、クロ (1) [Mẫu 11 ➔ 16]:
                 </span>
               </div>
-              <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-950 font-bold text-[10px]">
-                36 Thẻ & Câu hỏi
-              </span>
+              <div className="flex flex-wrap gap-2.5">
+                {part3Points.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => setSelectedGrammarModal(g)}
+                    className="px-3.5 py-2.5 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black font-black text-sm text-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 cursor-pointer flex items-center gap-2 select-none"
+                    title={`Xem chi tiết ${g.pattern}: ${g.translationVi}`}
+                  >
+                    <span className="w-6 h-6 bg-black text-white text-xs font-black flex items-center justify-center shrink-0">
+                      {g.number}
+                    </span>
+                    <span>{g.pattern}</span>
+                    <span className="text-xs font-bold text-slate-700 bg-white px-1.5 py-0.5 border border-black/30">
+                      {g.translationVi}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Grammar Buttons: Phần 4 (17 - 20) */}
+            <div className="pt-4 border-t-3 border-black/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                  Phần 4 • ぼくの犬、クロ (2) [Mẫu 17 ➔ 20]:
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {part4Points.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => setSelectedGrammarModal(g)}
+                    className="px-3.5 py-2.5 bg-[#F0F9FF] hover:bg-[#7DD3FC] border-3 border-black font-black text-sm text-black shadow-[3px_3px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 cursor-pointer flex items-center gap-2 select-none"
+                    title={`Xem chi tiết ${g.pattern}: ${g.translationVi}`}
+                  >
+                    <span className="w-6 h-6 bg-black text-white text-xs font-black flex items-center justify-center shrink-0">
+                      {g.number}
+                    </span>
+                    <span>{g.pattern}</span>
+                    <span className="text-xs font-bold text-slate-700 bg-white px-1.5 py-0.5 border border-black/30">
+                      {g.translationVi}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -317,92 +540,123 @@ export const TryN3Selector: React.FC<TryN3SelectorProps> = ({
 
       {/* TAB 2: STORY & CONTEXT READING */}
       {activeTab === 'story' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div>
-              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md uppercase">
-                Bài đọc ngữ cảnh
-              </span>
-              <h2 className="text-xl md:text-2xl font-extrabold text-slate-800 mt-1">
-                {tryN3Chapter1Story.titleJa}
-              </h2>
-              <p className="text-sm text-slate-500 font-medium">
-                {tryN3Chapter1Story.titleVi}
-              </p>
+        <div className="bg-white border-4 border-black p-5 md:p-6 shadow-[6px_6px_0px_0px_#000] space-y-5">
+          {/* Story Sub-tab Switcher (Phần 1, 2, 3) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b-3 border-black pb-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedStoryPart(1)}
+                className={`px-3 py-1.5 border-2 border-black font-black text-xs uppercase tracking-wider transition-all duration-100 cursor-pointer ${
+                  selectedStoryPart === 1
+                    ? 'bg-[#7DD3FC] text-black shadow-[3px_3px_0px_0px_#000]'
+                    : 'bg-white text-slate-700 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 1 (Bài 1)
+              </button>
+              <button
+                onClick={() => setSelectedStoryPart(2)}
+                className={`px-3 py-1.5 border-2 border-black font-black text-xs uppercase tracking-wider transition-all duration-100 cursor-pointer ${
+                  selectedStoryPart === 2
+                    ? 'bg-[#7DD3FC] text-black shadow-[3px_3px_0px_0px_#000]'
+                    : 'bg-white text-slate-700 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 2 (Bài 2)
+              </button>
+              <button
+                onClick={() => setSelectedStoryPart(3)}
+                className={`px-3 py-1.5 border-2 border-black font-black text-xs uppercase tracking-wider transition-all duration-100 cursor-pointer ${
+                  selectedStoryPart === 3
+                    ? 'bg-[#7DD3FC] text-black shadow-[3px_3px_0px_0px_#000]'
+                    : 'bg-white text-slate-700 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 3 (Kuro 1)
+              </button>
+              <button
+                onClick={() => setSelectedStoryPart(4)}
+                className={`px-3 py-1.5 border-2 border-black font-black text-xs uppercase tracking-wider transition-all duration-100 cursor-pointer ${
+                  selectedStoryPart === 4
+                    ? 'bg-[#7DD3FC] text-black shadow-[3px_3px_0px_0px_#000]'
+                    : 'bg-white text-slate-700 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 4 (Kuro 2)
+              </button>
             </div>
 
             <button
               onClick={() => setShowVietnameseTranslation(!showVietnameseTranslation)}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-center"
+              className="px-3 py-1.5 bg-white border-2 border-black text-black font-black text-xs uppercase shadow-[2px_2px_0px_0px_#000] hover:bg-[#7DD3FC] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all duration-100 cursor-pointer"
             >
-              <span>{showVietnameseTranslation ? 'Ẩn bản dịch tiếng Việt' : 'Hiện bản dịch tiếng Việt'}</span>
+              <span>{showVietnameseTranslation ? 'Ẩn bản dịch TV' : 'Hiện bản dịch TV'}</span>
             </button>
           </div>
 
-          {/* できること Goal */}
-          <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-100 space-y-1">
-            <span className="text-xs font-black text-blue-700 flex items-center gap-1 uppercase tracking-wide">
-              <Compass size={14} />
-              Mục tiêu bài học (できること):
-            </span>
-            <p className="text-sm font-semibold text-blue-950">
-              {tryN3Chapter1Story.canDoJa}
+          <div>
+            <h2 className="text-xl md:text-2xl font-black text-black">
+              {currentStory.titleJa}
+            </h2>
+            <p className="text-xs font-bold text-slate-600 mt-0.5">
+              {currentStory.titleVi}
             </p>
-            {showVietnameseTranslation && (
-              <p className="text-xs text-blue-800 font-medium pt-0.5">
-                {tryN3Chapter1Story.canDoVi}
-              </p>
-            )}
           </div>
 
-          {/* Reading Passage */}
-          <div className="space-y-4">
-            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
-              <div className="flex items-center justify-between text-xs font-extrabold text-slate-400 uppercase tracking-wide">
-                <span>Văn bản tiếng Nhật (Bấm vào mẫu ngữ pháp tô màu để xem giải thích)</span>
-              </div>
-              <p className="text-base md:text-lg leading-loose text-slate-800 font-medium select-text">
+          {/* Goal Strip */}
+          <div className="p-3 bg-[#F0F9FF] border-2 border-black text-xs font-bold text-black flex items-center gap-2">
+            <Compass size={16} strokeWidth={3} className="shrink-0 text-black" />
+            <span>
+              <strong>Mục tiêu (できること):</strong> {currentStory.canDoJa}{' '}
+              {showVietnameseTranslation && `(${currentStory.canDoVi})`}
+            </span>
+          </div>
+
+          {/* Reading Text Box (Interactive Grammar Highlights) */}
+          <div className="p-5 md:p-6 bg-[#F0F9FF] border-3 border-black shadow-[4px_4px_0px_0px_#000] space-y-3">
+            {selectedStoryPart === 1 ? (
+              <p className="text-base md:text-lg leading-loose text-black font-bold select-text">
                 先週の日曜日、リンさんと富士山に登った。途中までバスで行って、そこから
                 <span
                   onClick={() => {
-                    const g = tryN3GrammarPoints.find(item => item.pattern === '〜始める');
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜始める');
                     if (g) setSelectedGrammarModal(g);
                   }}
-                  className="bg-amber-200 text-amber-950 font-bold px-1.5 py-0.5 rounded mx-1 cursor-pointer hover:bg-amber-300 transition-colors underline decoration-amber-500"
-                  title="Bấm để xem ngữ pháp 〜始める"
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜始める: Bắt đầu làm gì"
                 >
                   登り始めた
                 </span>
                 。登る前に水を買った店で、酸素缶も
                 <span
                   onClick={() => {
-                    const g = tryN3GrammarPoints.find(item => item.pattern === '〜ように言う');
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜ように言う');
                     if (g) setSelectedGrammarModal(g);
                   }}
-                  className="bg-emerald-200 text-emerald-950 font-bold px-1.5 py-0.5 rounded mx-1 cursor-pointer hover:bg-emerald-300 transition-colors underline decoration-emerald-500"
-                  title="Bấm để xem ngữ pháp 〜ように言う"
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜ように言う: Dặn dò / Nhắc nhở"
                 >
                   持っていくように言われた
                 </span>
                 。山の上は空気が少ないから、必要になるかもしれないそうだ。空気が薄いと
                 <span
                   onClick={() => {
-                    const g = tryN3GrammarPoints.find(item => item.pattern === '〜ということ');
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜ということ');
                     if (g) setSelectedGrammarModal(g);
                   }}
-                  className="bg-blue-200 text-blue-950 font-bold px-1.5 py-0.5 rounded mx-1 cursor-pointer hover:bg-blue-300 transition-colors underline decoration-blue-500"
-                  title="Bấm để xem ngữ pháp 〜ということ"
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜ということ: Việc rằng..."
                 >
                   病気になる人もいるということ
                 </span>
                 を思い出したが見富士山は小学生でも登れると聞いたので、
                 <span
                   onClick={() => {
-                    const g = tryN3GrammarPoints.find(item => item.pattern === '〜だろうと思う');
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜だろうと思う');
                     if (g) setSelectedGrammarModal(g);
                   }}
-                  className="bg-purple-200 text-purple-950 font-bold px-1.5 py-0.5 rounded mx-1 cursor-pointer hover:bg-purple-300 transition-colors underline decoration-purple-500"
-                  title="Bấm để xem ngữ pháp 〜だろうと思う"
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜だろうと思う: Nghĩ rằng có lẽ là..."
                 >
                   大丈夫だろうと思った
                 </span>
@@ -411,176 +665,414 @@ export const TryN3Selector: React.FC<TryN3SelectorProps> = ({
                 私は登山をしたことはないが、富士山はけわしい山じゃないし、それほど
                 <span
                   onClick={() => {
-                    const g = tryN3GrammarPoints.find(item => item.pattern === '〜なさそうだ');
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜なさそうだ');
                     if (g) setSelectedGrammarModal(g);
                   }}
-                  className="bg-rose-200 text-rose-950 font-bold px-1.5 py-0.5 rounded mx-1 cursor-pointer hover:bg-rose-300 transition-colors underline decoration-rose-500"
-                  title="Bấm để xem ngữ pháp 〜なさそうだ"
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜なさそうだ: Trông có vẻ không..."
                 >
                   大変じゃなさそうだった
                 </span>
                 。
               </p>
-            </div>
-
-            {/* Vietnamese Translation */}
-            {showVietnameseTranslation && (
-              <div className="p-6 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-2 select-text">
-                <span className="text-xs font-extrabold text-amber-800 uppercase tracking-wide block">
-                  Bản dịch tham khảo (Tiếng Việt):
+            ) : selectedStoryPart === 2 ? (
+              <p className="text-base md:text-lg leading-loose text-black font-bold select-text">
+                でも、
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜と');
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜と: Vừa mới... thì nhận ra"
+                >
+                  登ってみると
                 </span>
-                <p className="text-sm md:text-base leading-relaxed text-slate-700 whitespace-pre-line font-medium">
-                  {tryN3Chapter1Story.textVi}
-                </p>
-              </div>
+                、本当に大変だった。途中で
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜ほど');
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜ほど: Đến mức..."
+                >
+                  立っているのもつらいほど
+                </span>
+                足が重くなった。もうやめたいと思ったが、前を見ると、
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜ていく');
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜ていく: Càng ngày càng... / Tiếp diễn về tương lai"
+                >
+                  どんどん登っていく
+                </span>
+                リンさんが見えた。リンさんががんばっているのに、あきらめるのはくやしいから、私も
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜続ける');
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜続ける: Tiếp tục leo kiên trì"
+                >
+                  登り続けた
+                </span>
+                。
+                <br className="my-2" />
+                あとで聞いたら、リンさんも途中でやめようと思ったけど、私が後ろから
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜ていく');
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem điểm Plus: 〜てくる"
+                >
+                  登ってくる
+                </span>
+                のが見えたからがんばったと言っていた。大変だったが、一番上まで行けて本当によかった。だから、もしこれから富士山に登る人がいたら、
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.pattern === '〜なら');
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜なら: Nếu muốn lên tận đỉnh"
+                >
+                  上まで行きたいなら
+                </span>
+                、友だちと一緒に行くことをおすすめしたい。もちろん酸素缶も持っていったほうがいい。
+                <br className="my-2" />
+                でも、もう一度行きたいかと聞かれたら、もう二度とあんな大変なことはしたくないと答えるだろう。富士山は遠くから見るほうがずっといいと思う。
+              </p>
+            ) : selectedStoryPart === 3 ? (
+              /* Phần 3: Kuro Story Text with clickable highlights */
+              <p className="text-base md:text-lg leading-loose text-black font-bold select-text">
+                ぼくはいつも夜、クロを散歩に連れていく。クロを飼い始めたのは3年前だ。
+                <br className="my-2" />
+                色が黒いから、
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 11);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜って: Tên là..."
+                >
+                  クロって名前
+                </span>
+                をつけた。
+                <br className="my-2" />
+                最初、両親は犬を飼うことに反対だったが、何度も頼んで、やっと
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 12);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜させてもらう: Được cho phép làm gì"
+                >
+                  飼わせてもらった
+                </span>
+                。そのかわり、雨の日も風の日も毎日必ず散歩すると
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 13);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜させられる: Bị bắt phải làm gì"
+                >
+                  約束させられた
+                </span>
+                。だからクロの散歩はぼくの日課だ。
+                <br className="my-2" />
+                ぼくがうちに帰ると、クロは早く散歩に
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 14);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜がる: Có vẻ muốn... / Biểu lộ ra ngoài"
+                >
+                  行きたがって
+                </span>
+                「クーンクーン」と鳴く。ぼくがひもを持つと、ぼくのところへ来て、うれしそうにしっぽをふる。そして、ひもをつけて、
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 15);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜たとたん: Ngay vừa khi... thì lập tức"
+                >
+                  玄関を出たとたん
+                </span>
+                、クロは全速力で
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 16);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜出す: Đột nhiên bắt đầu lao đi"
+                >
+                  走り出す
+                </span>
+                。
+              </p>
+            ) : (
+              /* Phần 4: Kuro Story 2 Text with clickable highlights */
+              <p className="text-base md:text-lg leading-loose text-black font-bold select-text">
+                近くの公園を1周するのが、いつもの散歩コースだ。
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 17);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜ようとする: Định làm gì"
+                >
+                  帰ろうとする
+                </span>
+                といやがって
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 17);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜ようとしない: Nhất quyết không chịu nhúc nhích"
+                >
+                  動こうとしない
+                </span>
+                。そんなときのために、いつもぼくのズボンのポケットには、クロが好きなクッキーが入れてある。クッキーを取り出すと、クロは喜んでぼくのところへ来る。
+                <br className="my-2" />
+                ときどき、帰りにコンビニに
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 18);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜こともある: Thỉnh thoảng cũng ghé vào"
+                >
+                  寄ることもある
+                </span>
+                。クロをコンビニの前で
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 19);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜させておく: Cứ để cho ngồi chờ"
+                >
+                  待たせておいて
+                </span>
+                、買い物する。戻ってくると、クロは大喜びだ。ぼくは顔中
+                <span
+                  onClick={() => {
+                    const g = tryN3GrammarPoints.find((item) => item.number === 20);
+                    if (g) setSelectedGrammarModal(g);
+                  }}
+                  className="bg-[#7DD3FC] text-black font-black px-1.5 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_#000] mx-1 cursor-pointer hover:bg-black hover:text-white transition-all select-none"
+                  title="Bấm để xem ngữ pháp 〜られてしまう: Bị liếm khắp mặt (bị hại)"
+                >
+                  なめられてしまう
+                </span>
+                。なめられるとくすぐったいが、クロは本当にかわいい。
+              </p>
             )}
           </div>
 
-          {/* Highlighted Grammar Breakdown in Story */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-              Phân tích 5 cấu trúc ngữ pháp có trong bài đọc
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {tryN3Chapter1Story.grammarHighlights.map((gh, idx) => (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 transition-all space-y-1"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-indigo-600">
-                      {gh.grammarName}
-                    </span>
-                    <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                      「{gh.text}」
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 font-medium">
-                    {gh.explanation}
-                  </p>
-                </div>
-              ))}
+          {/* Vietnamese Translation */}
+          {showVietnameseTranslation && (
+            <div className="p-4 bg-white border-2 border-black space-y-1.5 select-text">
+              <span className="text-[10px] font-black uppercase text-slate-500 block">
+                Bản dịch tham khảo:
+              </span>
+              <p className="text-xs md:text-sm leading-relaxed text-black font-medium whitespace-pre-line">
+                {currentStory.textVi}
+              </p>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* TAB 3: GRAMMAR HANDBOOK & DETAILS */}
       {activeTab === 'handbook' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border-3 border-black p-4 shadow-[4px_4px_0px_0px_#000]">
             <div>
-              <h2 className="text-xl font-extrabold text-slate-800">
-                Sổ tay Ngữ pháp Chương 1
+              <h2 className="text-lg md:text-xl font-black text-black uppercase">
+                Sổ tay Ngữ pháp TRY! N3
               </h2>
-              <p className="text-xs text-slate-500">
-                Chi tiết cấu trúc, ý nghĩa và câu ví dụ của từng mẫu câu
+              <p className="text-xs font-bold text-slate-500">
+                20 Mẫu ngữ pháp & 5 Điểm Plus đầy đủ cấu trúc, dịch nghĩa, ý hiểu và ví dụ
               </p>
             </div>
-            <button
-              onClick={handleStartFlashcard}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-indigo-700 cursor-pointer"
-            >
-              <Play size={14} className="fill-white" />
-              <span>Học Flashcard</span>
-            </button>
+
+            {/* Handbook Filter Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setHandbookFilter('all')}
+                className={`px-2.5 py-1 border-2 border-black text-xs font-black transition-colors ${
+                  handbookFilter === 'all'
+                    ? 'bg-[#7DD3FC] text-black shadow-[2px_2px_0px_0px_#000]'
+                    : 'bg-white text-slate-600 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Tất cả (20)
+              </button>
+              <button
+                onClick={() => setHandbookFilter('part1')}
+                className={`px-2.5 py-1 border-2 border-black text-xs font-black transition-colors ${
+                  handbookFilter === 'part1'
+                    ? 'bg-[#7DD3FC] text-black shadow-[2px_2px_0px_0px_#000]'
+                    : 'bg-white text-slate-600 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 1 (1 - 5)
+              </button>
+              <button
+                onClick={() => setHandbookFilter('part2')}
+                className={`px-2.5 py-1 border-2 border-black text-xs font-black transition-colors ${
+                  handbookFilter === 'part2'
+                    ? 'bg-[#7DD3FC] text-black shadow-[2px_2px_0px_0px_#000]'
+                    : 'bg-white text-slate-600 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 2 (6 - 10)
+              </button>
+              <button
+                onClick={() => setHandbookFilter('part3')}
+                className={`px-2.5 py-1 border-2 border-black text-xs font-black transition-colors ${
+                  handbookFilter === 'part3'
+                    ? 'bg-[#7DD3FC] text-black shadow-[2px_2px_0px_0px_#000]'
+                    : 'bg-white text-slate-600 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 3 (11 - 16)
+              </button>
+              <button
+                onClick={() => setHandbookFilter('part4')}
+                className={`px-2.5 py-1 border-2 border-black text-xs font-black transition-colors ${
+                  handbookFilter === 'part4'
+                    ? 'bg-[#7DD3FC] text-black shadow-[2px_2px_0px_0px_#000]'
+                    : 'bg-white text-slate-600 hover:bg-[#F0F9FF]'
+                }`}
+              >
+                Phần 4 (17 - 20)
+              </button>
+            </div>
           </div>
 
-          {tryN3GrammarPoints.map((g) => {
+          {filteredGrammarPoints.map((g) => {
             const isExpanded = expandedGrammarId === g.id;
 
             return (
               <div
                 key={g.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all"
+                className="border-3 border-black shadow-[4px_4px_0px_0px_#000] overflow-hidden transition-all bg-white"
               >
-                {/* Header / Click to toggle */}
+                {/* Accordion Header */}
                 <div
                   onClick={() => setExpandedGrammarId(isExpanded ? null : g.id)}
-                  className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                  className={`p-4 flex items-center justify-between cursor-pointer transition-colors duration-100 select-none ${
+                    isExpanded ? 'bg-[#7DD3FC] border-b-3 border-black' : 'hover:bg-[#F0F9FF]'
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 font-extrabold text-sm flex items-center justify-center border border-indigo-100">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 bg-black text-white font-black text-xs flex items-center justify-center shrink-0">
                       {g.number}
                     </span>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-extrabold text-slate-800 text-base">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-black text-black text-sm md:text-base">
                           {g.pattern}
                         </h3>
-                        <span className="text-xs font-medium text-slate-400">
+                        <span className="px-2 py-0.5 bg-black text-white text-xs font-black">
+                          {g.translationVi}
+                        </span>
+                        <span className="text-xs font-bold text-slate-600 hidden sm:inline">
                           ({g.title})
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 font-medium line-clamp-1">
-                        {g.meaningVi}
+                      <p className="text-xs text-slate-700 font-bold line-clamp-1 mt-0.5">
+                        💡 Ý hiểu: {g.meaningVi}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="hidden sm:flex items-center gap-0.5 text-amber-400">
-                      {Array.from({ length: g.stars }).map((_, i) => (
-                        <Star key={i} size={12} className="fill-amber-400" />
-                      ))}
-                    </div>
-                    {isExpanded ? (
-                      <ChevronUp size={20} className="text-slate-400" />
-                    ) : (
-                      <ChevronDown size={20} className="text-slate-400" />
-                    )}
-                  </div>
+                  {isExpanded ? (
+                    <ChevronUp size={20} strokeWidth={3} className="text-black shrink-0 ml-2" />
+                  ) : (
+                    <ChevronDown size={20} strokeWidth={3} className="text-black shrink-0 ml-2" />
+                  )}
                 </div>
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="px-5 pb-6 pt-2 border-t border-slate-100 space-y-4 bg-slate-50/50">
+                  <div className="p-4 md:p-5 bg-[#F0F9FF] space-y-4">
                     {/* Formation (接続) */}
-                    <div className="p-4 rounded-xl bg-white border border-indigo-100 space-y-1.5 shadow-sm">
-                      <span className="text-[11px] font-black text-indigo-700 uppercase tracking-wide">
-                        Cấu trúc kết hợp (接続):
+                    <div className="p-4 bg-white border-2 border-black space-y-1.5 shadow-[2px_2px_0px_0px_#000]">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 block text-center">
+                        Cấu trúc (接続):
                       </span>
-                      <div className="font-mono text-sm md:text-base font-bold text-slate-800 whitespace-pre-line bg-indigo-50/40 p-2.5 rounded-lg border border-indigo-100">
-                        {g.formation}
+                      <div className="font-mono text-base md:text-xl font-black text-black whitespace-pre-line bg-[#7DD3FC]/25 p-3.5 md:p-4 border-2 border-black shadow-[2px_2px_0px_0px_#000] text-center">
+                        {renderFormattedText(g.formation)}
                       </div>
                     </div>
 
-                    {/* Meaning (意味・使い方) */}
-                    <div className="p-4 rounded-xl bg-white border border-slate-200/80 space-y-2 shadow-sm">
-                      <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">
-                        Ý nghĩa & Cách dùng (どう使う？):
+                    {/* Dịch nghĩa */}
+                    <div className="p-3.5 bg-[#7DD3FC]/30 border-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[2px_2px_0px_0px_#000]">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 bg-black text-white text-[11px] font-black uppercase tracking-wider shrink-0">
+                          Dịch nghĩa
+                        </span>
+                        <span className="text-sm md:text-base font-black text-black">
+                          {g.translationVi}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-600 italic">
+                        (Dịch nghĩa trực tiếp của mẫu ngữ pháp)
                       </span>
-                      <p className="text-sm font-semibold text-slate-800">
+                    </div>
+
+                    {/* Meaning & Explanation */}
+                    <div className="p-3.5 bg-white border-2 border-black space-y-2 shadow-[2px_2px_0px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                        Ý hiểu & Cách dùng (Sách TRY! N3):
+                      </span>
+                      <p className="text-xs md:text-sm font-black text-black">
                         {g.meaningJa}
                       </p>
-                      <p className="text-xs md:text-sm text-slate-600 font-medium">
-                        👉 {g.meaningVi}
-                      </p>
+                      <div className="p-2.5 bg-[#F0F9FF] border border-black/20 text-xs font-bold text-slate-700">
+                        💡 <strong>Ý hiểu:</strong> {g.meaningVi}
+                      </div>
                       {g.usageNote && (
-                        <div className="text-xs text-indigo-800 bg-indigo-50/70 p-2 rounded-lg border border-indigo-100 font-medium">
-                          💡 <strong>Lưu ý:</strong> {g.usageNote}
+                        <div className="text-xs text-black font-bold bg-[#7DD3FC]/20 p-2.5 border border-black mt-2">
+                          📌 <strong>Lưu ý:</strong> {renderFormattedText(g.usageNote)}
                         </div>
                       )}
                     </div>
 
-                    {/* Example Sentences (例文) */}
-                    <div className="p-4 rounded-xl bg-white border border-slate-200/80 space-y-3 shadow-sm">
-                      <span className="text-[11px] font-black text-emerald-700 uppercase tracking-wide flex items-center gap-1">
-                        <CheckCircle2 size={12} />
-                        Câu ví dụ thực tế (例文):
+                    {/* Examples */}
+                    <div className="p-3.5 bg-white border-2 border-black space-y-2 shadow-[2px_2px_0px_0px_#000]">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                        Ví dụ thực tế:
                       </span>
-                      <div className="space-y-2.5">
+                      <div className="space-y-2">
                         {g.examples.map((ex, i) => (
-                          <div
-                            key={i}
-                            className="p-2.5 rounded-lg bg-slate-50 border border-slate-200/60 text-xs md:text-sm space-y-1"
-                          >
-                            <div className="font-bold text-slate-800 select-text">
-                              {ex.ja}
-                            </div>
-                            <div className="text-slate-500 font-medium select-text">
-                              {ex.vi}
-                            </div>
+                          <div key={i} className="p-2.5 bg-[#F0F9FF] border border-black text-xs space-y-0.5">
+                            <div className="font-black text-black select-text">{ex.ja}</div>
+                            <div className="text-slate-700 font-bold select-text">{renderFormattedText(ex.vi)}</div>
                           </div>
                         ))}
                       </div>
@@ -588,24 +1080,34 @@ export const TryN3Selector: React.FC<TryN3SelectorProps> = ({
 
                     {/* Plus Note if any */}
                     {g.plusNote && (
-                      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
-                        <span className="text-[11px] font-black text-amber-800 uppercase tracking-wide flex items-center gap-1">
-                          <Sparkles size={12} />
-                          {g.plusNote.title}
+                      <div className="p-4 bg-[#7DD3FC] border-3 border-black shadow-[3px_3px_0px_0px_#000] space-y-2.5">
+                        <span className="text-xs font-black text-black uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles size={13} strokeWidth={3} />
+                          {renderFormattedText(g.plusNote.title)}
                         </span>
                         {g.plusNote.formation && (
-                          <div className="font-mono text-xs font-bold text-amber-950 bg-amber-100/70 p-2 rounded border border-amber-200">
-                            {g.plusNote.formation}
+                          <div className="font-mono text-sm md:text-lg font-black text-black bg-white p-3 border-2 border-black shadow-[2px_2px_0px_0px_#000] text-center">
+                            {renderFormattedText(g.plusNote.formation)}
                           </div>
                         )}
-                        <p className="text-xs text-amber-900 font-medium">
-                          👉 {g.plusNote.meaningVi}
+                        {g.plusNote.translationVi && (
+                          <div className="p-2.5 bg-white border-2 border-black flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase shrink-0">
+                              Dịch nghĩa:
+                            </span>
+                            <span className="text-xs md:text-sm font-black text-black">
+                              {g.plusNote.translationVi}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-xs text-black font-bold bg-white/70 p-2 border border-black/30">
+                          💡 <strong>Ý hiểu:</strong> {g.plusNote.meaningVi}
                         </p>
                         <div className="space-y-1.5 pt-1">
                           {g.plusNote.examples.map((ex, i) => (
-                            <div key={i} className="text-xs bg-white/80 p-2 rounded border border-amber-200/70 space-y-0.5">
-                              <div className="font-bold text-slate-800">{ex.ja}</div>
-                              <div className="text-slate-600">{ex.vi}</div>
+                            <div key={i} className="text-xs bg-white p-2 border border-black space-y-0.5">
+                              <div className="font-black text-black">{ex.ja}</div>
+                              <div className="text-slate-700 font-bold">{renderFormattedText(ex.vi)}</div>
                             </div>
                           ))}
                         </div>
@@ -619,42 +1121,62 @@ export const TryN3Selector: React.FC<TryN3SelectorProps> = ({
         </div>
       )}
 
-      {/* Grammar Point Quick Modal */}
+      {/* Quick Modal for Grammar Details */}
       {selectedGrammarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 animate-fadeIn">
+          <div className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_#000] max-w-lg w-full p-5 space-y-4">
+            <div className="flex items-center justify-between border-b-3 border-black pb-3">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 font-extrabold text-xs">
+                <span className="px-2 py-0.5 bg-[#7DD3FC] border-2 border-black text-black font-black text-xs">
                   Mẫu {selectedGrammarModal.number}
                 </span>
-                <h3 className="font-black text-lg text-slate-800">
+                <h3 className="font-black text-lg text-black">
                   {selectedGrammarModal.pattern}
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedGrammarModal(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+                className="w-7 h-7 flex items-center justify-center bg-black text-white font-black text-xs hover:bg-[#7DD3FC] hover:text-black cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs md:text-sm max-h-[70vh] overflow-y-auto pr-1">
-              <div>
-                <span className="font-extrabold text-slate-400 block uppercase text-[10px]">Cấu trúc:</span>
-                <span className="font-mono font-bold text-indigo-700">{selectedGrammarModal.formation}</span>
+            <div className="space-y-3 text-xs md:text-sm max-h-[65vh] overflow-y-auto pr-1">
+              {/* Formation */}
+              <div className="p-3 bg-[#F0F9FF] border-2 border-black text-center">
+                <span className="font-bold text-slate-500 block uppercase text-[10px] mb-1">Cấu trúc (接続):</span>
+                <span className="font-mono text-base md:text-xl font-black text-black block whitespace-pre-line leading-relaxed">{renderFormattedText(selectedGrammarModal.formation)}</span>
               </div>
-              <div>
-                <span className="font-extrabold text-slate-400 block uppercase text-[10px]">Ý nghĩa:</span>
-                <span className="font-bold text-slate-800">{selectedGrammarModal.meaningVi}</span>
+
+              {/* Dịch nghĩa */}
+              <div className="p-3 bg-[#7DD3FC]/30 border-2 border-black flex items-center gap-2.5 shadow-[2px_2px_0px_0px_#000]">
+                <span className="px-2 py-0.5 bg-black text-white text-[10px] font-black uppercase shrink-0">
+                  Dịch nghĩa
+                </span>
+                <span className="font-black text-sm md:text-base text-black">
+                  {selectedGrammarModal.translationVi}
+                </span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-xl space-y-1">
-                <span className="font-extrabold text-slate-500 block text-[11px]">Ví dụ:</span>
+
+              {/* Ý hiểu & Cách dùng */}
+              <div className="p-2.5 bg-white border-2 border-black space-y-1">
+                <span className="font-bold text-slate-500 block uppercase text-[10px]">Ý hiểu & Cách dùng:</span>
+                <p className="font-bold text-xs text-slate-700">💡 {selectedGrammarModal.meaningVi}</p>
+                {selectedGrammarModal.usageNote && (
+                  <div className="text-[11px] text-black font-bold bg-[#7DD3FC]/20 p-2 border border-black mt-1">
+                    📌 <strong>Lưu ý:</strong> {renderFormattedText(selectedGrammarModal.usageNote)}
+                  </div>
+                )}
+              </div>
+
+              {/* Ví dụ */}
+              <div className="p-3 bg-white border-2 border-black space-y-2">
+                <span className="font-bold text-slate-500 block text-[10px] uppercase">Ví dụ thực tế:</span>
                 {selectedGrammarModal.examples.map((ex, i) => (
-                  <div key={i} className="text-xs space-y-0.5">
-                    <p className="font-bold text-slate-800">{ex.ja}</p>
-                    <p className="text-slate-500">{ex.vi}</p>
+                  <div key={i} className="text-xs p-2 bg-[#F0F9FF] border border-black space-y-0.5">
+                    <p className="font-black text-black">{ex.ja}</p>
+                    <p className="text-slate-600 font-bold">{renderFormattedText(ex.vi)}</p>
                   </div>
                 ))}
               </div>
@@ -662,7 +1184,7 @@ export const TryN3Selector: React.FC<TryN3SelectorProps> = ({
 
             <button
               onClick={() => setSelectedGrammarModal(null)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-white font-bold text-xs hover:bg-slate-900 cursor-pointer transition-all"
+              className="w-full py-2.5 bg-[#7DD3FC] border-2 border-black text-black font-black text-xs uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] hover:bg-[#38BDF8] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer"
             >
               Đóng
             </button>

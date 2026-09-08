@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { StudyItem } from '../data/lessons';
 import { CheckCircle2, XCircle, Info, HelpCircle, X } from 'lucide-react';
+import { renderFormattedText } from '../utils/formatText';
 
 interface QuestionCardProps {
   item: StudyItem;
@@ -202,7 +203,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <Info className="text-indigo-500 shrink-0 mt-0.5" size={18} />
                 <div>
                   <span className="font-bold text-slate-700 block mb-0.5">Giải thích chi tiết:</span>
-                  <p className="leading-relaxed">{item.explanation}</p>
+                  <p className="leading-relaxed whitespace-pre-line">{renderFormattedText(item.explanation)}</p>
                 </div>
               </div>
             )}
