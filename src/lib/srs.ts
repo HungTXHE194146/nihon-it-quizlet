@@ -94,6 +94,49 @@ export function isMature(card: CardState | undefined): boolean {
   return !!card && card.interval >= MATURE_INTERVAL_DAYS;
 }
 
+// ─── Primitives cho tín hiệu ngoài đúng/sai (mục 6.4 tài liệu JLPT) ──────────
+//
+// Ba hàm dưới đây KHÔNG phải một thuật toán ôn tập thứ hai — chúng chỉnh lại kết quả mà
+// `review()` (SM-2 chuẩn) vừa tính ra, cho những trường hợp có thêm tín hiệu ngoài đúng/sai
+// (ví dụ độ chắc chắn lúc trả lời). Luồng ôn thường (N3, từ vựng/Kanji) không gọi tới các hàm
+// này nên hành vi của nó không đổi.
+
+/**
+ * Ép `interval`/`due` về một số ngày cụ thể, giữ nguyên các trường còn lại.
+ *
+ * Dùng khi tín hiệu phụ muốn ghi đè khoảng ôn mà SM-2 vừa tính, ví dụ trả lời đúng nhưng chỉ
+ * là đoán mò — không nên tin tưởng khoảng ôn dài mà `review(true)` vừa đưa ra.
+ */
+export function withIntervalDays(card: CardState, days: number, now = Date.now()): CardState {
+  return { ...card, interval: days, due: now + days * DAY_MS };
+}
+
+/**
+ * Giảm `ease` thêm một lượng, dùng khi một lỗi đáng lo hơn lỗi bình thường (ví dụ trả lời sai
+ * trong khi đang chắc chắn — dấu hiệu hiểu sai tận gốc, không phải nhớ nhầm thoáng qua).
+ */
+export function dropEaseExtra(card: CardState, amount: number): CardState {
+  return { ...card, ease: Math.max(MIN_EASE, card.ease - amount) };
+}
+
+/**
+ * Trạng thái "vừa được học lần đầu", khác với "vừa quên lại" mà `review(false)` giả định.
+ *
+ * Dùng khi câu trả lời sai thực chất là một lần đoán mò — nghĩa là kiến thức này chưa từng
+ * được học, không phải bị quên. Vì vậy KHÔNG tăng `lapses` (chỉ số leech chỉ nên tính cho thứ
+ * đã học rồi quên) dù thẻ có thể đã có `reps > 0` từ trước.
+ */
+export function asFreshLearning(prev: CardState | undefined, now = Date.now()): CardState {
+  const card = prev ? { ...prev } : createCardState();
+  card.seen += 1;
+  card.last = now;
+  card.wrong += 1;
+  card.reps = 0;
+  card.interval = 0;
+  card.due = now;
+  return card;
+}
+
 export function isLeech(card: CardState | undefined): boolean {
   return !!card && card.lapses >= LEECH_THRESHOLD;
 }

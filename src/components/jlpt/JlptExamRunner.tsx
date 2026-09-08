@@ -26,7 +26,6 @@ import { MISTAKE_CAUSES } from '../../lib/jlpt/schema';
 import {
   createAttempt,
   scoreAttempt,
-  srsSignalForMatrix,
   wrongIdsOf,
   pendingReviewIdsOf,
   SECTION_LABELS,
@@ -270,12 +269,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       const ans = attempt.answers[qId];
       if (!q || !ans || ans.chosenIndex === null) continue;
       const wasCorrect = ans.chosenIndex === q.answerIndex;
-      const signal = srsSignalForMatrix(wasCorrect, ans.confidence);
-      // Chính câu hỏi luôn vào lịch ôn của nó, bất kể có nối được thẻ từ vựng hay không —
-      // phần lớn câu 文法/読解/聴解 của một đề thật không có từ vựng nào để nối (ticket 005).
-      recordReview(jlptCardKey(stored.exam.id, qId), signal);
+      // Ma trận độ chắc chắn × đúng-sai (ticket 006, mục 6.3/6.4) áp cho MỌI thẻ nhận tín hiệu
+      // từ câu này — cả khoá riêng của câu hỏi lẫn thẻ từ vựng nối được, nếu có. Chính câu hỏi
+      // luôn vào lịch ôn của nó, bất kể có nối được thẻ từ vựng hay không — phần lớn câu
+      // 文法/読解/聴解 của một đề thật không có từ vựng nào để nối (ticket 005).
+      recordReview(jlptCardKey(stored.exam.id, qId), wasCorrect, ans.confidence);
       const key = linkedKeyFor(q);
-      if (key) recordReview(key, signal);
+      if (key) recordReview(key, wasCorrect, ans.confidence);
     }
 
     const finalScore = scoreAttempt(attempt, questionsById);

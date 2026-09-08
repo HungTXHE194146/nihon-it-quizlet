@@ -11,6 +11,8 @@ import type {
   ScoringSection,
   Confidence,
 } from './schema';
+import { review, withIntervalDays, dropEaseExtra, asFreshLearning } from '../srs';
+import type { CardState } from '../srs';
 
 /** Cỡ phiên mặc định là NHỎ NHẤT theo mục 5.1 — hạ chi phí khởi động. */
 export const DEFAULT_ATTEMPT_MODE: AttemptMode = 'taste';
@@ -147,13 +149,46 @@ export function isFullyReviewed(
   return pendingReviewIdsOf(attempt, questionsById).length === 0;
 }
 
+/** "Sai + chắc chắn" là dấu hiệu hiểu sai tận gốc (mục 6.3) — giảm ease thêm để thẻ quay lại
+ * sớm hơn một lỗi phân vân bình thường. */
+const CONFIDENT_MISTAKE_EXTRA_EASE_DROP = 0.15;
+
+/** "Đúng + phân vân": vẫn tăng khoảng ôn, nhưng dè dặt hơn mức bình thường (mục 6.4: ×0.6). */
+const UNSURE_CORRECT_INTERVAL_FACTOR = 0.6;
+
 /**
- * Góc dưới-phải của ma trận mục 6.3 ("Đúng + Đoán") là dương tính giả — nguy hiểm nhất, vì hệ
- * thống sẽ tưởng người học đã biết. `recordReview()` hiện có chỉ nhận đúng/sai nhị phân, nên áp
- * dụng đúng MỘT điều chỉnh khả thi mà không phải dựng thêm hệ thống: coi trường hợp này như sai
- * để SRS không tin nhầm và bắt ôn lại sớm. Các ô còn lại của ma trận dùng nguyên tín hiệu thật.
+ * Áp ma trận độ chắc chắn × đúng-sai (mục 6.3, 6.4 tài liệu thiết kế) lên MỘT thẻ SRS.
+ *
+ * Chỉ chỉnh TRẠNG THÁI KHỞI ĐẦU sau khi `review()` (SM-2 chuẩn, `src/lib/srs.ts`) đã chạy —
+ * không dựng thuật toán ôn tập thứ hai (mục 6.4: "không nên dựng hệ thứ hai"). Đúng 6 ô xử lý
+ * khác nhau, đừng "sửa" cho giống nhau hết — đây là chủ ý:
+ *
+ * | Ô | Vì sao xử lý vậy |
+ * |---|---|
+ * | Sai + chắc chắn  | Hiểu sai tận gốc — `ease` giảm thêm để quay lại sớm hơn lỗi thường. |
+ * | Sai + phân vân   | Lỗi bình thường — dùng nguyên `review(false)`, không chỉnh gì thêm. |
+ * | Sai + đoán       | Chưa từng học, không phải "quên" — không tính lapse, coi như học lần đầu (`asFreshLearning`). |
+ * | Đúng + đoán      | DƯƠNG TÍNH GIẢ, nguy hiểm nhất (mục 6.3) — ép ôn lại sau đúng 1 ngày dù vừa trả lời đúng. |
+ * | Đúng + phân vân  | Chưa thật chắc — tăng khoảng ôn dè dặt hơn (×0.6) thay vì đầy đủ. |
+ * | Đúng + chắc chắn | Bình thường — dùng nguyên `review(true)`. |
  */
-export function srsSignalForMatrix(wasCorrect: boolean, confidence: Confidence): boolean {
-  if (wasCorrect && confidence === 'guess') return false;
-  return wasCorrect;
+export function applyConfidenceMatrix(
+  prev: CardState | undefined,
+  wasCorrect: boolean,
+  confidence: Confidence,
+  now = Date.now()
+): CardState {
+  if (!wasCorrect) {
+    if (confidence === 'guess') return asFreshLearning(prev, now);
+    const card = review(prev, false, now);
+    return confidence === 'sure' ? dropEaseExtra(card, CONFIDENT_MISTAKE_EXTRA_EASE_DROP) : card;
+  }
+
+  const card = review(prev, true, now);
+  if (confidence === 'guess') return withIntervalDays(card, 1, now);
+  if (confidence === 'unsure') {
+    const scaled = Math.max(1, Math.round(card.interval * UNSURE_CORRECT_INTERVAL_FACTOR));
+    return withIntervalDays(card, scaled, now);
+  }
+  return card;
 }

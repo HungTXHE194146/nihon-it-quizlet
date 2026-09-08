@@ -27,6 +27,8 @@ import { review as srsReview, isDue, isMature } from '../lib/srs';
 import type { CardState } from '../lib/srs';
 import { itemByKey, subjectIdFromKey } from '../lib/itemIndex';
 import { isJlptCardKey } from '../lib/jlpt/srsKey';
+import { applyConfidenceMatrix } from '../lib/jlpt/attemptLogic';
+import type { Confidence } from '../lib/jlpt/schema';
 import { totalItemsOf, subjectInScope } from '../data/subjectMeta';
 import type { SubjectScope } from '../data/subjectMeta';
 import { useAuth } from './useAuth';
@@ -176,8 +178,15 @@ export interface SubjectStats {
 interface ProgressContextValue {
   data: ProgressData;
   persistent: boolean;
-  /** Ghi nhận một lần trả lời và cập nhật lịch ôn của thẻ. */
-  recordReview: (key: string, correct: boolean) => void;
+  /**
+   * Ghi nhận một lần trả lời và cập nhật lịch ôn của thẻ.
+   *
+   * `confidence` là tuỳ chọn: bỏ qua thì dùng nguyên `review()` (SM-2 chuẩn) như trước giờ —
+   * mọi luồng ôn thẻ từ vựng/Kanji và lượt ôn JLPT thường (không hỏi lại độ chắc chắn) đều đi
+   * đường này, hành vi không đổi. Chỉ lúc NỘP một lượt thi JLPT (đã thu độ chắc chắn lúc làm
+   * bài) mới truyền vào, để áp ma trận độ chắc chắn × đúng-sai (ticket 006, mục 6.3/6.4).
+   */
+  recordReview: (key: string, correct: boolean, confidence?: Confidence) => void;
   getCard: (key: string) => CardState | undefined;
   /** Các thẻ đến hạn ôn, cộng thêm một ít thẻ mới, giới hạn theo cài đặt. */
   buildReviewQueue: (scope: SubjectScope, limit?: number) => string[];
@@ -399,11 +408,13 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cố ý dùng chữ ký nội dung, xem ghi chú ở contentSignature
   }, [contentSignature, userId, syncEpoch]);
 
-  const recordReview = useCallback((key: string, correct: boolean) => {
+  const recordReview = useCallback((key: string, correct: boolean, confidence?: Confidence) => {
     const now = Date.now();
     const day = todayKey();
     setDataTouched((prev) => {
-      const card = srsReview(prev.cards[key], correct, now);
+      const card = confidence
+        ? applyConfidenceMatrix(prev.cards[key], correct, confidence, now)
+        : srsReview(prev.cards[key], correct, now);
       const prevDay = prev.daily[day] || { reviews: 0, correct: 0 };
 
       let streak = prev.streak;
