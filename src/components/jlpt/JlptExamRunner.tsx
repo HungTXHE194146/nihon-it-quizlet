@@ -34,6 +34,8 @@ import {
 } from '../../lib/jlpt/attemptLogic';
 import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake } from '../../lib/jlpt/db';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
+import { CONFIDENCE_LABELS } from '../../lib/jlpt/mistakeStats';
+import { StemText } from './StemText';
 
 interface JlptExamRunnerProps {
   examId: string;
@@ -46,25 +48,10 @@ function formatMinutes(ms: number): number {
   return Math.max(1, Math.round(ms / 60000));
 }
 
-function renderStem(stem: string | undefined, underline?: [number, number]) {
-  if (!stem) return null;
-  if (!underline) return <span>{stem}</span>;
-  const [from, to] = underline;
-  if (from < 0 || to > stem.length || from >= to) return <span>{stem}</span>;
-  return (
-    <span>
-      {stem.slice(0, from)}
-      <span className="underline decoration-2 decoration-indigo-500 font-black">{stem.slice(from, to)}</span>
-      {stem.slice(to)}
-    </span>
-  );
-}
-
-const CONFIDENCE_OPTIONS: { value: Confidence; label: string }[] = [
-  { value: 'sure', label: 'Chắc' },
-  { value: 'unsure', label: 'Phân vân' },
-  { value: 'guess', label: 'Đoán' },
-];
+/** Dùng chung nhãn với sổ tay lỗi để hai màn hình không bao giờ gọi cùng một mức bằng hai tên. */
+const CONFIDENCE_OPTIONS: { value: Confidence; label: string }[] = (
+  ['sure', 'unsure', 'guess'] as Confidence[]
+).map((value) => ({ value, label: CONFIDENCE_LABELS[value] }));
 
 export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }) => {
   const { recordReview } = useProgress();
@@ -649,7 +636,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           <div className="flex items-start justify-between gap-3 mb-4">
             {currentQuestion.stem && (
               <p className="text-base font-bold text-slate-800 leading-relaxed">
-                {renderStem(currentQuestion.stem, currentQuestion.stemUnderline)}
+                <StemText stem={currentQuestion.stem} underline={currentQuestion.stemUnderline} />
               </p>
             )}
             <button
@@ -916,7 +903,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
           {currentWrongQuestion.stem && (
             <p className="text-base font-bold text-slate-800 leading-relaxed mb-4">
-              {renderStem(currentWrongQuestion.stem, currentWrongQuestion.stemUnderline)}
+              <StemText stem={currentWrongQuestion.stem} underline={currentWrongQuestion.stemUnderline} />
             </p>
           )}
 
@@ -1038,7 +1025,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         </p>
         <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
           {currentMiniQuestion.stem && (
-            <p className="text-base font-bold text-slate-800 mb-4">{renderStem(currentMiniQuestion.stem, currentMiniQuestion.stemUnderline)}</p>
+            <p className="text-base font-bold text-slate-800 mb-4"><StemText stem={currentMiniQuestion.stem} underline={currentMiniQuestion.stemUnderline} /></p>
           )}
           <div className="grid gap-2">
             {currentMiniQuestion.choices.map((c, i) => (

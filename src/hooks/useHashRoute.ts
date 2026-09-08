@@ -15,7 +15,7 @@ export type AppRoute =
       mode: StudyMode;
     }
   | { page: 'exam'; subjectId: string; examTags: string[]; qType: string; durationMin: number }
-  | { page: 'mistakes' }
+  | { page: 'mistakes'; tab: 'srs' | 'jlpt' }
   | { page: 'jlpt-import' }
   | { page: 'jlpt-exam'; examId: string };
 
@@ -32,9 +32,10 @@ function parseHash(hash: string): AppRoute {
   const segments = pathPart.split('/').filter(Boolean);
   const params = new URLSearchParams(queryPart || '');
 
-  // #/mistakes — sổ tay câu sai gộp mọi môn
+  // #/mistakes?tab=jlpt — sổ tay câu sai gộp mọi môn; tab nằm trên URL để dẫn thẳng vào
+  // đúng loại sổ tay từ trang chủ (và để bấm Back quay lại đúng tab đang xem).
   if (segments[0] === 'mistakes') {
-    return { page: 'mistakes' };
+    return { page: 'mistakes', tab: params.get('tab') === 'jlpt' ? 'jlpt' : 'srs' };
   }
 
   // #/jlpt/import — nhập đề JLPT từ JSON/file ngoài vào

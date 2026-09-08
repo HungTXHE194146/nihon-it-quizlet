@@ -72,7 +72,12 @@ function App() {
    */
   const requiredSubject =
     route.page === 'mistakes'
-      ? 'all'
+      // Tab câu sai đề JLPT đọc thẳng từ IndexedDB, không đụng tới bài học của các môn —
+      // bắt nó chờ tải gần 1 MB dữ liệu từ vựng chỉ để đọc lại ghi chú là vô lý. Bấm sang
+      // tab thẻ SRS sẽ đổi URL, và lúc đó mới nạp.
+      ? route.tab === 'jlpt'
+        ? null
+        : 'all'
       : route.page === 'subject' || route.page === 'study' || route.page === 'exam'
       ? route.subjectId
       : null;
@@ -303,6 +308,7 @@ function App() {
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
             onOpenMistakes={() => navigate('/mistakes')}
+            onOpenJlptMistakes={() => navigate('/mistakes?tab=jlpt')}
             onOpenJlptImport={() => navigate('/jlpt/import')}
             onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
           />
@@ -402,10 +408,14 @@ function App() {
 
         {route.page === 'mistakes' && (
           <MistakeNotebook
+            tab={route.tab}
+            onChangeTab={(tab) => navigate(tab === 'jlpt' ? '/mistakes?tab=jlpt' : '/mistakes')}
             onBackToHome={() => navigate('/')}
             onStartReview={(subjectId) =>
               navigate(`/subject/${subjectId}/study?mode=mistakes`)
             }
+            onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
+            onOpenJlptImport={() => navigate('/jlpt/import')}
           />
         )}
 

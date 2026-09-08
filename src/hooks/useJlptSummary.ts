@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { listStoredExams, listAttempts } from '../lib/jlpt/db';
+import { listStoredExams, listAttempts, listMistakes } from '../lib/jlpt/db';
 import { pendingReviewIdsOf } from '../lib/jlpt/attemptLogic';
 import { useJlptOwner } from './useJlptOwner';
 
@@ -38,6 +38,13 @@ export interface JlptSummary {
    */
   pendingReview: { examId: string; examTitle: string; pendingCount: number } | null;
   submittedCount: number;
+  /**
+   * Số câu đã mổ xẻ xong và nằm trong sổ tay lỗi JLPT.
+   *
+   * Đây là lối vào duy nhất tới công sức người học bỏ ra ở bước 4 (tự viết quy tắc); không
+   * đếm ở đây thì trang chủ không có cớ gì để dẫn họ quay lại đọc.
+   */
+  mistakeCount: number;
 }
 
 const EMPTY: JlptSummary = {
@@ -47,6 +54,7 @@ const EMPTY: JlptSummary = {
   last: null,
   pendingReview: null,
   submittedCount: 0,
+  mistakeCount: 0,
 };
 
 export function useJlptSummary(): JlptSummary {
@@ -58,9 +66,10 @@ export function useJlptSummary(): JlptSummary {
 
     (async () => {
       try {
-        const [storedExams, attempts] = await Promise.all([
+        const [storedExams, attempts, mistakes] = await Promise.all([
           listStoredExams(),
           listAttempts(ownerId),
+          listMistakes(ownerId),
         ]);
         if (cancelled) return;
 
@@ -107,6 +116,7 @@ export function useJlptSummary(): JlptSummary {
               }
             : null,
           submittedCount: submitted.length,
+          mistakeCount: mistakes.length,
         });
       } catch {
         if (!cancelled) setSummary(EMPTY);

@@ -37,6 +37,8 @@ interface HomepageProps {
   /** Mở phiên ôn theo lịch SRS cho một phạm vi ("n3" = gộp các môn N3, "all" = mọi môn). */
   onStartReview: (scope: string) => void;
   onOpenMistakes: () => void;
+  /** Sổ tay lỗi JLPT — cùng màn với sổ tay câu sai, mở sẵn tab đề JLPT. */
+  onOpenJlptMistakes: () => void;
   onOpenJlptImport: () => void;
   onOpenJlptExam: (examId: string) => void;
 }
@@ -63,6 +65,7 @@ export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
   onStartReview,
   onOpenMistakes,
+  onOpenJlptMistakes,
   onOpenJlptImport,
   onOpenJlptExam,
 }) => {
@@ -377,13 +380,26 @@ export const Homepage: React.FC<HomepageProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={onOpenJlptImport}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
-          >
-            <FileJson className="w-4 h-4" />
-            {jlpt.exams.length > 0 ? 'Quản lý & nhập đề' : 'Nhập đề JLPT đầu tiên'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {/* Đường quay lại chỗ người học đã bỏ công viết quy tắc cho từng câu sai — không
+                có lối vào này thì bước 4 của quy trình mổ xẻ chỉ là gõ chữ rồi vứt đi. */}
+            {jlpt.mistakeCount > 0 && (
+              <button
+                onClick={onOpenJlptMistakes}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-bold hover:bg-rose-100 active:scale-95 transition-all cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Sổ tay lỗi JLPT ({jlpt.mistakeCount})
+              </button>
+            )}
+            <button
+              onClick={onOpenJlptImport}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+            >
+              <FileJson className="w-4 h-4" />
+              {jlpt.exams.length > 0 ? 'Quản lý & nhập đề' : 'Nhập đề JLPT đầu tiên'}
+            </button>
+          </div>
         </div>
 
         {jlpt.running && (
