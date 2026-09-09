@@ -34,3 +34,4 @@ __pycache__/
 # Vercel CLI (vercel dev / vercel env pull) — chứa secret, không commit
 .vercel
 .env.local
+/data/N3_my_AI_generated_practice_exam
