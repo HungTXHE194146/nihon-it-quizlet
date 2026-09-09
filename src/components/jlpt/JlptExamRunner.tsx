@@ -12,6 +12,7 @@ import {
   Sparkles,
   BookOpen,
   Clock,
+  Bug,
 } from 'lucide-react';
 import { useProgress } from '../../hooks/useProgress';
 import { itemByKey } from '../../lib/itemIndex';
@@ -22,8 +23,9 @@ import type {
   Confidence,
   AttemptMode,
   MistakeCause,
+  ReportIssueType,
 } from '../../lib/jlpt/schema';
-import { MISTAKE_CAUSES } from '../../lib/jlpt/schema';
+import { MISTAKE_CAUSES, REPORT_ISSUE_TYPES } from '../../lib/jlpt/schema';
 import {
   createAttempt,
   scoreAttempt,
@@ -32,7 +34,7 @@ import {
   SECTION_LABELS,
   type AttemptScore,
 } from '../../lib/jlpt/attemptLogic';
-import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake } from '../../lib/jlpt/db';
+import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake, putReport } from '../../lib/jlpt/db';
 import { jlptCardKey } from '../../lib/jlpt/srsKey';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { CONFIDENCE_LABELS } from '../../lib/jlpt/mistakeStats';
@@ -80,6 +82,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const [qIndex, setQIndex] = useState(0);
   const [showAnswerSheet, setShowAnswerSheet] = useState(false);
   const [exitConfirm, setExitConfirm] = useState(false);
+  /** "Báo lỗi câu này" — mở form cho ĐÚNG MỘT câu (mã câu), đóng lại khi chuyển câu. */
+  const [reportOpenFor, setReportOpenFor] = useState<string | null>(null);
+  const [reportIssueType, setReportIssueType] = useState<ReportIssueType>('underline');
+  const [reportNote, setReportNote] = useState('');
+  /** Câu vừa gửi báo cáo xong — hiện dấu tick một nhịp, tự hết khi sang câu khác. */
+  const [reportSavedFor, setReportSavedFor] = useState<string | null>(null);
   const [submitConfirm, setSubmitConfirm] = useState(false);
 
   const [score, setScore] = useState<AttemptScore | null>(null);
@@ -142,6 +150,14 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   const currentQuestion: JlptQuestion | null =
     attempt && attempt.questionIds[qIndex] ? questionsById.get(attempt.questionIds[qIndex]) ?? null : null;
+
+  // Chuyển câu thì đóng form báo lỗi (nếu đang mở cho câu khác) và tắt dấu tick "đã báo cáo"
+  // của câu trước — cả hai đều chỉ có ý nghĩa cho ĐÚNG câu đang xem.
+  useEffect(() => {
+    setReportOpenFor(null);
+    setReportSavedFor(null);
+    setReportNote('');
+  }, [qIndex]);
 
   const passage = currentQuestion?.passageId
     ? stored?.passages.find((p) => p.id === currentQuestion.passageId)
@@ -254,6 +270,29 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       changeCount: 0,
     };
     persistAttempt({ ...attempt, answers: { ...attempt.answers, [currentQuestion.id]: { ...prev, flagged: !prev.flagged } } });
+  };
+
+  /**
+   * "Báo lỗi câu này" — khác hẳn `toggleFlag` (đánh dấu để TỰ xem lại): đây là báo lỗi NỘI
+   * DUNG đề (vd. gạch chân lệch ký tự — lỗi thường gặp ở đề do AI soạn), gom lại để xuất
+   * thành lời nhắc sửa cho một AI khác ở màn Nhập Đề. Không theo tài khoản, không theo lượt
+   * làm bài — là thuộc tính của đề.
+   */
+  const submitReport = async () => {
+    if (!stored || !currentQuestion) return;
+    await putReport({
+      id: `rep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      examId: stored.exam.id,
+      questionId: currentQuestion.id,
+      createdAt: Date.now(),
+      issueType: reportIssueType,
+      note: reportNote.trim(),
+      stemSnapshot: currentQuestion.stem,
+    }).catch(() => {});
+    setReportSavedFor(currentQuestion.id);
+    setReportOpenFor(null);
+    setReportNote('');
+    setReportIssueType('underline');
   };
 
   const linkedKeyFor = (q: JlptQuestion): string | null => {
@@ -709,18 +748,75 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                     <StemText stem={currentQuestion.stem} underline={currentQuestion.stemUnderline} />
                   </p>
                 )}
-                <button
-                  onClick={toggleFlag}
-                  title="Đánh dấu để xem lại"
-                  className={`shrink-0 p-2 rounded-xl border transition-colors cursor-pointer ${
-                    answer?.flagged
-                      ? 'bg-amber-50 border-amber-300 text-amber-600 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'
-                      : 'bg-white border-slate-200 text-slate-300 hover:text-amber-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-600 dark:hover:text-amber-400'
-                  }`}
-                >
-                  <Flag size={16} fill={answer?.flagged ? 'currentColor' : 'none'} />
-                </button>
+                <div className="shrink-0 flex items-center gap-1.5">
+                  <button
+                    onClick={() =>
+                      setReportOpenFor((cur) => (cur === currentQuestion.id ? null : currentQuestion.id))
+                    }
+                    title="Báo lỗi câu này (vd. gạch chân sai vị trí, đáp án sai...)"
+                    className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                      reportOpenFor === currentQuestion.id
+                        ? 'bg-rose-50 border-rose-300 text-rose-600 dark:bg-rose-950/40 dark:border-rose-700 dark:text-rose-400'
+                        : reportSavedFor === currentQuestion.id
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-600 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-400'
+                        : 'bg-white border-slate-200 text-slate-300 hover:text-rose-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-600 dark:hover:text-rose-400'
+                    }`}
+                  >
+                    {reportSavedFor === currentQuestion.id ? <CheckCircle2 size={16} /> : <Bug size={16} />}
+                  </button>
+                  <button
+                    onClick={toggleFlag}
+                    title="Đánh dấu để xem lại"
+                    className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                      answer?.flagged
+                        ? 'bg-amber-50 border-amber-300 text-amber-600 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'
+                        : 'bg-white border-slate-200 text-slate-300 hover:text-amber-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-600 dark:hover:text-amber-400'
+                    }`}
+                  >
+                    <Flag size={16} fill={answer?.flagged ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
               </div>
+
+              {reportOpenFor === currentQuestion.id && (
+                <div className="bg-rose-50 border border-rose-200 dark:bg-rose-950/30 dark:border-rose-800 rounded-xl p-3.5 mb-4">
+                  <p className="text-xs font-extrabold text-rose-700 dark:text-rose-300 mb-2">
+                    Báo lỗi câu này — sẽ gom vào danh sách để xuất lời nhắc sửa cho AI khác (màn Nhập Đề)
+                  </p>
+                  <select
+                    value={reportIssueType}
+                    onChange={(e) => setReportIssueType(e.target.value as typeof reportIssueType)}
+                    className="w-full mb-2 px-3 py-2 rounded-lg border-2 border-rose-200 dark:bg-neutral-900 dark:border-rose-800 dark:text-neutral-100 text-xs font-bold"
+                  >
+                    {REPORT_ISSUE_TYPES.map((t) => (
+                      <option key={t.code} value={t.code}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    placeholder='Vd. "gạch chân lệch, đang gạch từ 父さ nhưng phải là 車に乗って"'
+                    rows={2}
+                    className="w-full mb-2 px-3 py-2 rounded-lg border-2 border-rose-200 dark:bg-neutral-900 dark:border-rose-800 dark:text-neutral-100 dark:placeholder-neutral-500 text-xs font-semibold resize-y"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={submitReport}
+                      className="px-3.5 py-2 rounded-lg bg-rose-600 text-white text-xs font-extrabold hover:bg-rose-700 transition-colors cursor-pointer"
+                    >
+                      Gửi báo cáo
+                    </button>
+                    <button
+                      onClick={() => setReportOpenFor(null)}
+                      className="px-3.5 py-2 rounded-lg bg-white border border-rose-200 text-rose-600 dark:bg-neutral-900 dark:border-rose-800 dark:text-rose-300 text-xs font-bold cursor-pointer"
+                    >
+                      Huỷ
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-2 mb-4">
                 {currentQuestion.choices.map((c, i) => (
