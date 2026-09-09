@@ -487,9 +487,9 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
               className={`px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-all flex-1 max-w-[170px] justify-center ${
                 isGraded
                   ? selectedGrade === 'incorrect'
-                    ? 'bg-rose-600 text-white shadow-md shadow-rose-100'
-                    : 'bg-slate-100 text-slate-400 opacity-50 cursor-default border border-slate-200'
-                  : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 active:scale-95 cursor-pointer'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-100 dark:shadow-none'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-50 cursor-default border border-slate-200 dark:border-slate-700'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60 active:scale-95 cursor-pointer'
               }`}
             >
               <X size={18} />
@@ -504,9 +504,9 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
               className={`px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-all flex-1 max-w-[170px] justify-center ${
                 isGraded
                   ? selectedGrade === 'correct'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100'
-                    : 'bg-slate-100 text-slate-400 opacity-50 cursor-default border border-slate-200'
-                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 active:scale-95 cursor-pointer'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100 dark:shadow-none'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-50 cursor-default border border-slate-200 dark:border-slate-700'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 active:scale-95 cursor-pointer'
               }`}
             >
               <Check size={18} />
@@ -518,35 +518,35 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
 
       {/* Keyboard Shortcuts Hint */}
       {mode === 'type-reading' ? (
-        <div className="mt-8 flex justify-center gap-6 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100/50 py-2 px-4 rounded-xl border border-slate-200/40 w-fit mx-auto select-none">
+        <div className="mt-8 flex justify-center gap-6 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider bg-slate-100/50 dark:bg-slate-800/50 py-2 px-4 rounded-xl border border-slate-200/40 dark:border-slate-700/40 w-fit mx-auto select-none">
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">Enter</kbd>
+            <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400">Enter</kbd>
             Kiểm tra
           </span>
           <span className="flex items-center gap-1.5">Gõ được cả kana lẫn romaji</span>
         </div>
       ) : (
-      <div className="mt-8 flex justify-center gap-6 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100/50 py-2 px-4 rounded-xl border border-slate-200/40 w-fit mx-auto select-none">
+      <div className="mt-8 flex justify-center gap-6 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider bg-slate-100/50 dark:bg-slate-800/50 py-2 px-4 rounded-xl border border-slate-200/40 dark:border-slate-700/40 w-fit mx-auto select-none">
         <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">Space</kbd>
+          <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400">Space</kbd>
           Lật thẻ
         </span>
         <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">H</kbd>
+          <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400">H</kbd>
           Hiện đọc
         </span>
         {ttsSupported && (
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">S</kbd>
+            <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400">S</kbd>
             Nghe
           </span>
         )}
         <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">←</kbd>
+          <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400">←</kbd>
           Chưa thuộc
         </span>
         <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 bg-white border border-slate-350 rounded shadow-sm font-mono text-[9px] text-slate-500">→</kbd>
+          <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400">→</kbd>
           Đã thuộc
         </span>
       </div>
