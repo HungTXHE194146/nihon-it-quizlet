@@ -2,6 +2,10 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700;900&display=swap');
 
+/* Dark mode bật bằng class .dark trên <html> (xem src/hooks/useTheme.tsx), không theo
+   prefers-color-scheme trực tiếp — người dùng bấm nút bật/tắt, không phải OS quyết định. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
   --font-space: 'Space Grotesk', sans-serif;
@@ -29,15 +33,19 @@
 }
 
 :root {
-  /* Web này chưa hỗ trợ dark mode — khai báo rõ để trình duyệt/OS không tự "force dark"
-     (phổ biến trên Android Chrome, MIUI...), vì kiểu auto-invert đó hay làm chữ và nền
-     input trùng màu (chữ chỉ hiện khi bôi đen). */
+  /* Khai báo rõ color-scheme (chứ không để trống) để trình duyệt/OS không tự "force dark"
+     lên các phần chưa kịp có class .dark — kiểu auto-invert đó hay làm chữ và nền input
+     trùng màu (chữ chỉ hiện khi bôi đen). .dark tự đổi sang dark bên dưới khi bật. */
   color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  @apply bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white;
+  @apply bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white dark:bg-slate-950 dark:text-slate-100;
 }
 
 /* Custom Utilities for 3D Flashcard Flip */
@@ -65,16 +73,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100 rounded-full;
+  @apply bg-slate-100 dark:bg-slate-800 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 hover:bg-slate-400 rounded-full transition-colors;
+  @apply bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500 rounded-full transition-colors;
 }
 
 /* Card glass effect */
 .glass-panel {
-  @apply bg-white/80 backdrop-blur-md border border-slate-200/50 shadow-xl shadow-slate-100/50;
+  @apply bg-white/80 backdrop-blur-md border border-slate-200/50 shadow-xl shadow-slate-100/50 dark:bg-slate-900/80 dark:border-slate-700/50 dark:shadow-black/20;
 }
 
 /* Custom animations */
