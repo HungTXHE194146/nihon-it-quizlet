@@ -451,7 +451,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   if (view === 'loading') {
     return (
-      <div className="w-full py-24 flex items-center justify-center gap-2 text-slate-400 text-sm font-bold">
+      <div className="w-full py-24 flex items-center justify-center gap-2 text-slate-400 dark:text-neutral-500 text-sm font-bold">
         <Loader2 className="w-5 h-5 animate-spin" /> Đang tải đề...
       </div>
     );
@@ -460,9 +460,9 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'not-found' || !stored) {
     return (
       <div className="w-full max-w-md mx-auto text-center py-20 px-4">
-        <h3 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy đề này</h3>
-        <p className="text-slate-500 mb-6 text-sm">Có thể đề đã bị xoá trên máy này.</p>
-        <button onClick={onExit} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer text-sm">
+        <h3 className="text-xl font-bold text-slate-800 dark:text-neutral-100 mb-2">Không tìm thấy đề này</h3>
+        <p className="text-slate-500 dark:text-neutral-400 mb-6 text-sm">Có thể đề đã bị xoá trên máy này.</p>
+        <button onClick={onExit} className="px-6 py-3 bg-indigo-600 dark:bg-red-600 text-white rounded-xl font-bold hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer text-sm">
           Về danh sách đề
         </button>
       </div>
@@ -473,28 +473,28 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'lobby') {
     return (
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
-        <button onClick={onExit} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 text-xs font-extrabold shadow-sm mb-6 cursor-pointer">
+        <button onClick={onExit} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-red-400 text-xs font-extrabold shadow-sm mb-6 cursor-pointer">
           <ArrowLeft size={16} /> Danh sách đề
         </button>
 
-        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 mb-1">{stored.exam.title}</h1>
-        <p className="text-sm font-semibold text-slate-500 mb-6">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-neutral-100 mb-1">{stored.exam.title}</h1>
+        <p className="text-sm font-semibold text-slate-500 dark:text-neutral-400 mb-6">
           {stored.exam.level} · {stored.exam.blocks.length} khối · {stored.questions.length} câu
         </p>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-          <p className="text-xs font-extrabold text-slate-400 mb-2">Cấu trúc đề (nói thật, không giấu)</p>
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+          <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-2">Cấu trúc đề (nói thật, không giấu)</p>
           <ul className="space-y-1.5">
             {stored.exam.blocks.map((b) => (
-              <li key={b.id} className="text-sm font-semibold text-slate-700 flex justify-between">
+              <li key={b.id} className="text-sm font-semibold text-slate-700 dark:text-neutral-200 flex justify-between">
                 <span>{b.label}</span>
-                <span className="text-slate-400">{b.minutes} phút</span>
+                <span className="text-slate-400 dark:text-neutral-500">{b.minutes} phút</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-4 text-sm font-semibold text-indigo-900 leading-relaxed">
+        <div className="bg-indigo-50 border border-indigo-100 dark:bg-red-950/30 dark:border-red-900 rounded-2xl p-5 mb-4 text-sm font-semibold text-indigo-900 dark:text-red-200 leading-relaxed">
           Lần đầu làm đề, hầu hết mọi người thấp hơn mình tưởng — đó là chuyện bình thường và
           chính là dữ liệu bạn cần. Mục tiêu hôm nay không phải điểm cao, mà là tìm ra bạn đang
           hổng chỗ nào.
@@ -514,7 +514,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         {pendingReviewAttempt && (
           <button
             onClick={() => openResults(pendingReviewAttempt)}
-            className="w-full mb-4 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm shadow-md hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+            className="w-full mb-4 py-3.5 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-sm shadow-md hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer"
           >
             Mổ xẻ nốt {pendingReviewIdsOf(pendingReviewAttempt, questionsById).length} câu sai của lần trước →
           </button>
@@ -523,15 +523,15 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         {lastSubmittedAttempt && lastSubmittedAttempt.id !== pendingReviewAttempt?.id && (
           <button
             onClick={() => openResults(lastSubmittedAttempt)}
-            className="w-full mb-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+            className="w-full mb-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-neutral-800 transition-all cursor-pointer"
           >
             Xem lại kết quả lần trước
             {lastSubmittedAttempt.scorePercent !== undefined && ` (${lastSubmittedAttempt.scorePercent}%)`}
           </button>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-          <p className="text-xs font-extrabold text-slate-400 mb-3">Chọn cỡ phiên</p>
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+          <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-3">Chọn cỡ phiên</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
             {(
               [
@@ -548,11 +548,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   else setBlockId(stored.exam.blocks[0]?.id);
                 }}
                 className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
-                  mode === opt.value ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'
+                  mode === opt.value
+                    ? 'border-indigo-500 bg-indigo-50 dark:border-red-500 dark:bg-red-950/30'
+                    : 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600'
                 }`}
               >
-                <p className="text-sm font-extrabold text-slate-800">{opt.label}</p>
-                <p className="text-[11px] font-semibold text-slate-400">{opt.desc}</p>
+                <p className="text-sm font-extrabold text-slate-800 dark:text-neutral-100">{opt.label}</p>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500">{opt.desc}</p>
               </button>
             ))}
           </div>
@@ -561,7 +563,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             <select
               value={blockId}
               onChange={(e) => setBlockId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-bold"
+              className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100 text-sm font-bold"
             >
               {stored.exam.blocks.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -572,8 +574,8 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-          <label className="text-xs font-extrabold text-slate-400 mb-2 block">
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-6">
+          <label className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-2 block">
             Bạn nghĩ mình đúng khoảng bao nhiêu % (tuỳ chọn)?
           </label>
           <input
@@ -583,13 +585,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             value={predictedPercent}
             onChange={(e) => setPredictedPercent(e.target.value === '' ? '' : Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)))}
             placeholder="vd. 60"
-            className="w-32 px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-bold"
+            className="w-32 px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 text-sm font-bold"
           />
         </div>
 
         <button
           onClick={startAttempt}
-          className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-base shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+          className="w-full py-4 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-base shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer"
         >
           Bắt đầu làm bài
         </button>
@@ -604,16 +606,59 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     // thời gian gắt — xem `createAttempt`) nên đồng hồ chỉ hiện khi có.
     const remainingSec = attempt.deadline !== undefined ? (attempt.deadline - now) / 1000 : null;
     const urgent = remainingSec !== null && remainingSec <= 300;
+
+    // Phiếu trả lời: hiện cố định trong sidebar bên phải ở màn lớn (kiểu Bunpro), và vẫn là
+    // panel bật/tắt ở màn nhỏ vì không đủ chỗ cho 2 cột — cùng một nội dung, dùng lại chứ
+    // không viết hai lần.
+    const answerSheetGrid = (
+      <>
+        {stored.exam.groups.map((g) => {
+          const idsInAttempt = g.questionIds.filter((id) => attempt.questionIds.includes(id));
+          if (idsInAttempt.length === 0) return null;
+          return (
+            <div key={g.mondai} className="mb-3 last:mb-0">
+              <p className="text-[11px] font-extrabold text-slate-400 dark:text-neutral-500 mb-1.5">{g.mondai}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {idsInAttempt.map((id) => {
+                  const idx = attempt.questionIds.indexOf(id);
+                  const a = attempt.answers[id];
+                  const isCurrent = idx === qIndex;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setQIndex(idx);
+                        setShowAnswerSheet(false);
+                      }}
+                      className={`w-8 h-8 rounded-lg text-xs font-extrabold border-2 transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'border-indigo-500 bg-indigo-500 text-white dark:border-red-500 dark:bg-red-600'
+                          : a?.chosenIndex !== undefined && a?.chosenIndex !== null
+                          ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300'
+                          : 'border-slate-200 bg-white text-slate-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-500'
+                      } ${a?.flagged ? 'ring-2 ring-amber-400 dark:ring-amber-500' : ''}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+
     return (
-      <div className="w-full max-w-3xl mx-auto px-4 py-6">
+      <div className="w-full max-w-5xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between gap-2 mb-4">
           <button
             onClick={() => setExitConfirm(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 text-xs font-extrabold shadow-sm cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-rose-400 text-xs font-extrabold shadow-sm cursor-pointer shrink-0"
           >
             <ArrowLeft size={15} /> Thoát
           </button>
-          <p className="text-xs font-extrabold text-slate-500 text-center min-w-0">
+          <p className="text-xs font-extrabold text-slate-500 dark:text-neutral-400 text-center min-w-0">
             Câu {qIndex + 1}/{attempt.questionIds.length} · Đã trả lời {answeredCount}
           </p>
           <div className="flex items-center gap-2 shrink-0">
@@ -622,8 +667,8 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 title="Thời gian còn lại — hết giờ tự động nộp bài"
                 className={`inline-flex items-center gap-1.5 py-2 px-3 rounded-xl border text-sm font-black font-mono tabular-nums ${
                   urgent
-                    ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
-                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-neutral-800 dark:text-neutral-200 dark:border-neutral-700'
                 }`}
               >
                 <Clock size={15} />
@@ -632,144 +677,128 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             )}
             <button
               onClick={() => setShowAnswerSheet((s) => !s)}
-              className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-extrabold shadow-sm cursor-pointer"
+              className="lg:hidden px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 text-xs font-extrabold shadow-sm cursor-pointer"
             >
               Phiếu trả lời
             </button>
           </div>
         </div>
 
-        {showAnswerSheet && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
-            {stored.exam.groups.map((g) => {
-              const idsInAttempt = g.questionIds.filter((id) => attempt.questionIds.includes(id));
-              if (idsInAttempt.length === 0) return null;
-              return (
-                <div key={g.mondai} className="mb-3 last:mb-0">
-                  <p className="text-[11px] font-extrabold text-slate-400 mb-1.5">{g.mondai}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {idsInAttempt.map((id) => {
-                      const idx = attempt.questionIds.indexOf(id);
-                      const a = attempt.answers[id];
-                      const isCurrent = idx === qIndex;
-                      return (
-                        <button
-                          key={id}
-                          onClick={() => {
-                            setQIndex(idx);
-                            setShowAnswerSheet(false);
-                          }}
-                          className={`w-8 h-8 rounded-lg text-xs font-extrabold border-2 transition-all cursor-pointer ${
-                            isCurrent
-                              ? 'border-indigo-500 bg-indigo-500 text-white'
-                              : a?.chosenIndex !== undefined && a?.chosenIndex !== null
-                              ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
-                              : 'border-slate-200 bg-white text-slate-400'
-                          } ${a?.flagged ? 'ring-2 ring-amber-400' : ''}`}
-                        >
-                          {idx + 1}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-          {currentGroup && (
-            <p className="text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">{currentGroup.instruction}</p>
-          )}
-
-          {passage && (
-            <div className="bg-slate-50 rounded-xl p-4 mb-4 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
-              {passage.text}
-            </div>
-          )}
-
-          <div className="flex items-start justify-between gap-3 mb-4">
-            {currentQuestion.stem && (
-              <p className="text-base font-bold text-slate-800 leading-relaxed">
-                <StemText stem={currentQuestion.stem} underline={currentQuestion.stemUnderline} />
-              </p>
+        <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-5 lg:items-start">
+          <div className="min-w-0">
+            {showAnswerSheet && (
+              <div className="lg:hidden bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-4 mb-4">
+                {answerSheetGrid}
+              </div>
             )}
-            <button
-              onClick={toggleFlag}
-              title="Đánh dấu để xem lại"
-              className={`shrink-0 p-2 rounded-xl border transition-colors cursor-pointer ${
-                answer?.flagged ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-white border-slate-200 text-slate-300 hover:text-amber-500'
-              }`}
-            >
-              <Flag size={16} fill={answer?.flagged ? 'currentColor' : 'none'} />
-            </button>
-          </div>
 
-          <div className="grid gap-2 mb-4">
-            {currentQuestion.choices.map((c, i) => (
-              <button
-                key={i}
-                onClick={() => setAnswer(i)}
-                className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
-                  answer?.chosenIndex === i ? 'border-indigo-500 bg-indigo-50 text-indigo-900' : 'border-slate-200 hover:border-slate-300 text-slate-700'
-                }`}
-              >
-                {i + 1}. {c.text}
-              </button>
-            ))}
-          </div>
+            <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+              {currentGroup && (
+                <p className="text-xs font-bold text-slate-400 dark:text-neutral-500 mb-3 pb-3 border-b border-slate-100 dark:border-neutral-800">{currentGroup.instruction}</p>
+              )}
 
-          {answer && answer.chosenIndex !== null && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-extrabold text-slate-400">Mức độ chắc chắn:</span>
-              {CONFIDENCE_OPTIONS.map((opt) => (
+              {passage && (
+                <div className="bg-slate-50 dark:bg-neutral-800 rounded-xl p-4 mb-4 text-sm leading-relaxed text-slate-700 dark:text-neutral-300 whitespace-pre-wrap">
+                  {passage.text}
+                </div>
+              )}
+
+              <div className="flex items-start justify-between gap-3 mb-4">
+                {currentQuestion.stem && (
+                  <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed">
+                    <StemText stem={currentQuestion.stem} underline={currentQuestion.stemUnderline} />
+                  </p>
+                )}
                 <button
-                  key={opt.value}
-                  onClick={() => setConfidence(opt.value)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold border transition-all cursor-pointer ${
-                    answer.confidence === opt.value ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-500'
+                  onClick={toggleFlag}
+                  title="Đánh dấu để xem lại"
+                  className={`shrink-0 p-2 rounded-xl border transition-colors cursor-pointer ${
+                    answer?.flagged
+                      ? 'bg-amber-50 border-amber-300 text-amber-600 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-400'
+                      : 'bg-white border-slate-200 text-slate-300 hover:text-amber-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-600 dark:hover:text-amber-400'
                   }`}
                 >
-                  {opt.label}
+                  <Flag size={16} fill={answer?.flagged ? 'currentColor' : 'none'} />
                 </button>
-              ))}
+              </div>
+
+              <div className="grid gap-2 mb-4">
+                {currentQuestion.choices.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAnswer(i)}
+                    className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
+                      answer?.chosenIndex === i
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:border-red-500 dark:bg-red-950/30 dark:text-red-200'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-300'
+                    }`}
+                  >
+                    {i + 1}. {c.text}
+                  </button>
+                ))}
+              </div>
+
+              {answer && answer.chosenIndex !== null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold text-slate-400 dark:text-neutral-500">Mức độ chắc chắn:</span>
+                  {CONFIDENCE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setConfidence(opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold border transition-all cursor-pointer ${
+                        answer.confidence === opt.value
+                          ? 'bg-slate-800 border-slate-800 text-white dark:bg-red-600 dark:border-red-600'
+                          : 'bg-white border-slate-200 text-slate-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <button
-            onClick={() => setQIndex((i) => Math.max(0, i - 1))}
-            disabled={qIndex === 0}
-            className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-extrabold disabled:opacity-40 cursor-pointer"
-          >
-            <ChevronLeft size={15} /> Câu trước
-          </button>
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={() => setQIndex((i) => Math.max(0, i - 1))}
+                disabled={qIndex === 0}
+                className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 text-xs font-extrabold disabled:opacity-40 cursor-pointer"
+              >
+                <ChevronLeft size={15} /> Câu trước
+              </button>
 
-          {qIndex + 1 < attempt.questionIds.length ? (
-            <button
-              onClick={() => setQIndex((i) => i + 1)}
-              className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-slate-800 text-white text-xs font-extrabold cursor-pointer"
-            >
-              Câu sau <ChevronRight size={15} />
-            </button>
-          ) : (
-            <button
-              onClick={() => setSubmitConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-extrabold shadow-md cursor-pointer"
-            >
-              <Send size={14} /> Nộp bài
-            </button>
-          )}
+              {qIndex + 1 < attempt.questionIds.length ? (
+                <button
+                  onClick={() => setQIndex((i) => i + 1)}
+                  className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-slate-800 text-white dark:bg-red-600 text-xs font-extrabold cursor-pointer"
+                >
+                  Câu sau <ChevronRight size={15} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSubmitConfirm(true)}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-extrabold shadow-md cursor-pointer"
+                >
+                  <Send size={14} /> Nộp bài
+                </button>
+              )}
+            </div>
+          </div>
+
+          <aside className="hidden lg:block lg:sticky lg:top-6">
+            <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-4">
+              <p className="text-xs font-extrabold text-slate-500 dark:text-neutral-400 mb-3">Phiếu trả lời</p>
+              {answerSheetGrid}
+            </div>
+          </aside>
         </div>
 
         {exitConfirm && (
           <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4" onClick={() => setExitConfirm(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full">
-              <p className="font-extrabold text-slate-800 mb-4">Bạn muốn làm gì với bài đang làm dở?</p>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full dark:bg-neutral-900">
+              <p className="font-extrabold text-slate-800 dark:text-neutral-100 mb-4">Bạn muốn làm gì với bài đang làm dở?</p>
               <div className="flex flex-col gap-2">
-                <button onClick={onExit} className="py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold cursor-pointer">
+                <button onClick={onExit} className="py-2.5 rounded-xl bg-indigo-600 text-white dark:bg-red-600 text-sm font-bold cursor-pointer">
                   Tạm dừng (giữ bài, làm tiếp sau)
                 </button>
                 <button
@@ -781,10 +810,10 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 >
                   Nộp luôn
                 </button>
-                <button onClick={abandon} className="py-2.5 rounded-xl bg-rose-50 text-rose-600 text-sm font-bold cursor-pointer">
+                <button onClick={abandon} className="py-2.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300 text-sm font-bold cursor-pointer">
                   Huỷ bài (xoá)
                 </button>
-                <button onClick={() => setExitConfirm(false)} className="py-2 text-slate-400 text-xs font-bold cursor-pointer">
+                <button onClick={() => setExitConfirm(false)} className="py-2 text-slate-400 dark:text-neutral-500 text-xs font-bold cursor-pointer">
                   Đóng
                 </button>
               </div>
@@ -794,15 +823,15 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
         {submitConfirm && (
           <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4" onClick={() => setSubmitConfirm(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
-              <p className="font-extrabold text-slate-800 mb-2">Nộp bài?</p>
-              <p className="text-sm text-slate-500 mb-5">
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full text-center dark:bg-neutral-900">
+              <p className="font-extrabold text-slate-800 dark:text-neutral-100 mb-2">Nộp bài?</p>
+              <p className="text-sm text-slate-500 dark:text-neutral-400 mb-5">
                 {answeredCount < attempt.questionIds.length
                   ? `Còn ${attempt.questionIds.length - answeredCount} câu chưa trả lời.`
                   : 'Đã trả lời hết.'}
               </p>
               <div className="flex gap-2">
-                <button onClick={() => setSubmitConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold cursor-pointer">
+                <button onClick={() => setSubmitConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-neutral-300 text-sm font-bold cursor-pointer">
                   Làm tiếp
                 </button>
                 <button onClick={submit} className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold cursor-pointer">
@@ -833,49 +862,49 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
         <div className="text-center mb-6">
           {resultsAreRevisit ? (
-            <p className="text-sm font-bold text-slate-500">
+            <p className="text-sm font-bold text-slate-500 dark:text-neutral-400">
               Bài đã nộp {new Date(attempt.submittedAt ?? 0).toLocaleDateString('vi-VN')} · làm trong {elapsedMin} phút.
             </p>
           ) : (
-            <p className="text-sm font-bold text-slate-500">
+            <p className="text-sm font-bold text-slate-500 dark:text-neutral-400">
               Bạn vừa hoàn thành {elapsedMin} phút làm bài. Đó là một buổi luyện tập nghiêm túc.
             </p>
           )}
         </div>
 
         {prevPercent !== null && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 text-center text-sm font-bold text-slate-600">
-            Lần trước: {prevPercent}% → Lần này: <span className="text-indigo-600">{percent}%</span>
+          <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-4 mb-4 text-center text-sm font-bold text-slate-600 dark:text-neutral-300">
+            Lần trước: {prevPercent}% → Lần này: <span className="text-indigo-600 dark:text-red-400">{percent}%</span>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-          <p className="text-xs font-extrabold text-slate-400 mb-3">Kết quả theo từng phần</p>
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+          <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-3">Kết quả theo từng phần</p>
           <div className="space-y-3">
             {score.bySection.map((s) => (
               <div key={s.section}>
-                <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-neutral-300 mb-1">
                   <span>{SECTION_LABELS[s.section]}</span>
                   <span>
                     {s.correct}/{s.total}
                   </span>
                 </div>
-                <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-2.5 rounded-full bg-slate-100 dark:bg-neutral-800 overflow-hidden">
                   <div
-                    className="h-full bg-indigo-500 rounded-full"
+                    className="h-full bg-indigo-500 dark:bg-red-500 rounded-full"
                     style={{ width: `${s.total > 0 ? (s.correct / s.total) * 100 : 0}%` }}
                   />
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-slate-400 font-semibold mt-3">
+          <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold mt-3">
             Đây không phải điểm JLPT thật (điểm thật được quy đổi theo IRT) — chỉ là số câu đúng để bạn tự chẩn đoán.
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-          <p className="text-xs font-extrabold text-slate-400 mb-3">Bản đồ chẩn đoán</p>
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+          <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-3">Bản đồ chẩn đoán</p>
           <div className="flex flex-wrap gap-1.5">
             {attempt.questionIds.map((qId, i) => {
               const q = questionsById.get(qId);
@@ -888,7 +917,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   title={`Câu ${i + 1}`}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold ${
                     isUnanswered
-                      ? 'bg-slate-100 text-slate-400 border-2 border-dashed border-slate-300'
+                      ? 'bg-slate-100 text-slate-400 border-2 border-dashed border-slate-300 dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-600'
                       : isCorrect
                       ? 'bg-emerald-500 text-white'
                       : 'bg-rose-500 text-white'
@@ -899,17 +928,17 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-400 font-semibold mt-2">Xanh = đúng · Đỏ = sai · Viền đứt = bỏ trắng</p>
+          <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold mt-2">Xanh = đúng · Đỏ = sai · Viền đứt = bỏ trắng</p>
         </div>
 
         {attempt.predictedPercent !== undefined && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 text-sm font-bold text-slate-600 text-center">
+          <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-4 mb-4 text-sm font-bold text-slate-600 dark:text-neutral-300 text-center">
             Bạn đoán {attempt.predictedPercent}%, thực tế {percent}%.
           </div>
         )}
 
         <div className="text-center mb-6">
-          <p className="text-lg font-black text-slate-800">
+          <p className="text-lg font-black text-slate-800 dark:text-neutral-100">
             {pendingReviewIds.length > 0
               ? `${pendingReviewIds.length} câu sai = ${pendingReviewIds.length} cơ hội tìm ra lỗ hổng.`
               : score.wrongQuestionIds.length > 0
@@ -919,7 +948,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           {/* Đã mổ xẻ được một phần rồi mới quay lại: nói rõ đã làm tới đâu, để không tưởng
               là phải bắt đầu lại từ câu đầu. */}
           {pendingReviewIds.length > 0 && attempt.reviewedQuestionIds.length > 0 && (
-            <p className="text-xs font-bold text-slate-400 mt-1">
+            <p className="text-xs font-bold text-slate-400 dark:text-neutral-500 mt-1">
               (đã mổ xẻ {attempt.reviewedQuestionIds.length}/{score.wrongQuestionIds.length} câu ở lần trước)
             </p>
           )}
@@ -927,16 +956,16 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
         <div className="flex flex-col gap-2">
           {pendingReviewIds.length > 0 ? (
-            <button onClick={startReview} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-base shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer">
+            <button onClick={startReview} className="w-full py-4 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-base shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer">
               {attempt.reviewedQuestionIds.length > 0 ? 'Mổ xẻ nốt' : 'Bắt đầu mổ xẻ'} {pendingReviewIds.length} câu →
             </button>
           ) : (
-            <button onClick={finishAttempt} className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-base shadow-lg cursor-pointer">
+            <button onClick={finishAttempt} className="w-full py-4 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-base shadow-lg dark:shadow-none cursor-pointer">
               Xong
             </button>
           )}
           {pendingReviewIds.length > 0 && (
-            <button onClick={onExit} className="text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer">
+            <button onClick={onExit} className="text-xs font-bold text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 cursor-pointer">
               Để sau — bài này vẫn chờ bạn ở danh sách đề
             </button>
           )}
@@ -952,37 +981,41 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
         {/* Đếm theo hàng đợi của LƯỢT MỔ XẺ NÀY, không theo tổng số câu sai: quay lại mổ xẻ
             nốt 3 câu còn thiếu thì phải là "1/3", không phải "10/12". */}
-        <p className="text-xs font-extrabold text-slate-400 mb-4 text-center">
+        <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-4 text-center">
           Mổ xẻ câu {reviewIndex + 1}/{reviewQueue.length}
         </p>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
           {currentWrongQuestion.stem && (
-            <p className="text-base font-bold text-slate-800 leading-relaxed mb-4">
+            <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
               <StemText stem={currentWrongQuestion.stem} underline={currentWrongQuestion.stemUnderline} />
             </p>
           )}
 
           {reviewStep === 1 && (
             <>
-              <p className="text-xs font-extrabold text-rose-500 mb-3">Bước 1 — Đoán lại khi chưa xem đáp án</p>
+              <p className="text-xs font-extrabold text-rose-500 dark:text-rose-400 mb-3">Bước 1 — Đoán lại khi chưa xem đáp án</p>
               <div className="grid gap-2 mb-4">
                 {currentWrongQuestion.choices.map((c, i) => (
                   <button
                     key={i}
                     onClick={() => setReattemptIndex(i)}
                     className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
-                      reattemptIndex === i ? 'border-indigo-500 bg-indigo-50' : i === answer?.chosenIndex ? 'border-rose-300 bg-rose-50' : 'border-slate-200 hover:border-slate-300'
+                      reattemptIndex === i
+                        ? 'border-indigo-500 bg-indigo-50 dark:border-red-500 dark:bg-red-950/30'
+                        : i === answer?.chosenIndex
+                        ? 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40'
+                        : 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600'
                     }`}
                   >
                     {i + 1}. {c.text}
-                    {i === answer?.chosenIndex && <span className="ml-2 text-[11px] text-rose-500 font-bold">(bạn đã chọn — sai)</span>}
+                    {i === answer?.chosenIndex && <span className="ml-2 text-[11px] text-rose-500 dark:text-rose-400 font-bold">(bạn đã chọn — sai)</span>}
                   </button>
                 ))}
               </div>
               <button
                 onClick={() => setReviewStep(2)}
-                className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm cursor-pointer"
+                className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer"
               >
                 Giờ bạn chọn lại đáp án này →
               </button>
@@ -991,7 +1024,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
           {reviewStep === 2 && (
             <>
-              <p className="text-xs font-extrabold text-rose-500 mb-3">Bước 2 — Cái gì đã khiến bạn chọn đáp án kia?</p>
+              <p className="text-xs font-extrabold text-rose-500 dark:text-rose-400 mb-3">Bước 2 — Cái gì đã khiến bạn chọn đáp án kia?</p>
               <div className="grid grid-cols-2 gap-2">
                 {MISTAKE_CAUSES.map((c) => (
                   <button
@@ -1000,10 +1033,10 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                       setCause(c.code);
                       setReviewStep(3);
                     }}
-                    className="text-left px-3.5 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-pointer"
+                    className="text-left px-3.5 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 dark:border-neutral-700 dark:hover:border-red-800 dark:hover:bg-red-950/30 transition-all cursor-pointer"
                   >
-                    <p className="text-sm font-extrabold text-slate-800">{c.label}</p>
-                    <p className="text-[11px] text-slate-400 font-semibold">{c.hint}</p>
+                    <p className="text-sm font-extrabold text-slate-800 dark:text-neutral-100">{c.label}</p>
+                    <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold">{c.hint}</p>
                   </button>
                 ))}
               </div>
@@ -1012,32 +1045,32 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
           {reviewStep === 3 && (
             <>
-              <p className="text-xs font-extrabold text-emerald-600 mb-3">Bước 3 — Đáp án đúng và lời giải cả 4 phương án</p>
+              <p className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 mb-3">Bước 3 — Đáp án đúng và lời giải cả 4 phương án</p>
               <div className="grid gap-2 mb-4">
                 {currentWrongQuestion.choices.map((c, i) => (
                   <div
                     key={i}
                     className={`px-4 py-3 rounded-xl border-2 text-sm ${
                       i === currentWrongQuestion.answerIndex
-                        ? 'border-emerald-300 bg-emerald-50'
+                        ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40'
                         : i === answer?.chosenIndex
-                        ? 'border-rose-300 bg-rose-50'
-                        : 'border-slate-200'
+                        ? 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40'
+                        : 'border-slate-200 dark:border-neutral-800'
                     }`}
                   >
-                    <p className="font-bold text-slate-800 flex items-center gap-1.5">
-                      {i === currentWrongQuestion.answerIndex && <CheckCircle2 size={14} className="text-emerald-600" />}
-                      {i === answer?.chosenIndex && i !== currentWrongQuestion.answerIndex && <XCircle size={14} className="text-rose-500" />}
+                    <p className="font-bold text-slate-800 dark:text-neutral-100 flex items-center gap-1.5">
+                      {i === currentWrongQuestion.answerIndex && <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />}
+                      {i === answer?.chosenIndex && i !== currentWrongQuestion.answerIndex && <XCircle size={14} className="text-rose-500 dark:text-rose-400" />}
                       {i + 1}. {c.text}
                     </p>
-                    {c.note && <p className="text-xs text-slate-500 font-semibold mt-1">{c.note}</p>}
+                    {c.note && <p className="text-xs text-slate-500 dark:text-neutral-400 font-semibold mt-1">{c.note}</p>}
                   </div>
                 ))}
               </div>
-              <p className="text-xs font-bold text-slate-500 mb-4 italic">
+              <p className="text-xs font-bold text-slate-500 dark:text-neutral-400 mb-4 italic">
                 Kiến thức hoặc kỹ năng nào lẽ ra đã giúp bạn làm đúng câu này?
               </p>
-              <button onClick={() => setReviewStep(4)} className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm cursor-pointer">
+              <button onClick={() => setReviewStep(4)} className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer">
                 Tiếp tục
               </button>
             </>
@@ -1045,14 +1078,14 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
           {reviewStep === 4 && (
             <>
-              <p className="text-xs font-extrabold text-slate-500 mb-3">Bước 4 — Tự viết lại (không bắt buộc)</p>
+              <p className="text-xs font-extrabold text-slate-500 dark:text-neutral-400 mb-3">Bước 4 — Tự viết lại (không bắt buộc)</p>
               <input
                 type="text"
                 maxLength={140}
                 value={myRule}
                 onChange={(e) => setMyRule(e.target.value)}
                 placeholder="Quy tắc, bằng lời của chính bạn..."
-                className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold mb-2"
+                className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 text-sm font-semibold mb-2"
               />
               <input
                 type="text"
@@ -1060,7 +1093,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 value={myExample}
                 onChange={(e) => setMyExample(e.target.value)}
                 placeholder="Một câu ví dụ do bạn tự đặt..."
-                className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold mb-4"
+                className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 text-sm font-semibold mb-4"
               />
               <button onClick={finishOneReview} className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm cursor-pointer">
                 Lưu & tiếp
@@ -1076,12 +1109,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'miniquiz' && currentMiniQuestion) {
     return (
       <div className="w-full max-w-xl mx-auto px-4 py-8">
-        <p className="text-xs font-extrabold text-violet-500 mb-4 text-center flex items-center justify-center gap-1.5">
+        <p className="text-xs font-extrabold text-violet-500 dark:text-violet-400 mb-4 text-center flex items-center justify-center gap-1.5">
           <Sparkles size={14} /> Kiểm tra nhanh {miniIndex + 1}/{miniQuizIds.length}
         </p>
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
           {currentMiniQuestion.stem && (
-            <p className="text-base font-bold text-slate-800 mb-4"><StemText stem={currentMiniQuestion.stem} underline={currentMiniQuestion.stemUnderline} /></p>
+            <p className="text-base font-bold text-slate-800 dark:text-neutral-100 mb-4"><StemText stem={currentMiniQuestion.stem} underline={currentMiniQuestion.stemUnderline} /></p>
           )}
           <div className="grid gap-2">
             {currentMiniQuestion.choices.map((c, i) => (
@@ -1090,12 +1123,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 onClick={() => miniChoice === null && submitMiniAnswer(i)}
                 className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                   miniChoice === null
-                    ? 'border-slate-200 hover:border-slate-300 cursor-pointer'
+                    ? 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600 cursor-pointer'
                     : i === currentMiniQuestion.answerIndex
-                    ? 'border-emerald-400 bg-emerald-50'
+                    ? 'border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40'
                     : i === miniChoice
-                    ? 'border-rose-400 bg-rose-50'
-                    : 'border-slate-200 opacity-50'
+                    ? 'border-rose-400 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/40'
+                    : 'border-slate-200 opacity-50 dark:border-neutral-800'
                 }`}
               >
                 {i + 1}. {c.text}
@@ -1104,7 +1137,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           </div>
         </div>
         {miniChoice !== null && (
-          <button onClick={nextMini} className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm cursor-pointer">
+          <button onClick={nextMini} className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer">
             {miniIndex + 1 < miniQuizIds.length ? 'Câu tiếp' : 'Xong'}
           </button>
         )}
@@ -1116,16 +1149,16 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'done') {
     return (
       <div className="w-full max-w-md mx-auto text-center py-16 px-4">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center justify-center">
           <BookOpen size={28} />
         </div>
-        <h3 className="text-xl font-extrabold text-slate-800 mb-2">Đã xong buổi luyện tập</h3>
+        <h3 className="text-xl font-extrabold text-slate-800 dark:text-neutral-100 mb-2">Đã xong buổi luyện tập</h3>
         {miniQuizIds.length > 0 && (
-          <p className="text-sm text-slate-500 mb-6">
+          <p className="text-sm text-slate-500 dark:text-neutral-400 mb-6">
             Kiểm tra nhanh: {miniCorrect}/{miniQuizIds.length} câu đúng. Các câu sai đã được lên lịch ôn lại.
           </p>
         )}
-        <button onClick={onExit} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer text-sm">
+        <button onClick={onExit} className="px-6 py-3 bg-indigo-600 dark:bg-red-600 text-white rounded-xl font-bold hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer text-sm">
           Về danh sách đề
         </button>
       </div>
@@ -1133,7 +1166,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   }
 
   return (
-    <div className="w-full py-24 flex items-center justify-center gap-2 text-slate-400 text-sm font-bold">
+    <div className="w-full py-24 flex items-center justify-center gap-2 text-slate-400 dark:text-neutral-500 text-sm font-bold">
       <AlertTriangle className="w-5 h-5" /> Có lỗi hiển thị — thử tải lại trang.
     </div>
   );
