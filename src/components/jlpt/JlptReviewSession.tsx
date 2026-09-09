@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, XCircle, Loader2, RotateCcw, PartyPopper, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Loader2, RotateCcw, PartyPopper, AlertTriangle, NotebookPen } from 'lucide-react';
 import { useProgress } from '../../hooks/useProgress';
-import { getStoredExam } from '../../lib/jlpt/db';
+import { useJlptOwner } from '../../hooks/useJlptOwner';
+import { getStoredExam, listMistakes } from '../../lib/jlpt/db';
 import { parseJlptCardKey } from '../../lib/jlpt/srsKey';
-import type { JlptQuestion } from '../../lib/jlpt/schema';
+import { causeLabel } from '../../lib/jlpt/mistakeStats';
+import type { JlptQuestion, MistakeEntry } from '../../lib/jlpt/schema';
 import { StemText } from './StemText';
 
 interface JlptReviewSessionProps {
@@ -14,6 +16,13 @@ interface ReviewItem {
   key: string;
   examTitle: string;
   question: JlptQuestion;
+  /**
+   * Lần mổ xẻ gần nhất của CHÍNH câu này (nếu có) — mang theo quy tắc/ví dụ người học tự
+   * viết ở Bước 4. Câu sai vào lịch ôn ngay lúc nộp bài (xem submit() ở JlptExamRunner),
+   * kể cả khi chưa từng mổ xẻ, nên trường này rất có thể là null — đó là bình thường,
+   * không phải lỗi thiếu dữ liệu.
+   */
+  pastMistake: MistakeEntry | null;
 }
 
 type Phase = 'loading' | 'empty' | 'quiz' | 'done';
@@ -29,6 +38,7 @@ type Phase = 'loading' | 'empty' | 'quiz' | 'done';
  */
 export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) => {
   const { buildJlptReviewQueue, recordReview } = useProgress();
+  const { ownerId } = useJlptOwner();
 
   // Chốt hàng đợi NGAY LÚC MỞ MÀN, không phải mỗi lần render: trả lời một câu sẽ đổi
   // `data.cards`, đổi cả kết quả `buildJlptReviewQueue()` — nếu không chốt lại, hàng đợi sẽ
@@ -56,12 +66,24 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
 
       // Chỉ nạp đúng những đề thật sự cần — mỗi đề cả trăm KB, không nạp cả kho.
       const examIds = [...new Set(parsed.map((p) => p.parsed.examId))];
-      const stored = await Promise.all(examIds.map((id) => getStoredExam(id).catch(() => undefined)));
+      const [stored, mistakes] = await Promise.all([
+        Promise.all(examIds.map((id) => getStoredExam(id).catch(() => undefined))),
+        listMistakes(ownerId).catch(() => [] as MistakeEntry[]),
+      ]);
       if (cancelled) return;
 
       const examById = new Map(
         stored.filter((s): s is NonNullable<typeof s> => !!s).map((s) => [s.exam.id, s])
       );
+
+      // Quy tắc/ví dụ tự viết của lần mổ xẻ GẦN NHẤT cho mỗi câu — một câu có thể bị sai (và
+      // được mổ xẻ) ở nhiều lượt làm bài khác nhau, chỉ bản mới nhất còn đáng tin.
+      const latestMistakeByQuestion = new Map<string, MistakeEntry>();
+      for (const m of mistakes) {
+        const mapKey = `${m.examId}::${m.questionId}`;
+        const prev = latestMistakeByQuestion.get(mapKey);
+        if (!prev || m.createdAt > prev.createdAt) latestMistakeByQuestion.set(mapKey, m);
+      }
 
       const resolved: ReviewItem[] = [];
       let skipped = 0;
@@ -74,7 +96,12 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
           skipped += 1;
           continue;
         }
-        resolved.push({ key, examTitle: exam.exam.title, question });
+        resolved.push({
+          key,
+          examTitle: exam.exam.title,
+          question,
+          pastMistake: latestMistakeByQuestion.get(`${p.examId}::${p.questionId}`) ?? null,
+        });
       }
 
       if (cancelled) return;
@@ -86,7 +113,7 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
     return () => {
       cancelled = true;
     };
-  }, [dueKeys]);
+  }, [dueKeys, ownerId]);
 
   const current = items[index] ?? null;
 
@@ -224,6 +251,24 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
           ))}
         </div>
       </div>
+
+      {/* Đúng lúc SRS nhắc lại câu này thì cũng là lúc quy tắc tự viết ở Bước 4 mổ xẻ có giá
+          trị nhất — chỉ hiện khi lần mổ xẻ trước thật sự có ghi gì đó, không phải mọi câu sai
+          đều từng được mổ xẻ (câu vào lịch ôn ngay lúc nộp bài, không cần mổ xẻ trước). */}
+      {choice !== null && current.pastMistake && (current.pastMistake.myRule || current.pastMistake.myExample) && (
+        <div className="bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 rounded-2xl p-4 mb-4">
+          <p className="text-xs font-extrabold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 mb-2">
+            <NotebookPen size={14} />
+            Lần trước bạn tự ghi (sai vì: {causeLabel(current.pastMistake.cause)})
+          </p>
+          {current.pastMistake.myRule && (
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">{current.pastMistake.myRule}</p>
+          )}
+          {current.pastMistake.myExample && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 italic">{current.pastMistake.myExample}</p>
+          )}
+        </div>
+      )}
 
       {choice !== null && (
         <button
