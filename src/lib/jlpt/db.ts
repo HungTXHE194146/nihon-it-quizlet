@@ -9,11 +9,11 @@
  * làm/nhập. Vì vậy mọi hàm ở đây NÉM LỖI thay vì nuốt.
  */
 
-import type { StoredJlptExam, JlptAttempt, MistakeEntry } from './schema';
+import type { StoredJlptExam, JlptAttempt, MistakeEntry, QuestionReport } from './schema';
 import { readJSON, writeJSON } from '../storage';
 
 const DB_NAME = 'nihonit-jlpt';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 /** Cờ "đã chuyển dữ liệu JLPT cũ cho tài khoản đầu tiên" của MÁY này — xem claimLegacyJlptData(). */
 const CLAIM_FLAG_KEY = 'jlpt-legacy-claimed';
@@ -21,6 +21,7 @@ const CLAIM_FLAG_KEY = 'jlpt-legacy-claimed';
 const STORE_EXAMS = 'exams';
 const STORE_ATTEMPTS = 'attempts';
 const STORE_MISTAKES = 'mistakes';
+const STORE_REPORTS = 'reports';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -39,6 +40,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_MISTAKES)) {
         db.createObjectStore(STORE_MISTAKES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_REPORTS)) {
+        db.createObjectStore(STORE_REPORTS, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -167,3 +171,14 @@ export async function claimLegacyJlptData(ownerId: string): Promise<number> {
   for (const m of orphanMistakes) await putMistake(m, ownerId);
   return orphanAttempts.length;
 }
+
+// ─── Báo lỗi nội dung câu hỏi (dùng chung cả máy, giống Đề — KHÔNG theo tài khoản) ───
+//
+// Lỗi nội dung (gạch chân lệch, đáp án sai...) là thuộc tính của ĐỀ, không phải của người
+// đang học — hai người dùng chung máy phải thấy chung một danh sách báo lỗi, khác với sổ
+// tay lỗi cá nhân (`MistakeEntry`) vốn tách theo tài khoản.
+
+export const listReports = () => listAll<QuestionReport>(STORE_REPORTS, 'Không đọc được danh sách báo lỗi.');
+export const putReport = (entry: QuestionReport) =>
+  putOne(STORE_REPORTS, entry, `Không lưu được báo lỗi câu "${entry.questionId}".`);
+export const deleteReport = (id: string) => deleteOne(STORE_REPORTS, id, `Không xoá được báo lỗi "${id}".`);

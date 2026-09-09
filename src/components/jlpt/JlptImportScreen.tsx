@@ -15,19 +15,27 @@ import {
   CloudOff,
   Loader2,
   Play,
+  Bug,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { jlptExamsApi } from '../../lib/api';
-import { MONDAI_TYPES, type JlptImportFile, type JlptLevel, type MondaiType } from '../../lib/jlpt/schema';
+import {
+  MONDAI_TYPES,
+  REPORT_ISSUE_TYPES,
+  type JlptImportFile,
+  type JlptLevel,
+  type MondaiType,
+  type QuestionReport,
+} from '../../lib/jlpt/schema';
 import type { StoredJlptExam } from '../../lib/jlpt/schema';
 import { parseImportJSON, validateImportFile, asImportFile, type ValidationResult } from '../../lib/jlpt/validate';
 import { suggestLinkedItemKeys } from '../../lib/jlpt/linkSuggest';
 import { toStoredExam, toSyncPayload, fromSyncPayload, type JlptSyncPayload } from '../../lib/jlpt/convert';
-import { listStoredExams, putStoredExam, deleteStoredExam, listAttempts } from '../../lib/jlpt/db';
+import { listStoredExams, putStoredExam, deleteStoredExam, listAttempts, listReports, deleteReport } from '../../lib/jlpt/db';
 import { pendingReviewIdsOf } from '../../lib/jlpt/attemptLogic';
 import type { JlptAttempt } from '../../lib/jlpt/schema';
-import { buildAiPrompt } from '../../lib/jlpt/aiPrompt';
+import { buildAiPrompt, buildFixPrompt } from '../../lib/jlpt/aiPrompt';
 
 const LEVELS: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
@@ -75,10 +83,20 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
   const [promptCount, setPromptCount] = useState(10);
   const [promptCopied, setPromptCopied] = useState(false);
 
+  /** Câu bị báo lỗi lúc làm bài (mục "Báo lỗi câu này") — gom theo đề để xuất lời nhắc sửa. */
+  const [reports, setReports] = useState<QuestionReport[]>([]);
+  const [fixPromptCopiedFor, setFixPromptCopiedFor] = useState<string | null>(null);
+
   const refreshLocalList = async () => {
     const list = await listStoredExams();
     list.sort((a, b) => b.updatedAt - a.updatedAt);
     setExams(list);
+  };
+
+  const refreshReports = async () => {
+    const list = await listReports().catch(() => []);
+    list.sort((a, b) => b.createdAt - a.createdAt);
+    setReports(list);
   };
 
   const refreshAttempts = useCallback(async () => {
@@ -104,6 +122,7 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
       try {
         await refreshLocalList();
         await refreshAttempts();
+        await refreshReports();
       } catch (e) {
         if (!cancelled) setListError((e as Error).message);
       }
@@ -271,6 +290,39 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
     }
   };
 
+  const handleCopyFixPrompt = async (entry: StoredJlptExam, examReports: QuestionReport[]) => {
+    const payload = toSyncPayload(entry);
+    const file: JlptImportFile = {
+      formatVersion: payload.formatVersion,
+      exam: payload.exam,
+      groups: payload.groups,
+      questions: payload.questions,
+    };
+    const text = buildFixPrompt(file, examReports);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      window.prompt('Sao chép thủ công (Ctrl+C):', text);
+    }
+    setFixPromptCopiedFor(entry.exam.id);
+    setTimeout(() => setFixPromptCopiedFor(null), 2000);
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    await deleteReport(id).catch(() => {});
+    await refreshReports();
+  };
+
+  const reportsByExam = useMemo(() => {
+    const map = new Map<string, QuestionReport[]>();
+    for (const r of reports) {
+      const list = map.get(r.examId) ?? [];
+      list.push(r);
+      map.set(r.examId, list);
+    }
+    return map;
+  }, [reports]);
+
   const incompleteCount = validation?.incompleteChoiceCount ?? 0;
   const previewQuestion = parsedFile?.questions[0];
 
@@ -433,6 +485,77 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
           </div>
         )}
       </section>
+
+      {/* Câu hỏi bị báo lỗi lúc làm bài (nút "Báo lỗi câu này" trong màn làm bài) — chỉ hiện
+          khi có gì để xử lý, không làm rối màn quản lý đề trong ngày bình thường. */}
+      {reportsByExam.size > 0 && (
+        <section className="mb-8">
+          <h2 className="text-sm font-extrabold text-slate-700 dark:text-neutral-200 mb-3 flex items-center gap-2">
+            <Bug className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+            Câu hỏi bị báo lỗi ({reports.length} câu)
+          </h2>
+          <div className="grid gap-3">
+            {[...reportsByExam.entries()].map(([examId, examReports]) => {
+              const entry = exams.find((e) => e.exam.id === examId);
+              return (
+                <div
+                  key={examId}
+                  className="bg-white rounded-2xl border border-rose-200 dark:bg-neutral-900 dark:border-rose-900 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <p className="font-extrabold text-slate-800 dark:text-neutral-100 text-sm">
+                      {entry?.exam.title ?? `Đề "${examId}" (đã bị xoá khỏi máy)`}
+                      <span className="ml-1.5 font-bold text-rose-500 dark:text-rose-400">
+                        · {examReports.length} câu lỗi
+                      </span>
+                    </p>
+                    <button
+                      onClick={() => entry && handleCopyFixPrompt(entry, examReports)}
+                      disabled={!entry}
+                      title={entry ? undefined : 'Đề đã bị xoá khỏi máy — không còn JSON gốc để nhúng vào lời nhắc'}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ClipboardCopy className="w-3.5 h-3.5" />
+                      {fixPromptCopiedFor === examId ? 'Đã chép!' : 'Chép lời nhắc sửa lỗi cho AI'}
+                    </button>
+                  </div>
+                  <div className="grid gap-2">
+                    {examReports.map((r) => (
+                      <div
+                        key={r.id}
+                        className="flex items-start justify-between gap-3 bg-rose-50 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900 rounded-xl px-3.5 py-2.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-extrabold text-rose-700 dark:text-rose-300">
+                            Câu "{r.questionId}" · {REPORT_ISSUE_TYPES.find((t) => t.code === r.issueType)?.label ?? r.issueType}
+                          </p>
+                          {r.stemSnapshot && (
+                            <p className="text-xs text-slate-600 dark:text-neutral-300 font-semibold mt-0.5 truncate">
+                              {r.stemSnapshot}
+                            </p>
+                          )}
+                          {r.note && (
+                            <p className="text-[11px] text-slate-500 dark:text-neutral-400 font-semibold mt-0.5 italic">
+                              "{r.note}"
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteReport(r.id)}
+                          title="Xoá báo cáo này (vd. sau khi đã sửa xong)"
+                          className="shrink-0 p-1.5 rounded-lg text-rose-400 hover:bg-rose-100 hover:text-rose-600 dark:text-rose-500 dark:hover:bg-rose-900/40 dark:hover:text-rose-300 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Mẫu lời nhắc cho AI khác soạn */}
       <section className="mb-8 bg-slate-900 rounded-2xl p-5 text-white">

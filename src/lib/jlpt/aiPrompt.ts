@@ -7,7 +7,7 @@
  * từ/mẫu có thật — nhiễu bịa ra thì câu hỏi vô dụng.
  */
 
-import { MONDAI_TYPES, type JlptLevel, type MondaiType } from './schema';
+import { MONDAI_TYPES, REPORT_ISSUE_TYPES, type JlptLevel, type MondaiType, type QuestionReport } from './schema';
 
 const SCHEMA_SNIPPET = `{
   "formatVersion": 1,
@@ -59,4 +59,35 @@ Yêu cầu bắt buộc:
 Định dạng JSON (một ví dụ minh hoạ, soạn đủ ${count} câu theo đúng cấu trúc này):
 
 ${SCHEMA_SNIPPET}`;
+}
+
+const ISSUE_LABEL = new Map(REPORT_ISSUE_TYPES.map((t) => [t.code, t.label]));
+
+/**
+ * Mẫu lời nhắc để sửa những câu bị người học báo lỗi khi làm bài (mục "Báo lỗi câu này").
+ * Cùng vòng lặp với `buildAiPrompt`: chép ra, dán vào một AI khác, dán JSON kết quả ngược
+ * lại vào màn Nhập Đề — đề trùng "id" sẽ GHI ĐÈ đề cũ, không cần xoá tay trước.
+ *
+ * Nhúng NGUYÊN VẸN đề gốc vào cuối prompt: yêu cầu AI kia trả về CẢ đề đã sửa (không chỉ
+ * phần vá) để người dùng có một file hoàn chỉnh dán lại, không phải tự ghép JSON.
+ */
+export function buildFixPrompt(examJson: unknown, reports: QuestionReport[]): string {
+  const list = reports
+    .map((r, i) => {
+      const stemLine = r.stemSnapshot ? ` — đề bài: "${r.stemSnapshot}"` : '';
+      const note = r.note.trim() || '(không có ghi chú thêm)';
+      return `${i + 1}. Câu "${r.questionId}" · lỗi: ${ISSUE_LABEL.get(r.issueType) ?? r.issueType}${stemLine}\n   Người học ghi: ${note}`;
+    })
+    .join('\n');
+
+  return `Đề JLPT ở JSON cuối prompt này (đúng định dạng web NihonIT dùng) có ${reports.length} câu bị người học báo lỗi trong lúc làm bài thật. Hãy SỬA ĐÚNG các lỗi được liệt kê dưới đây, GIỮ NGUYÊN mọi câu và mọi trường khác không liên quan, rồi trả về TOÀN BỘ file JSON đã sửa — đủ hết các câu, không rút gọn, không dùng "...".
+
+Danh sách lỗi cần sửa:
+${list}
+
+Lưu ý riêng khi sửa "Gạch chân sai vị trí" (trường "stemUnderline"): đây là cặp [from, to) tính theo CHỈ SỐ KÝ TỰ 0-based trong chuỗi "stem" — "to" KHÔNG bao gồm ký tự tại vị trí đó. Đếm lại cẩn thận từng ký tự trong "stem" (kể cả trợ từ, dấu câu, khoảng trắng nếu có) cho đúng đoạn cần gạch chân, đây chính là lỗi người học đang gặp.
+
+Toàn bộ JSON gốc của đề (sửa trực tiếp trên JSON này, đừng soạn lại từ đầu):
+
+${JSON.stringify(examJson, null, 2)}`;
 }

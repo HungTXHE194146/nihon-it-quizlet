@@ -192,3 +192,31 @@ export interface MistakeEntry {
   /** Khoá thẻ SRS liên quan, nếu câu này (hoặc đáp án đúng) nối được với thẻ đã có. */
   srsKey?: string;
 }
+
+// ─── Báo lỗi nội dung câu hỏi (đề do AI soạn có thể sai — vd. gạch chân lệch) ────────
+
+export type ReportIssueType = 'underline' | 'answer' | 'typo' | 'other';
+
+export const REPORT_ISSUE_TYPES: { code: ReportIssueType; label: string }[] = [
+  { code: 'underline', label: 'Gạch chân sai vị trí' },
+  { code: 'answer', label: 'Đáp án hoặc lời giải sai' },
+  { code: 'typo', label: 'Lỗi chính tả / nội dung câu hỏi' },
+  { code: 'other', label: 'Khác' },
+];
+
+/**
+ * Một câu bị người học báo lỗi trong lúc làm bài — KHÔNG gắn với tài khoản (đề dùng chung
+ * cả máy, lỗi nội dung là thuộc tính của đề, không phải của người học), khác với
+ * `MistakeEntry` (sổ tay lỗi CỦA một người). Mục đích duy nhất: gom lại để xuất thành lời
+ * nhắc cho một AI khác sửa trực tiếp trên JSON gốc — xem `buildFixPrompt` (aiPrompt.ts).
+ */
+export interface QuestionReport {
+  id: string;
+  examId: string;
+  questionId: string;
+  createdAt: number;
+  issueType: ReportIssueType;
+  note: string;
+  /** Chụp lại `stem` lúc báo lỗi — báo cáo vẫn đọc hiểu được dù đề bị sửa/xoá sau đó. */
+  stemSnapshot?: string;
+}
