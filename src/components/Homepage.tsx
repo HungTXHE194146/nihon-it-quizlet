@@ -200,10 +200,10 @@ export const Homepage: React.FC<HomepageProps> = ({
       <div
         key={subject.id}
         onClick={() => subject.isAvailable && onSelectSubject(subject.id, subject.isFlashcardOnly)}
-        className={`group relative bg-white rounded-2xl p-6 border transition-all duration-300 flex flex-col justify-between ${
+        className={`group relative bg-white dark:bg-slate-800 rounded-2xl p-6 border transition-all duration-300 flex flex-col justify-between ${
           subject.isAvailable
-            ? 'border-slate-200/80 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer'
-            : 'border-slate-200 bg-slate-50/70 opacity-80 cursor-not-allowed'
+            ? 'border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer'
+            : 'border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/70 opacity-80 cursor-not-allowed'
         }`}
       >
         <div className="space-y-4">
@@ -215,34 +215,34 @@ export const Homepage: React.FC<HomepageProps> = ({
             </div>
 
             {subject.badge && (
-              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider bg-slate-200 text-slate-700">
+              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
                 {subject.badge}
               </span>
             )}
           </div>
 
           <div>
-            <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+            <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
               {subject.title}
             </h3>
             {subject.japaneseTitle && (
-              <p className="text-xs font-semibold text-slate-400 mt-0.5">{subject.japaneseTitle}</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5">{subject.japaneseTitle}</p>
             )}
           </div>
 
-          <p className="text-slate-600 text-xs leading-relaxed line-clamp-3">{subject.description}</p>
+          <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed line-clamp-3">{subject.description}</p>
         </div>
 
         {st && st.studied > 0 && (
           <div className="mt-4">
-            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
               <span className="flex items-center gap-1">
                 <Target className="w-3 h-3 text-emerald-500" />
                 Đã thuộc {percent}%
               </span>
-              {st.due > 0 && <span className="text-indigo-600">{st.due} thẻ đến hạn</span>}
+              {st.due > 0 && <span className="text-indigo-600 dark:text-indigo-400">{st.due} thẻ đến hạn</span>}
             </div>
-            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
                 style={{ width: `${percent}%` }}
@@ -251,8 +251,8 @@ export const Homepage: React.FC<HomepageProps> = ({
           </div>
         )}
 
-        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span className="flex items-center gap-1">
               <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
               {subject.totalLessons} bài
@@ -264,12 +264,12 @@ export const Homepage: React.FC<HomepageProps> = ({
           </div>
 
           {subject.isAvailable ? (
-            <button className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 group-hover:text-indigo-700 group-hover:translate-x-1 transition-all">
+            <button className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 group-hover:translate-x-1 transition-all">
               <span>Vào học</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (
-            <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
               Sắp ra mắt
             </span>
@@ -430,9 +430,9 @@ export const Homepage: React.FC<HomepageProps> = ({
 
       {/* Bảng điều khiển: hàng đợi ôn N3 hôm nay */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
+        <div className="lg:col-span-2 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
           <div className="relative shrink-0">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex flex-col items-center justify-center text-white shadow-lg shadow-emerald-100">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex flex-col items-center justify-center text-white shadow-lg shadow-emerald-100 dark:shadow-none">
               <span className="text-3xl font-black leading-none">
                 {isNewLearner ? firstSessionSize : n3Stats.due}
               </span>
@@ -441,7 +441,7 @@ export const Homepage: React.FC<HomepageProps> = ({
           </div>
 
           <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2 justify-center sm:justify-start">
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2 justify-center sm:justify-start">
               <CalendarCheck className="w-5 h-5 text-emerald-600" />
               {isNewLearner
                 ? 'Bắt đầu lộ trình N3'
@@ -449,7 +449,7 @@ export const Homepage: React.FC<HomepageProps> = ({
                 ? 'N3 đến hạn ôn hôm nay'
                 : 'Hôm nay bạn đã ôn hết N3'}
             </h2>
-            <p className="text-xs text-slate-500 font-semibold mt-1 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-relaxed">
               {isNewLearner
                 ? `Từ vựng và Kanji N3 nằm chung một hàng đợi. Phiên đầu tiên gồm ${firstSessionSize} thẻ.`
                 : n3Stats.due > 0
@@ -462,7 +462,7 @@ export const Homepage: React.FC<HomepageProps> = ({
             <div className="mt-4 flex flex-wrap gap-2 justify-center sm:justify-start">
               <button
                 onClick={() => onStartReview(N3_SCOPE)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-100 hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-100 dark:shadow-none hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer"
               >
                 <Play size={15} fill="currentColor" />
                 {n3Stats.due > 0 ? 'Ôn N3 ngay' : 'Học thẻ N3 mới'}
@@ -470,7 +470,7 @@ export const Homepage: React.FC<HomepageProps> = ({
               {n3Stats.wrong > 0 && (
                 <button
                   onClick={onOpenMistakes}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-bold hover:bg-rose-100 active:scale-95 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all cursor-pointer"
                 >
                   <AlertTriangle size={15} />
                   Sổ tay câu sai ({n3Stats.wrong})
@@ -479,7 +479,7 @@ export const Homepage: React.FC<HomepageProps> = ({
               {otherDue > 0 && (
                 <button
                   onClick={() => onStartReview('all')}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 text-sm font-bold hover:bg-slate-200 active:scale-95 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer"
                 >
                   Ôn gộp cả môn khác (+{otherDue})
                 </button>
@@ -488,38 +488,38 @@ export const Homepage: React.FC<HomepageProps> = ({
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm grid grid-cols-2 gap-4">
+        <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm grid grid-cols-2 gap-4">
           <div>
-            <p className="text-2xl font-black text-orange-600 flex items-center gap-1.5">
+            <p className="text-2xl font-black text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
               <Flame size={20} className="fill-orange-400 text-orange-500" />
               {data.streak.current}
             </p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Ngày học liên tiếp</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Ngày học liên tiếp</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-indigo-600">{todayStat.reviews}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Lượt ôn hôm nay</p>
+            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{todayStat.reviews}</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Lượt ôn hôm nay</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-emerald-600">{n3Stats.mature}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Thẻ N3 đã thuộc</p>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{n3Stats.mature}</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Thẻ N3 đã thuộc</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-slate-700">{n3Stats.studied}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">/ {n3Stats.total} thẻ N3 đã học</p>
+            <p className="text-2xl font-black text-slate-700 dark:text-slate-200">{n3Stats.studied}</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">/ {n3Stats.total} thẻ N3 đã học</p>
           </div>
         </div>
       </div>
 
       {/* Phòng thi JLPT — lối vào chính thứ hai, ngang hàng với việc ôn thẻ */}
-      <div className="rounded-3xl bg-white border border-slate-200 p-6 md:p-8 shadow-sm space-y-5">
+      <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 md:p-8 shadow-sm space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <ClipboardList className="w-6 h-6 text-indigo-600" />
               Phòng thi JLPT
             </h2>
-            <p className="text-xs font-semibold text-slate-500 mt-1 max-w-xl leading-relaxed">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
               Làm đề theo cỡ phiên nhỏ (một 問題) hay trọn đề có tính giờ, rồi mổ xẻ từng câu sai và
               đẩy thẳng vào lịch ôn. Đề nhập một lần dùng chung cho cả nhóm; điểm và lịch sử làm bài
               là của riêng bạn.
@@ -532,7 +532,7 @@ export const Homepage: React.FC<HomepageProps> = ({
             {jlpt.mistakeCount > 0 && (
               <button
                 onClick={onOpenJlptMistakes}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-bold hover:bg-rose-100 active:scale-95 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all cursor-pointer"
               >
                 <AlertTriangle className="w-4 h-4" />
                 Sổ tay lỗi JLPT ({jlpt.mistakeCount})
@@ -540,7 +540,7 @@ export const Homepage: React.FC<HomepageProps> = ({
             )}
             <button
               onClick={onOpenJlptImport}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
             >
               <FileJson className="w-4 h-4" />
               {jlpt.exams.length > 0 ? 'Quản lý & nhập đề' : 'Nhập đề JLPT đầu tiên'}
@@ -551,13 +551,13 @@ export const Homepage: React.FC<HomepageProps> = ({
         {jlpt.running && (
           <button
             onClick={() => onOpenJlptExam(jlpt.running!.examId)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-left hover:bg-amber-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
           >
-            <span className="flex items-center gap-2 text-sm font-bold text-amber-900">
+            <span className="flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-300">
               <Timer className="w-4 h-4" />
               Đang làm dở: {jlpt.running.examTitle}
             </span>
-            <span className="text-xs font-extrabold text-amber-700 flex items-center gap-1">
+            <span className="text-xs font-extrabold text-amber-700 dark:text-amber-300 flex items-center gap-1">
               Tiếp tục <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
@@ -569,25 +569,25 @@ export const Homepage: React.FC<HomepageProps> = ({
         {jlpt.pendingReview && (
           <button
             onClick={() => onOpenJlptExam(jlpt.pendingReview!.examId)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-indigo-50 border border-indigo-200 text-left hover:bg-indigo-100 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-left hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors cursor-pointer"
           >
-            <span className="flex items-center gap-2 text-sm font-bold text-indigo-900">
+            <span className="flex items-center gap-2 text-sm font-bold text-indigo-900 dark:text-indigo-300">
               <AlertTriangle className="w-4 h-4" />
               Còn {jlpt.pendingReview.pendingCount} câu sai chưa mổ xẻ: {jlpt.pendingReview.examTitle}
             </span>
-            <span className="text-xs font-extrabold text-indigo-700 flex items-center gap-1">
+            <span className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
               Mổ xẻ <ArrowRight className="w-3.5 h-3.5" />
             </span>
           </button>
         )}
 
         {jlpt.last && (
-          <p className="text-xs font-semibold text-slate-500">
-            Lần thi gần nhất: <span className="text-slate-800 font-bold">{jlpt.last.examTitle}</span>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Lần thi gần nhất: <span className="text-slate-800 dark:text-slate-100 font-bold">{jlpt.last.examTitle}</span>
             {jlpt.last.percent !== null && (
               <>
                 {' '}
-                — <span className="text-emerald-600 font-black">{jlpt.last.percent}%</span>
+                — <span className="text-emerald-600 dark:text-emerald-400 font-black">{jlpt.last.percent}%</span>
               </>
             )}
             {jlpt.last.at > 0 && ` (${new Date(jlpt.last.at).toLocaleDateString('vi-VN')})`}
@@ -596,11 +596,11 @@ export const Homepage: React.FC<HomepageProps> = ({
         )}
 
         {jlpt.loading ? (
-          <p className="text-xs font-semibold text-slate-400">Đang đọc kho đề trên máy...</p>
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">Đang đọc kho đề trên máy...</p>
         ) : jlpt.exams.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center space-y-1">
-            <p className="text-sm font-bold text-slate-700">Chưa có đề nào trên máy này</p>
-            <p className="text-xs font-semibold text-slate-500">
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-5 text-center space-y-1">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Chưa có đề nào trên máy này</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               Đề JLPT được nhập từ file JSON (có sẵn prompt để nhờ AI soạn đề trong màn hình nhập
               đề). Đăng nhập thì đề tự đồng bộ sang máy khác.
             </p>
@@ -611,25 +611,25 @@ export const Homepage: React.FC<HomepageProps> = ({
               <button
                 key={exam.id}
                 onClick={() => onOpenJlptExam(exam.id)}
-                className="text-left p-4 rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer bg-white group"
+                className="text-left p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer bg-white dark:bg-slate-900 group"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
                     {exam.level}
                   </span>
                   {!exam.reviewed && (
                     <span
-                      className="text-[10px] font-bold text-amber-600"
+                      className="text-[10px] font-bold text-amber-600 dark:text-amber-400"
                       title="Đề chưa được người kiểm lại — kết quả chỉ để tham khảo"
                     >
                       chưa kiểm
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-bold text-slate-800 mt-2 line-clamp-2 group-hover:text-indigo-700">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-2 line-clamp-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
                   {exam.title}
                 </p>
-                <span className="mt-2 inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600">
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
                   Vào làm <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </button>
@@ -641,17 +641,17 @@ export const Homepage: React.FC<HomepageProps> = ({
       {/* Giáo trình N3 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-emerald-600" />
             <span>Giáo trình N3</span>
           </h2>
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
             {n3Stats.studied}/{n3Stats.total} thẻ đã học qua
           </span>
         </div>
 
         {n3Matches.length === 0 ? (
-          <p className="text-sm font-semibold text-slate-500 bg-white border border-slate-200 rounded-2xl p-6 text-center">
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center">
             Không có giáo trình N3 nào khớp từ khoá "{searchQuery}".
           </p>
         ) : (
@@ -663,13 +663,13 @@ export const Homepage: React.FC<HomepageProps> = ({
       <div className="space-y-4">
         <button
           onClick={() => setShowOthers((v) => !v)}
-          className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
         >
-          <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700">
-            <BookOpen className="w-5 h-5 text-slate-400" />
+          <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 dark:text-slate-200">
+            <BookOpen className="w-5 h-5 text-slate-400 dark:text-slate-500" />
             Môn khác: tiếng Nhật IT & tiếng Anh IT ({OTHER_SUBJECTS.length})
           </span>
-          <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+          <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
             {showOthers ? 'Thu gọn' : 'Xem'}
             <ChevronDown className={`w-4 h-4 transition-transform ${showOthers ? 'rotate-180' : ''}`} />
           </span>
@@ -677,7 +677,7 @@ export const Homepage: React.FC<HomepageProps> = ({
 
         {showOthers &&
           (otherMatches.length === 0 ? (
-            <p className="text-sm font-semibold text-slate-500 bg-white border border-slate-200 rounded-2xl p-6 text-center">
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center">
               Không có môn nào khớp từ khoá "{searchQuery}".
             </p>
           ) : (

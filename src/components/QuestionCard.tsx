@@ -117,22 +117,22 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     <div className="w-full max-w-2xl mx-auto">
       {/* Lesson Details Header */}
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wide">
+        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-full uppercase tracking-wide">
           {typeof questionNumber === 'number' ? `Câu ${questionNumber}` : lessonTitle}
         </span>
-        <span className="text-xs font-medium text-slate-500 flex items-center gap-1">
-          <HelpCircle size={14} className="text-slate-400" />
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+          <HelpCircle size={14} className="text-slate-400 dark:text-slate-500" />
           {sectionTitle}
         </span>
       </div>
 
       {/* Main Question Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-100/40 p-6 md:p-8 transition-all duration-300">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl shadow-slate-100/40 dark:shadow-none p-6 md:p-8 transition-all duration-300">
         <div className="mb-6">
           {item.image ? (
             /* Image-based question: show image only */
             <div 
-              className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-zoom-in transition-all duration-200 hover:border-indigo-300 hover:shadow-md"
+              className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 cursor-zoom-in transition-all duration-200 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md"
               onClick={() => setIsImageOpen(true)}
             >
               <img
@@ -144,8 +144,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           ) : (
             /* Text-based question */
             <>
-              <span className="inline-block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Câu hỏi</span>
-              <h2 className="text-xl md:text-2xl font-bold text-slate-800 leading-relaxed font-sans whitespace-pre-line">
+              <span className="inline-block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Câu hỏi</span>
+              <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 leading-relaxed font-sans whitespace-pre-line">
                 {item.question}
               </h2>
             </>
@@ -161,19 +161,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               const isAnswer = item.answer === choice;
               
               let btnClass = isSelected
-                ? "border-indigo-500 bg-indigo-50 text-indigo-900"
-                : "border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20";
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-300"
+                : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/20";
               let icon = null;
 
               if (isGraded) {
                 if (isAnswer) {
-                  btnClass = "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-emerald-50";
-                  icon = <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />;
+                  btnClass = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 shadow-emerald-50 dark:shadow-none";
+                  icon = <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />;
                 } else if (isSelected) {
-                  btnClass = "border-rose-500 bg-rose-50 text-rose-800 shadow-rose-50";
-                  icon = <XCircle size={20} className="text-rose-600 shrink-0" />;
+                  btnClass = "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 shadow-rose-50 dark:shadow-none";
+                  icon = <XCircle size={20} className="text-rose-600 dark:text-rose-400 shrink-0" />;
                 } else {
-                  btnClass = "border-slate-100 text-slate-400 opacity-60";
+                  btnClass = "border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-60";
                 }
               }
 
@@ -201,25 +201,25 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               
               let choiceLetter = String.fromCharCode(65 + index); // A, B, C, D...
               let optionClass = isSelected
-                ? "border-indigo-500 bg-indigo-50 text-indigo-900 shadow-sm"
-                : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/10";
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-300 shadow-sm"
+                : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/10 dark:hover:bg-indigo-950/10";
               let badgeClass = isSelected
                 ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-slate-500 border-slate-200";
+                : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700";
               let icon = null;
 
               if (isGraded) {
                 if (isAnswer) {
-                  optionClass = "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-50";
+                  optionClass = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 shadow-sm shadow-emerald-50 dark:shadow-none";
                   badgeClass = "bg-emerald-500 text-white border-emerald-500";
-                  icon = <CheckCircle2 size={18} className="text-emerald-600 shrink-0 ml-auto" />;
+                  icon = <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0 ml-auto" />;
                 } else if (isSelected) {
-                  optionClass = "border-rose-500 bg-rose-50 text-rose-900 shadow-sm shadow-rose-50";
+                  optionClass = "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-300 shadow-sm shadow-rose-50 dark:shadow-none";
                   badgeClass = "bg-rose-500 text-white border-rose-500";
-                  icon = <XCircle size={18} className="text-rose-600 shrink-0 ml-auto" />;
+                  icon = <XCircle size={18} className="text-rose-600 dark:text-rose-400 shrink-0 ml-auto" />;
                 } else {
-                  optionClass = "border-slate-100 bg-white text-slate-400 opacity-65";
-                  badgeClass = "bg-slate-50 text-slate-300 border-slate-100";
+                  optionClass = "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 opacity-65";
+                  badgeClass = "bg-slate-50 dark:bg-slate-900 text-slate-300 dark:text-slate-600 border-slate-100 dark:border-slate-800";
                 }
               }
 
@@ -245,16 +245,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
         {/* Explanation & Correction Reveal Block */}
         {isGraded && (
-          <div className="mt-8 pt-6 border-t border-slate-100 animate-fadeIn">
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 animate-fadeIn">
             {/* Answer banner */}
             <div className={`p-4 rounded-xl flex items-start gap-3 mb-4 ${
-              selectedChoice === item.answer 
-                ? 'bg-emerald-50/50 text-emerald-800 border border-emerald-100' 
-                : 'bg-rose-50/50 text-rose-800 border border-rose-100'
+              selectedChoice === item.answer
+                ? 'bg-emerald-50/50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800'
+                : 'bg-rose-50/50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-100 dark:border-rose-800'
             }`}>
               {selectedChoice === item.answer ? (
                 <>
-                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={20} />
+                  <CheckCircle2 className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" size={20} />
                   <div>
                     <p className="font-bold text-sm">Chính xác!</p>
                     <p className="text-xs opacity-90 mt-0.5">Đáp án đúng là: <span className="font-semibold">{item.answer}</span></p>
@@ -262,10 +262,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </>
               ) : (
                 <>
-                  <XCircle className="text-rose-600 shrink-0 mt-0.5" size={20} />
+                  <XCircle className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" size={20} />
                   <div>
                     <p className="font-bold text-sm">Sai rồi!</p>
-                    <p className="text-xs opacity-90 mt-0.5">Bạn đã chọn: <span className="font-semibold">{selectedChoice}</span>. Đáp án đúng phải là: <span className="font-bold text-emerald-700">{item.answer}</span></p>
+                    <p className="text-xs opacity-90 mt-0.5">Bạn đã chọn: <span className="font-semibold">{selectedChoice}</span>. Đáp án đúng phải là: <span className="font-bold text-emerald-700 dark:text-emerald-300">{item.answer}</span></p>
                   </div>
                 </>
               )}
@@ -273,10 +273,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
             {/* Explanation text */}
             {item.explanation && (
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex gap-3 text-slate-600 text-sm">
+              <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl flex gap-3 text-slate-600 dark:text-slate-300 text-sm">
                 <Info className="text-indigo-500 shrink-0 mt-0.5" size={18} />
                 <div>
-                  <span className="font-bold text-slate-700 block mb-0.5">Giải thích chi tiết:</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 block mb-0.5">Giải thích chi tiết:</span>
                   <p className="leading-relaxed whitespace-pre-line">{renderFormattedText(item.explanation)}</p>
                 </div>
               </div>
@@ -288,12 +288,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Gợi ý phím tắt */}
       {!isGraded && choices.length > 0 && !isTrueFalse && (
         <div className="mt-4 flex justify-center">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100/60 py-1.5 px-3 rounded-lg border border-slate-200/50 select-none">
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider bg-slate-100/60 dark:bg-slate-800/60 py-1.5 px-3 rounded-lg border border-slate-200/50 dark:border-slate-700/50 select-none">
             Bấm phím{' '}
             {choices.map((_, i) => (
               <kbd
                 key={i}
-                className="mx-0.5 px-1.5 py-0.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-[9px] text-slate-500"
+                className="mx-0.5 px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-slate-400"
               >
                 {i + 1}
               </kbd>
