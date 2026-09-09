@@ -126,7 +126,7 @@ export const SyncButton: React.FC = () => {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Mật khẩu hiện tại"
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
                 />
                 <input
                   type="password"
@@ -134,7 +134,7 @@ export const SyncButton: React.FC = () => {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
                 />
 
                 <p className="text-[11px] font-semibold text-slate-400 leading-relaxed">
@@ -264,7 +264,7 @@ export const SyncButton: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Tên đăng nhập"
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
             />
 
             <input
@@ -273,7 +273,7 @@ export const SyncButton: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={isRegister ? 'Mật khẩu (ít nhất 8 ký tự)' : 'Mật khẩu'}
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
             />
 
             {isRegister && signupCodeRequired && (
@@ -283,7 +283,7 @@ export const SyncButton: React.FC = () => {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Mã mời"
-                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 text-sm font-semibold"
                 />
                 <p className="text-[11px] font-semibold text-slate-400 px-1">
                   Bản web này đang khoá đăng ký — hỏi người quản trị để lấy mã mời.

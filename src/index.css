@@ -28,6 +28,13 @@
   }
 }
 
+:root {
+  /* Web này chưa hỗ trợ dark mode — khai báo rõ để trình duyệt/OS không tự "force dark"
+     (phổ biến trên Android Chrome, MIUI...), vì kiểu auto-invert đó hay làm chữ và nền
+     input trùng màu (chữ chỉ hiện khi bôi đen). */
+  color-scheme: light;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   @apply bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white;
