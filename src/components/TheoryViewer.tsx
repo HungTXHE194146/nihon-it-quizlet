@@ -37,10 +37,10 @@ interface TheoryViewerProps {
 
 const TheoryFallback: React.FC = () => (
   <div className="w-full max-w-3xl mx-auto py-24 px-4 flex flex-col items-center gap-4">
-    <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center animate-pulse">
+    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center animate-pulse">
       <BookOpen size={26} />
     </div>
-    <p className="text-sm font-bold text-slate-500">Đang tải bài lý thuyết...</p>
+    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Đang tải bài lý thuyết...</p>
   </div>
 );
 
@@ -53,12 +53,12 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({ lessonId, onClose })
 
   if (!LessonTheory) {
     return (
-      <div className="w-full max-w-md mx-auto text-center py-16 px-4 bg-white border border-slate-200 rounded-2xl shadow-sm my-8">
-        <div className="w-16 h-16 mx-auto mb-4 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold text-2xl">
+      <div className="w-full max-w-md mx-auto text-center py-16 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm my-8">
+        <div className="w-16 h-16 mx-auto mb-4 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center font-bold text-2xl">
           📖
         </div>
-        <h3 className="text-xl font-bold text-slate-800 mb-2">Chưa có lý thuyết</h3>
-        <p className="text-slate-500 mb-6 text-sm">
+        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Chưa có lý thuyết</h3>
+        <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
           Mục lý thuyết chi tiết cho Bài {lessonId} hiện đang được cập nhật và sẽ hoàn thiện sớm.
         </p>
         <button

@@ -4,13 +4,16 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './hooks/useAuth.tsx'
 import { ProgressProvider } from './hooks/useProgress.tsx'
+import { ThemeProvider } from './hooks/useTheme.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <ProgressProvider>
-        <App />
-      </ProgressProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ProgressProvider>
+          <App />
+        </ProgressProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </StrictMode>,
 )
