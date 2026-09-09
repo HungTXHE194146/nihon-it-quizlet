@@ -37,9 +37,9 @@ interface MistakeRow {
 }
 
 const CONFIDENCE_STYLE: Record<Confidence, string> = {
-  sure: 'bg-rose-100 text-rose-700 border-rose-200',
-  unsure: 'bg-amber-100 text-amber-800 border-amber-200',
-  guess: 'bg-slate-100 text-slate-600 border-slate-200',
+  sure: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800',
+  unsure: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+  guess: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:border-neutral-700',
 };
 
 /**
@@ -62,13 +62,13 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
     reviewDueCount > 0 ? (
       <button
         onClick={onOpenReview}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-left hover:bg-indigo-100 transition-colors cursor-pointer mb-5"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 dark:bg-red-950/30 dark:border-red-900 text-left hover:bg-indigo-100 dark:hover:bg-red-950/50 transition-colors cursor-pointer mb-5"
       >
-        <span className="flex items-center gap-2 text-sm font-bold text-indigo-900">
+        <span className="flex items-center gap-2 text-sm font-bold text-indigo-900 dark:text-red-200">
           <RotateCcw className="w-4 h-4" />
           {reviewDueCount} câu JLPT đã đến hạn ôn lại
         </span>
-        <span className="text-xs font-extrabold text-indigo-700 flex items-center gap-1">
+        <span className="text-xs font-extrabold text-indigo-700 dark:text-red-300 flex items-center gap-1">
           Ôn ngay <ArrowRight className="w-3.5 h-3.5" />
         </span>
       </button>
@@ -179,17 +179,17 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
   if (loading) {
     return (
       <div className="py-16 flex flex-col items-center gap-3">
-        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-        <p className="text-sm font-bold text-slate-500">Đang mở sổ tay lỗi JLPT...</p>
+        <Loader2 className="w-6 h-6 text-indigo-500 dark:text-red-400 animate-spin" />
+        <p className="text-sm font-bold text-slate-500 dark:text-neutral-400">Đang mở sổ tay lỗi JLPT...</p>
       </div>
     );
   }
 
   if (failed) {
     return (
-      <div className="bg-white rounded-3xl border border-amber-200 p-10 text-center">
-        <p className="text-sm font-bold text-amber-800">Không đọc được sổ tay lỗi JLPT trên máy này.</p>
-        <p className="text-xs font-semibold text-slate-500 mt-1">
+      <div className="bg-white rounded-3xl border border-amber-200 dark:bg-neutral-900 dark:border-amber-800 p-10 text-center">
+        <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Không đọc được sổ tay lỗi JLPT trên máy này.</p>
+        <p className="text-xs font-semibold text-slate-500 dark:text-neutral-400 mt-1">
           Trình duyệt đang chặn lưu trữ cục bộ (chế độ ẩn danh?). Ghi chú của bạn vẫn còn, chỉ là
           không đọc được trong tab này.
         </p>
@@ -201,18 +201,18 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
     return (
       <>
         {reviewBanner}
-        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+        <div className="bg-white rounded-3xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-12 text-center">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-red-950/30 dark:text-red-400 flex items-center justify-center">
             <FileQuestion size={28} />
           </div>
-          <h3 className="text-lg font-extrabold text-slate-800 mb-1">Chưa mổ xẻ câu nào</h3>
-          <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto leading-relaxed">
+          <h3 className="text-lg font-extrabold text-slate-800 dark:text-neutral-100 mb-1">Chưa mổ xẻ câu nào</h3>
+          <p className="text-sm text-slate-500 dark:text-neutral-400 mb-6 max-w-md mx-auto leading-relaxed">
             Sổ tay này chỉ đầy lên khi bạn làm một đề JLPT rồi mổ xẻ từng câu sai. Mỗi câu mổ xẻ
             xong để lại ở đây: nguyên nhân sai và quy tắc bạn tự viết.
           </p>
           <button
             onClick={onOpenImport}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
+            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 dark:bg-red-600 dark:hover:bg-red-700 active:scale-95 transition-all shadow-md cursor-pointer text-sm"
           >
             Tới phòng thi JLPT
           </button>
@@ -228,22 +228,22 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
       {reviewBanner}
 
       {/* Thống kê nguyên nhân — thứ mà từng câu lẻ không nói được */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-5 mb-5">
+      <div className="bg-white rounded-3xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-          <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
-            <AlertTriangle size={15} className="text-rose-500" />
+          <h3 className="text-sm font-extrabold text-slate-800 dark:text-neutral-100 flex items-center gap-2">
+            <AlertTriangle size={15} className="text-rose-500 dark:text-rose-400" />
             Bạn hay sai vì lý do gì?
           </h3>
-          <p className="text-xs font-semibold text-slate-400">
+          <p className="text-xs font-semibold text-slate-400 dark:text-neutral-500">
             {inScope.length} câu đã mổ xẻ · {withOwnRule}/{rows.length} câu có quy tắc bạn tự viết
           </p>
         </div>
 
         {top && (
-          <p className="text-sm font-bold text-slate-700 mb-3">
+          <p className="text-sm font-bold text-slate-700 dark:text-neutral-200 mb-3">
             Nhiều nhất:{' '}
-            <span className="text-rose-600 font-black">{top.label}</span>{' '}
-            <span className="font-semibold text-slate-400">
+            <span className="text-rose-600 dark:text-rose-400 font-black">{top.label}</span>{' '}
+            <span className="font-semibold text-slate-400 dark:text-neutral-500">
               ({top.count}/{inScope.length} câu · {top.percent}%)
             </span>
           </p>
@@ -259,19 +259,19 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                 title={active ? 'Bỏ lọc theo nguyên nhân này' : `Chỉ xem câu sai vì: ${c.hint}`}
                 className={`group text-left rounded-xl px-3 py-2 border transition-all cursor-pointer ${
                   active
-                    ? 'border-rose-300 bg-rose-50'
-                    : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                    ? 'border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40'
+                    : 'border-transparent hover:border-slate-200 hover:bg-slate-50 dark:hover:border-neutral-700 dark:hover:bg-neutral-800'
                 }`}
               >
                 <div className="flex items-center justify-between gap-3 mb-1">
-                  <span className="text-xs font-extrabold text-slate-700">{c.label}</span>
-                  <span className="text-xs font-black text-slate-500 shrink-0">
-                    {c.count} <span className="font-bold text-slate-400">({c.percent}%)</span>
+                  <span className="text-xs font-extrabold text-slate-700 dark:text-neutral-200">{c.label}</span>
+                  <span className="text-xs font-black text-slate-500 dark:text-neutral-400 shrink-0">
+                    {c.count} <span className="font-bold text-slate-400 dark:text-neutral-500">({c.percent}%)</span>
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-1.5 rounded-full bg-slate-100 dark:bg-neutral-800 overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${active ? 'bg-rose-500' : 'bg-indigo-400'}`}
+                    className={`h-full rounded-full ${active ? 'bg-rose-500' : 'bg-indigo-400 dark:bg-red-500'}`}
                     style={{ width: `${Math.max(c.percent, 3)}%` }}
                   />
                 </div>
@@ -284,19 +284,19 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
       {/* Bộ lọc */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-neutral-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm trong câu hỏi hoặc ghi chú của bạn..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100 dark:focus:ring-red-900 dark:focus:border-red-700 transition-all"
           />
         </div>
         <select
           value={examFilter}
           onChange={(e) => setExamFilter(e.target.value)}
-          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-200 dark:focus:ring-red-900 cursor-pointer"
         >
           <option value="all">Tất cả đề</option>
           {examOptions.map((e) => (
@@ -308,7 +308,7 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
         <select
           value={confidenceFilter}
           onChange={(e) => setConfidenceFilter(e.target.value as 'all' | Confidence)}
-          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-200 dark:focus:ring-red-900 cursor-pointer"
           title="Lúc làm bài bạn thấy thế nào — sai khi đang CHẮC là lỗ hổng nguy hiểm nhất"
         >
           <option value="all">Mọi mức chắc chắn</option>
@@ -319,15 +319,15 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
       </div>
 
       {visibleRows.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-sm text-slate-500 font-semibold">
+        <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-10 text-center text-sm text-slate-500 dark:text-neutral-400 font-semibold">
           Không có câu nào khớp bộ lọc hiện tại.
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {visibleRows.map(({ entry, question, examTitle }) => (
-            <article key={entry.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+            <article key={entry.id} className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-4">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100 dark:text-rose-300 dark:bg-rose-950/40 dark:border-rose-800">
                   {causeLabel(entry.cause)}
                 </span>
                 <span
@@ -339,19 +339,19 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                 {examTitle ? (
                   <button
                     onClick={() => onOpenExam(entry.examId)}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 dark:text-red-400 dark:hover:text-red-300 hover:underline cursor-pointer flex items-center gap-1"
                   >
                     {examTitle} <ArrowRight size={10} />
                   </button>
                 ) : (
                   <span
-                    className="text-[10px] font-bold text-slate-400"
+                    className="text-[10px] font-bold text-slate-400 dark:text-neutral-500"
                     title={`Mã đề: ${entry.examId}`}
                   >
                     Đề đã bị xoá khỏi máy
                   </span>
                 )}
-                <span className="text-[10px] font-bold text-slate-400 ml-auto">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 ml-auto">
                   {new Date(entry.createdAt).toLocaleDateString('vi-VN')}
                 </span>
               </div>
@@ -359,7 +359,7 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
               {question ? (
                 <>
                   {question.stem && (
-                    <p className="text-sm font-bold text-slate-800 leading-relaxed mb-2.5">
+                    <p className="text-sm font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-2.5">
                       <StemText stem={question.stem} underline={question.stemUnderline} />
                     </p>
                   )}
@@ -372,14 +372,14 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                           key={i}
                           className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-start gap-1.5 ${
                             isAnswer
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
                               : isChosen
-                              ? 'border-rose-200 bg-rose-50 text-rose-900'
-                              : 'border-slate-200 text-slate-600'
+                              ? 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                              : 'border-slate-200 text-slate-600 dark:border-neutral-700 dark:text-neutral-300'
                           }`}
                         >
-                          {isAnswer && <CheckCircle2 size={13} className="text-emerald-600 mt-0.5 shrink-0" />}
-                          {isChosen && !isAnswer && <XCircle size={13} className="text-rose-500 mt-0.5 shrink-0" />}
+                          {isAnswer && <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />}
+                          {isChosen && !isAnswer && <XCircle size={13} className="text-rose-500 dark:text-rose-400 mt-0.5 shrink-0" />}
                           <span>
                             {i + 1}. {c.text}
                             {isChosen && !isAnswer && (
@@ -391,29 +391,29 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                     })}
                   </div>
                   {entry.reattemptIndex != null && (
-                    <p className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 mb-2.5">
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-neutral-400 flex items-center gap-1.5 mb-2.5">
                       <RotateCcw size={11} />
                       Lúc mổ xẻ bạn chọn lại phương án {entry.reattemptIndex + 1} —{' '}
                       {entry.reattemptIndex === question.answerIndex ? (
-                        <span className="text-emerald-600 font-black">đúng</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-black">đúng</span>
                       ) : (
-                        <span className="text-rose-600 font-black">vẫn sai</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-black">vẫn sai</span>
                       )}
                     </p>
                   )}
                   {question.explanation && (
                     <details className="mb-2.5">
-                      <summary className="text-[11px] font-extrabold text-indigo-600 cursor-pointer">
+                      <summary className="text-[11px] font-extrabold text-indigo-600 dark:text-red-400 cursor-pointer">
                         Lời giải của đề
                       </summary>
-                      <p className="text-xs text-slate-600 font-medium leading-relaxed mt-1.5 whitespace-pre-line">
+                      <p className="text-xs text-slate-600 dark:text-neutral-300 font-medium leading-relaxed mt-1.5 whitespace-pre-line">
                         {question.explanation}
                       </p>
                     </details>
                   )}
                 </>
               ) : (
-                <p className="text-xs font-semibold text-slate-500 bg-slate-50 border border-dashed border-slate-200 rounded-xl px-3 py-2.5 mb-2.5 leading-relaxed">
+                <p className="text-xs font-semibold text-slate-500 bg-slate-50 border border-dashed border-slate-200 dark:text-neutral-400 dark:bg-neutral-800 dark:border-neutral-700 rounded-xl px-3 py-2.5 mb-2.5 leading-relaxed">
                   Không hiện được câu hỏi gốc: đề <span className="font-bold">{entry.examId}</span> không
                   còn trên máy này. Ghi chú của bạn vẫn giữ nguyên bên dưới; nhập lại đúng đề đó là
                   câu hỏi hiện lại.
@@ -422,12 +422,12 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
 
               {/* Phần đáng giá nhất của cả quy trình mổ xẻ: chữ do chính người học viết ra */}
               {entry.myRule || entry.myExample ? (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-3 space-y-2">
+                <div className="rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800 px-3.5 py-3 space-y-2">
                   {entry.myRule && (
-                    <p className="text-xs font-bold text-amber-900 flex items-start gap-2">
-                      <Lightbulb size={13} className="mt-0.5 shrink-0 text-amber-600" />
+                    <p className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-start gap-2">
+                      <Lightbulb size={13} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
                       <span>
-                        <span className="uppercase text-[10px] tracking-wider text-amber-600 block">
+                        <span className="uppercase text-[10px] tracking-wider text-amber-600 dark:text-amber-400 block">
                           Quy tắc bạn tự rút ra
                         </span>
                         {entry.myRule}
@@ -435,10 +435,10 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                     </p>
                   )}
                   {entry.myExample && (
-                    <p className="text-xs font-bold text-amber-900 flex items-start gap-2">
-                      <PenLine size={13} className="mt-0.5 shrink-0 text-amber-600" />
+                    <p className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-start gap-2">
+                      <PenLine size={13} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
                       <span>
-                        <span className="uppercase text-[10px] tracking-wider text-amber-600 block">
+                        <span className="uppercase text-[10px] tracking-wider text-amber-600 dark:text-amber-400 block">
                           Ví dụ bạn tự đặt
                         </span>
                         {entry.myExample}
@@ -447,7 +447,7 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                   )}
                 </div>
               ) : (
-                <p className="text-[11px] font-semibold text-slate-400 italic">
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 italic">
                   Câu này bạn chưa viết quy tắc nào — lần mổ xẻ sau thử viết một câu bằng lời của
                   chính mình, đó là bước nhớ lâu nhất.
                 </p>
