@@ -1026,30 +1026,52 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
         <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
           <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-3">Bản đồ chẩn đoán</p>
-          <div className="flex flex-wrap gap-1.5">
-            {attempt.questionIds.map((qId, i) => {
-              const q = questionsById.get(qId);
-              const ans = attempt.answers[qId];
-              const isCorrect = q && ans?.chosenIndex === q.answerIndex;
-              const isUnanswered = !ans || ans.chosenIndex === null;
+          <div className="space-y-3">
+            {stored.exam.groups.map((g) => {
+              const idsInAttempt = g.questionIds.filter((id) => attempt.questionIds.includes(id));
+              if (idsInAttempt.length === 0) return null;
+              const correctCount = idsInAttempt.filter((id) => {
+                const q = questionsById.get(id);
+                const ans = attempt.answers[id];
+                return q && ans?.chosenIndex === q.answerIndex;
+              }).length;
               return (
-                <div
-                  key={qId}
-                  title={`Câu ${i + 1}`}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold ${
-                    isUnanswered
-                      ? 'bg-slate-100 text-slate-400 border-2 border-dashed border-slate-300 dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-600'
-                      : isCorrect
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-rose-500 text-white'
-                  }`}
-                >
-                  {i + 1}
+                <div key={g.mondai}>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <p className="text-[11px] font-extrabold text-slate-400 dark:text-neutral-500">{g.mondai}</p>
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-neutral-500">
+                      {correctCount}/{idsInAttempt.length} đúng
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {idsInAttempt.map((qId) => {
+                      const idx = attempt.questionIds.indexOf(qId);
+                      const q = questionsById.get(qId);
+                      const ans = attempt.answers[qId];
+                      const isCorrect = q && ans?.chosenIndex === q.answerIndex;
+                      const isUnanswered = !ans || ans.chosenIndex === null;
+                      return (
+                        <div
+                          key={qId}
+                          title={`Câu ${idx + 1}`}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold ${
+                            isUnanswered
+                              ? 'bg-slate-100 text-slate-400 border-2 border-dashed border-slate-300 dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-600'
+                              : isCorrect
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-rose-500 text-white'
+                          }`}
+                        >
+                          {idx + 1}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold mt-2">Xanh = đúng · Đỏ = sai · Viền đứt = bỏ trắng</p>
+          <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold mt-3">Xanh = đúng · Đỏ = sai · Viền đứt = bỏ trắng</p>
         </div>
 
         {attempt.predictedPercent !== undefined && (
