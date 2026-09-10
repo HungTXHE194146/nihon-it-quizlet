@@ -171,7 +171,7 @@ export interface JlptAttempt {
 
 // ─── Sổ tay lỗi riêng cho JLPT (mục 6.2-6.4) ─────────────────────────
 
-export type MistakeCause = 'goi' | 'bunpou' | 'kanji' | 'dokkai' | 'choukai' | 'wana' | 'bat_can' | 'het_gio';
+export type MistakeCause = 'goi' | 'bunpou' | 'kanji' | 'dokkai' | 'choukai' | 'wana' | 'bat_can' | 'het_gio' | 'doan_mo';
 
 export const MISTAKE_CAUSES: { code: MistakeCause; label: string; hint: string }[] = [
   { code: 'goi', label: 'Không biết từ', hint: 'Thiếu từ vựng' },
@@ -182,6 +182,11 @@ export const MISTAKE_CAUSES: { code: MistakeCause; label: string; hint: string }
   { code: 'wana', label: 'Dính bẫy đề', hint: 'Đáp án "trông có vẻ đúng"' },
   { code: 'bat_can', label: 'Bất cẩn', hint: 'Biết mà chọn nhầm' },
   { code: 'het_gio', label: 'Không kịp giờ', hint: 'Chưa kịp đọc đã phải đoán' },
+  // Không phải một "nguyên nhân" hiểu theo nghĩa 7 dòng trên (thiếu kiến thức gì cụ thể) — đây
+  // là tự nhận đã đoán mò ngay từ lúc làm bài (`Confidence: 'guess'`), nên bước 2 mổ xẻ tự gán
+  // sẵn nhãn này khi rút gọn quy trình (ticket 010 hướng 2). Vẫn thêm vào danh sách chọn thủ
+  // công ở bước 2, vì "tôi cũng chẳng nhớ vì sao chọn" là một câu trả lời trung thực, có thật.
+  { code: 'doan_mo', label: 'Đoán mò', hint: 'Không nhớ lý do — chọn đại lúc làm bài' },
 ];
 
 export interface MistakeEntry {

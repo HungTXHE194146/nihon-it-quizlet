@@ -1,7 +1,7 @@
 # 010 — Giảm chi phí mổ xẻ (tạm dừng/tiếp tục, rút gọn bước)
 
 - **Ưu tiên:** P2
-- **Trạng thái:** Đang làm (mới xong hướng 1)
+- **Trạng thái:** Xong (cả 3 hướng)
 - **Phụ thuộc:** 002 (cần dữ liệu "mổ xẻ dở" ghi nhận tăng dần mới có gì để tạm dừng/tiếp tục)
 
 ## Bối cảnh
@@ -35,7 +35,7 @@ nhưng tối thiểu phải:
 - [x] Không hạ thấp chất lượng mổ xẻ cho câu quan trọng nhất (sai + chắc chắn).
 - [x] Ghi rõ hướng đã chọn và lý do vào Nhật ký.
 
-Hướng 2 (rút gọn bước cho câu "Sai + Đoán") và hướng 3 (giới hạn số câu mỗi lượt) vẫn còn mở.
+Cả 3 hướng đã làm — xem Nhật ký 2026-09-10.
 
 ## File / vùng code liên quan
 
@@ -72,3 +72,37 @@ Hướng 2 (rút gọn bước cho câu "Sai + Đoán") và hướng 3 (giới h
   - Mini-quiz lấy `reviewQueue.slice(0, 5)` (5 câu mổ xẻ ĐẦU tiên) — trái mục đích "kết thúc
     bằng cảm giác thắng" (mục 4.7), vì đó là những câu đã mổ xẻ lâu nhất. Đổi thành
     `slice(-5)`.
+
+- 2026-09-10 (tiếp): Làm nốt **hướng 2** và **hướng 3**.
+
+  **Hướng 2 — rút gọn bước cho "Sai + Đoán":** thêm `MistakeCause` mới `'doan_mo'` ("Đoán mò",
+  `src/lib/jlpt/schema.ts`) — khác `bat_can` (bất cẩn = biết mà chọn nhầm) về nghĩa, nên không
+  tái dùng fallback cũ `cause ?? 'bat_can'` của `finishOneReview` cho trường hợp này. Ở
+  `view === 'review'`, tính `wasGuessed = answer?.confidence === 'guess'` (độ chắc chắn ghi
+  lúc LÀM BÀI, không phải lúc đoán lại ở bước 1). Khi `wasGuessed`:
+  - Hai nút chuyển tiếp ở bước 1 (chọn đáp án / "Tôi chịu") tự gán `cause = 'doan_mo'` và nhảy
+    thẳng sang bước 3 — bỏ hẳn màn bước 2 (chọn nguyên nhân), vì đằng nào cũng không nhớ lý do.
+  - Bước 3 (đáp án đúng + lời giải) vẫn hiện đầy đủ như cũ — cố ý KHÔNG bỏ luôn bước này dù
+    ticket viết "bỏ qua bước 2-4": thấy đáp án đúng là phần giá trị nhất của cả quy trình, bỏ
+    luôn thì "rút gọn" biến thành "không mổ xẻ gì cả". Thêm nút phụ "Lưu nhanh, bỏ qua bước tự
+    viết" (hiện khi `cause === 'doan_mo'`) gọi thẳng `finishOneReview`, bỏ qua bước 4.
+  - Vẫn giữ nguyên đường vòng cũ: bấm "Chọn lại" ở bước 3 quay về bước 2 như bình thường, cho
+    ai muốn tự chọn nguyên nhân khác thay vì nhận mặc định "Đoán mò".
+  - Kết quả: câu "Sai + Đoán" còn tối thiểu 2 lượt bấm bắt buộc (bước 1 → lưu nhanh ở bước 3)
+    thay vì 4 (bước 1→2→3→4), câu "Sai + Chắc chắn"/"Sai + Phân vân" vẫn đủ 4 bước như cũ.
+
+  **Hướng 3 — trần số câu một lượt:** thêm hằng `REVIEW_BATCH_SIZE = 5` và
+  `REVIEW_PRIORITY = { sure: 0, unsure: 1, guess: 2 }`. `startReview()` khi
+  `pendingReviewIds.length > 5` thì sắp theo độ ưu tiên (ma trận ticket 006 — "Sai + Chắc chắn"
+  lên trước) rồi cắt lấy 5 câu đầu làm `reviewQueue`; phần còn lại vẫn nằm nguyên trong pending
+  (không đánh dấu gì) nên "Mổ xẻ nốt" lần sau tự lấy đúng phần thiếu. Màn kết quả nói trước số
+  câu sẽ mổ xẻ lượt này (`5/12 câu`) kèm dòng phụ giải thích ưu tiên; màn "Xong" nói rõ còn bao
+  nhiêu câu chưa mổ xẻ, hẹn lần mở app kế tiếp — khối "Hôm nay" (ticket 004, đã xong) tự nhắc
+  lại việc này ở trang chủ nên không cần thêm cơ chế nhắc riêng.
+
+  **Đã kiểm:** `npx tsc -b` và `npx oxlint` (cả `JlptExamRunner.tsx` lẫn `schema.ts`) sạch,
+  không lỗi/không warning mới. **Chưa kiểm bằng UI thật**: cần đăng nhập + nhập một đề JLPT
+  thật (textarea dán JSON ở màn Nhập Đề) rồi cố ý trả lời sai với độ chắc chắn khác nhau mới
+  dựng được đúng kịch bản để bấm thử — không dựng kịp trong phiên này. Nếu có ai test tay, cần
+  xác nhận: (1) câu đoán mò nhảy thẳng 1→3 và nút "Lưu nhanh" hoạt động, (2) >5 câu sai thì chỉ
+  5 câu vào hàng đợi và đúng là 5 câu ưu tiên cao nhất, (3) màn "Xong" hiện đúng số câu còn lại.
