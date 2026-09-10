@@ -297,6 +297,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** True từ lúc một mẻ thay đổi được xếp lịch đẩy lên server tới lúc PUT thật sự xong (hoặc
+   * lỗi) — đọc được từ handler `pagehide` (bên dưới) để biết có cần flush khẩn hay không, vì
+   * `syncState` là React state, không chắc đã kịp cập nhật xong lúc trang bị đóng. */
+  const pushPendingRef = useRef(false);
   const persistent = useMemo(() => isPersistent(), []);
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
 
@@ -461,10 +465,18 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!didInitialSyncRef.current) return; // để effect đối chiếu ở trên lo lượt đầu tiên
     if (pushTimer.current) clearTimeout(pushTimer.current);
 
+    // Đặt 'syncing' NGAY khi xếp lịch, không đợi tới lúc PUT thật sự chạy: trước đây nút
+    // đồng bộ vẫn hiện "Đã đồng bộ" (nhãn cũ từ lần trước) suốt cả PUSH_DEBOUNCE_MS lẫn thời
+    // gian gọi mạng, khiến đóng máy đúng lúc này trông có vẻ an toàn dù mẻ thay đổi mới nhất
+    // chưa hề rời khỏi máy.
+    pushPendingRef.current = true;
+    setSyncState('syncing');
+
     pushTimer.current = setTimeout(() => {
       progressApi
         .put(dataRef.current)
         .then((res) => {
+          pushPendingRef.current = false;
           setData((prev) =>
             prev._syncedServerUpdatedAt === res.updatedAt
               ? prev
@@ -472,7 +484,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           );
           setSyncState('synced');
         })
-        .catch(() => setSyncState('error'));
+        .catch(() => {
+          pushPendingRef.current = false;
+          setSyncState('error');
+        });
     }, PUSH_DEBOUNCE_MS);
 
     return () => {
@@ -480,6 +495,46 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cố ý dùng chữ ký nội dung, xem ghi chú ở contentSignature
   }, [contentSignature, userId, syncEpoch]);
+
+  // Đóng tab / điều hướng đi trong lúc còn một mẻ thay đổi CHƯA kịp đẩy lên server (debounce
+  // chưa hết giờ, hoặc request PUT đang bay) — trước đây chỉ có flush xuống localStorage của
+  // CHÍNH MÁY NÀY (effect phía trên), không có gì flush lên server, nên đúng phần vừa học
+  // ngay trước khi gập máy/đóng tab có thể không bao giờ tới nơi: máy khác (đăng nhập cùng
+  // tài khoản) sẽ không bao giờ thấy, dù nút vẫn từng hiện "Đã đồng bộ".
+  //
+  // `keepalive: true` cho phép request sống sót qua lúc trang bị dỡ (khác `fetch` thường, sẽ
+  // bị trình duyệt huỷ ngang). Giới hạn keepalive tổng cộng khoảng 64KB mỗi trang là đánh đổi
+  // chấp nhận được: tiến độ rất lớn (hiếm) có thể vẫn vượt giới hạn và request bị từ chối,
+  // nhưng đó là bằng đúng hiện trạng "luôn luôn mất" — không tệ hơn, còn phần lớn trường hợp
+  // thì được cứu hẳn. Không `await`/`.then` được vì trang có thể đã dỡ trước khi promise xong.
+  useEffect(() => {
+    if (!userId) return;
+
+    const flushToServer = () => {
+      if (!pushPendingRef.current) return;
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+      pushPendingRef.current = false;
+      fetch('/api/progress', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(dataRef.current),
+        keepalive: true,
+      }).catch(() => {});
+    };
+
+    // 'pagehide' bắt đóng tab/điều hướng trên desktop; 'visibilitychange' thêm một lưới an
+    // toàn cho mobile (chuyển app nền không phải lúc nào cũng kèm pagehide ngay).
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushToServer();
+    };
+    window.addEventListener('pagehide', flushToServer);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flushToServer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [userId]);
 
   const recordReview = useCallback((key: string, correct: boolean, confidence?: Confidence) => {
     const now = Date.now();
