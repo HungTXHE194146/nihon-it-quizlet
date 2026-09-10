@@ -44,6 +44,25 @@ interface JlptImportScreenProps {
   onStartExam: (examId: string) => void;
 }
 
+/**
+ * Một dòng trong màn xem trước nhập nhiều đề cùng lúc (ticket 011).
+ *
+ * Không dùng chung state với luồng dán/1-file cũ (`rawInput`/`parsedFile`/`validation`) — hai
+ * luồng xem trước khác hình dạng hẳn (1 đề xem chi tiết có preview câu 1, nhiều đề chỉ cần
+ * xem trạng thái từng dòng), gộp chung sẽ chỉ làm rối cả hai.
+ */
+interface BatchFileResult {
+  /** Khoá React, không phải id đề — file lỗi (chưa parse được) thì chưa biết id đề là gì. */
+  id: string;
+  fileName: string;
+  status: 'valid' | 'invalid' | 'saved' | 'error';
+  parsedFile: JlptImportFile | null;
+  validation: ValidationResult | null;
+  parseError: string | null;
+  /** Lỗi lúc LƯU (khác lỗi kiểm tra định dạng) — vd. hỏng khi ghi IndexedDB. */
+  saveError: string | null;
+}
+
 function downloadJSON(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -77,6 +96,11 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
   const [reviewedChecked, setReviewedChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  /** Chỉ khác `null` khi đang ở màn xem trước NHIỀU file (2+) cùng lúc — xem `BatchFileResult`. */
+  const [batchFiles, setBatchFiles] = useState<BatchFileResult[] | null>(null);
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [batchSaveSummary, setBatchSaveSummary] = useState<string | null>(null);
 
   const [promptLevel, setPromptLevel] = useState<JlptLevel>('N3');
   const [promptMondai, setPromptMondai] = useState<MondaiType>('kanji_yomi');
@@ -200,6 +224,101 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
     const text = await file.text();
     setRawInput(text);
     runValidate(text);
+  };
+
+  /**
+   * Điểm vào chung cho cả chọn file (input `multiple`) lẫn kéo-thả nhiều file (ticket 011).
+   *
+   * Đúng 1 file thì vẫn đi luồng cũ — đổ vào ô dán để xem trước chi tiết + sửa tay được, thứ
+   * người chỉnh một đề vẫn cần. 2+ file mới chuyển sang màn danh sách: không thể xem chi tiết
+   * từng câu của hàng chục đề trên một màn mà không làm rối, nên chỉ hiện trạng thái mỗi file.
+   */
+  const handleFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+    if (files.length === 1) {
+      await handleFile(files[0]);
+      return;
+    }
+
+    setRawInput('');
+    setValidation(null);
+    setParsedFile(null);
+    setLinkStats(null);
+    setSaveMessage(null);
+    setBatchSaveSummary(null);
+
+    const results = await Promise.all(
+      files.map(async (file, i): Promise<BatchFileResult> => {
+        const id = `${file.name}-${i}-${Date.now()}`;
+        const text = await file.text().catch(() => null);
+        if (text === null) {
+          return { id, fileName: file.name, status: 'invalid', parsedFile: null, validation: null, parseError: 'Không đọc được file.', saveError: null };
+        }
+        const parsed = parseImportJSON(text);
+        if (!parsed.ok) {
+          return { id, fileName: file.name, status: 'invalid', parsedFile: null, validation: null, parseError: parsed.message, saveError: null };
+        }
+        const validation = validateImportFile(parsed.value);
+        if (validation.errors.length > 0) {
+          return { id, fileName: file.name, status: 'invalid', parsedFile: null, validation, parseError: null, saveError: null };
+        }
+        return { id, fileName: file.name, status: 'valid', parsedFile: asImportFile(parsed.value), validation, parseError: null, saveError: null };
+      })
+    );
+    setBatchFiles(results);
+  };
+
+  /**
+   * Nhập tất cả đề hợp lệ trong `batchFiles` bằng một thao tác — tuần tự từng file, một file
+   * lưu lỗi (hoặc lỗi định dạng từ trước) không chặn các file còn lại (tiêu chí 3 của ticket).
+   *
+   * Không chạy `suggestLinkedItemKeys` (dò thẻ SRS tương ứng) cho từng đề như luồng 1-file:
+   * việc đó quét toàn bộ kho từ vựng cho mỗi đề, hàng chục đề cùng lúc sẽ chậm rõ rệt mà đây
+   * là bước "tự dò gợi ý", không bắt buộc phải có ngay lúc nhập — ai cần khớp SRS kỹ hơn vẫn
+   * nhập lại đúng đề đó qua ô dán 1-file như cũ.
+   */
+  const handleSaveBatch = async () => {
+    if (!batchFiles) return;
+    setBatchSaving(true);
+    setBatchSaveSummary(null);
+
+    const examsById = new Map(exams.map((e) => [e.exam.id, e]));
+    const next = [...batchFiles];
+    let savedCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < next.length; i++) {
+      const entry = next[i];
+      if (entry.status !== 'valid' || !entry.parsedFile) continue;
+      try {
+        const existing = examsById.get(entry.parsedFile.exam.id);
+        // Chưa kiểm (`reviewed: false`) mặc định — không ai soát tay từng câu của từng đề
+        // trong một lượt nhập hàng loạt, đánh dấu "đã kiểm" ở đây sẽ là nói dối.
+        const stored = toStoredExam(entry.parsedFile, false, existing);
+        await putStoredExam(stored);
+        examsById.set(stored.exam.id, stored);
+
+        let saveError: string | null = null;
+        if (authenticated === true) {
+          await jlptExamsApi.add(toSyncPayload(stored)).catch((e: Error) => {
+            saveError = `Chưa đồng bộ lên server: ${e.message}`;
+          });
+        }
+        next[i] = { ...entry, status: 'saved', saveError };
+        savedCount += 1;
+      } catch (e) {
+        next[i] = { ...entry, status: 'error', saveError: (e as Error).message };
+        failCount += 1;
+      }
+    }
+
+    setBatchFiles(next);
+    await refreshLocalList();
+    setBatchSaving(false);
+    setBatchSaveSummary(
+      `Đã nhập ${savedCount} đề${failCount > 0 ? `, ${failCount} đề lưu thất bại (xem chi tiết ở từng dòng)` : ''}.`
+    );
   };
 
   const handleSave = async () => {
@@ -620,8 +739,7 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
           onDrop={(e) => {
             e.preventDefault();
             setDragOver(false);
-            const file = e.dataTransfer.files?.[0];
-            if (file) handleFile(file);
+            if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
           }}
           className={`rounded-2xl border-2 border-dashed transition-colors ${
             dragOver
@@ -632,7 +750,7 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
           <textarea
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
-            placeholder="Dán JSON đề vào đây, hoặc kéo thả file .json..."
+            placeholder="Dán JSON đề vào đây, hoặc kéo thả một hay nhiều file .json..."
             rows={8}
             className="w-full p-4 rounded-2xl text-xs font-mono focus:outline-none resize-y bg-transparent dark:text-neutral-100"
           />
@@ -652,20 +770,104 @@ export const JlptImportScreen: React.FC<JlptImportScreenProps> = ({ onBackToHome
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition-all cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
-            Chọn file .json
+            Chọn file .json (chọn nhiều được)
           </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="application/json,.json"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
+              if (e.target.files?.length) handleFiles(e.target.files);
               e.target.value = '';
             }}
           />
         </div>
+
+        {/* Xem trước NHIỀU file cùng lúc (ticket 011) — chỉ hiện khi vừa chọn/kéo-thả 2+ file;
+            1 file vẫn đi qua các khối "Kết quả kiểm tra" bên dưới như trước giờ. */}
+        {batchFiles && (
+          <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-extrabold text-slate-600 dark:text-neutral-300">
+                {batchFiles.length} file — {batchFiles.filter((f) => f.status === 'valid' || f.status === 'saved').length} hợp lệ,{' '}
+                {batchFiles.filter((f) => f.status === 'invalid' || f.status === 'error').length} lỗi
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveBatch}
+                  disabled={batchSaving || !batchFiles.some((f) => f.status === 'valid')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {batchSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Nhập tất cả đề hợp lệ ({batchFiles.filter((f) => f.status === 'valid').length})
+                </button>
+                <button
+                  onClick={() => {
+                    setBatchFiles(null);
+                    setBatchSaveSummary(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Đóng danh sách
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              {batchFiles.map((f) => (
+                <div
+                  key={f.id}
+                  className={`rounded-xl border p-3 text-xs font-semibold ${
+                    f.status === 'saved'
+                      ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
+                      : f.status === 'valid'
+                      ? 'border-slate-200 bg-white dark:border-neutral-800 dark:bg-neutral-900'
+                      : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-slate-700 dark:text-neutral-200 truncate">{f.fileName}</p>
+                    {f.status === 'saved' && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 size={13} /> Đã nhập
+                      </span>
+                    )}
+                    {f.status === 'valid' && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-slate-500 dark:text-neutral-400">
+                        <Eye size={13} /> Hợp lệ, chờ nhập
+                      </span>
+                    )}
+                    {(f.status === 'invalid' || f.status === 'error') && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                        <XCircle size={13} /> {f.status === 'error' ? 'Lưu thất bại' : 'Lỗi'}
+                      </span>
+                    )}
+                  </div>
+                  {f.parsedFile && (
+                    <p className="text-slate-400 dark:text-neutral-500 mt-0.5">
+                      {f.parsedFile.exam.title} · {f.parsedFile.exam.level} · {f.validation?.totalQuestions} câu
+                    </p>
+                  )}
+                  {f.parseError && <p className="text-rose-600 dark:text-rose-400 mt-1">{f.parseError}</p>}
+                  {f.validation && f.validation.errors.length > 0 && (
+                    <ul className="text-rose-600 dark:text-rose-400 list-disc list-inside mt-1 space-y-0.5">
+                      {f.validation.errors.map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {f.saveError && <p className="text-amber-700 dark:text-amber-400 mt-1">{f.saveError}</p>}
+                </div>
+              ))}
+            </div>
+
+            {batchSaveSummary && (
+              <p className="text-xs font-bold text-slate-600 dark:text-neutral-300">{batchSaveSummary}</p>
+            )}
+          </div>
+        )}
 
         {/* Kết quả kiểm tra */}
         {parseError && (

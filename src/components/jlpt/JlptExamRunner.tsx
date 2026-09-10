@@ -57,6 +57,23 @@ const CONFIDENCE_OPTIONS: { value: Confidence; label: string }[] = (
   ['sure', 'unsure', 'guess'] as Confidence[]
 ).map((value) => ({ value, label: CONFIDENCE_LABELS[value] }));
 
+/**
+ * Trần số câu mổ xẻ một lượt (ticket 010 hướng 3).
+ *
+ * 12 câu sai = 48 lượt tương tác liên tục nếu không giới hạn — đúng lúc người học vừa mệt sau
+ * một bài thi dài. Vượt trần thì chỉ xếp hàng `REVIEW_BATCH_SIZE` câu ưu tiên nhất vào lượt
+ * này (xem `REVIEW_PRIORITY`), phần còn lại vẫn nằm trong `reviewedQuestionIds`/pending như cũ
+ * — không mất, chỉ hẹn lại, và khối "Hôm nay" (ticket 004) đã nhắc việc còn dở ở trang chủ.
+ */
+const REVIEW_BATCH_SIZE = 5;
+
+/**
+ * Độ ưu tiên mổ xẻ theo ma trận ticket 006: "Sai + Chắc chắn" (tưởng mình đúng mà sai) đáng mổ
+ * xẻ nhất, "Sai + Đoán" (đằng nào cũng không nhớ lý do chọn) đáng mổ xẻ ít nhất. Số nhỏ hơn =
+ * xếp trước khi cắt còn `REVIEW_BATCH_SIZE` câu.
+ */
+const REVIEW_PRIORITY: Record<Confidence, number> = { sure: 0, unsure: 1, guess: 2 };
+
 export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }) => {
   const { recordReview } = useProgress();
   // Đề dùng chung cả máy, nhưng lượt làm bài thì của riêng người đang đăng nhập.
@@ -383,7 +400,20 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   const startReview = () => {
     if (!attempt || pendingReviewIds.length === 0) return;
-    setReviewQueue(pendingReviewIds);
+    // Vượt trần một lượt: chỉ đưa vào hàng đợi `REVIEW_BATCH_SIZE` câu ưu tiên cao nhất (ma
+    // trận ticket 006), phần còn lại vẫn ở nguyên trong pending — bấm "Mổ xẻ nốt" lần sau sẽ
+    // lấy đúng phần còn thiếu vì `pendingReviewIds` tự loại câu đã có trong `reviewedQuestionIds`.
+    const queue =
+      pendingReviewIds.length > REVIEW_BATCH_SIZE
+        ? [...pendingReviewIds]
+            .sort((a, b) => {
+              const pa = REVIEW_PRIORITY[attempt.answers[a]?.confidence ?? 'unsure'];
+              const pb = REVIEW_PRIORITY[attempt.answers[b]?.confidence ?? 'unsure'];
+              return pa - pb;
+            })
+            .slice(0, REVIEW_BATCH_SIZE)
+        : pendingReviewIds;
+    setReviewQueue(queue);
     setReviewIndex(0);
     setReviewStep(1);
     setReattemptIndex(null);
@@ -1099,9 +1129,19 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
         <div className="flex flex-col gap-2">
           {pendingReviewIds.length > 0 ? (
-            <button onClick={startReview} className="w-full py-4 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-base shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer">
-              {attempt.reviewedQuestionIds.length > 0 ? 'Mổ xẻ nốt' : 'Bắt đầu mổ xẻ'} {pendingReviewIds.length} câu →
-            </button>
+            <>
+              <button onClick={startReview} className="w-full py-4 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-base shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer">
+                {attempt.reviewedQuestionIds.length > 0 ? 'Mổ xẻ nốt' : 'Bắt đầu mổ xẻ'}{' '}
+                {pendingReviewIds.length > REVIEW_BATCH_SIZE ? `${REVIEW_BATCH_SIZE}/${pendingReviewIds.length}` : pendingReviewIds.length} câu →
+              </button>
+              {/* Trần một lượt (ticket 010 hướng 3) — nói trước để không bất ngờ khi màn "Xong"
+                  vẫn còn câu chưa mổ xẻ dù vừa bấm nút này. */}
+              {pendingReviewIds.length > REVIEW_BATCH_SIZE && (
+                <p className="text-[11px] text-slate-400 dark:text-neutral-500 font-semibold text-center -mt-1">
+                  Lượt này ưu tiên câu bạn tưởng mình chắc mà vẫn sai — {pendingReviewIds.length - REVIEW_BATCH_SIZE} câu còn lại hẹn lần sau.
+                </p>
+              )}
+            </>
           ) : (
             <button onClick={finishAttempt} className="w-full py-4 rounded-2xl bg-indigo-600 dark:bg-red-600 text-white font-black text-base shadow-lg dark:shadow-none cursor-pointer">
               Xong
@@ -1121,6 +1161,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'review' && currentWrongQuestion) {
     const answer = attempt?.answers[currentWrongQuestion.id];
     const reviewPassage = passageOf(currentWrongQuestion);
+    // "Sai + Đoán" (ma trận ticket 006): lúc làm bài tự nhận là đoán mò, nên đằng nào cũng
+    // không nhớ lý do chọn — ticket 010 hướng 2 cho phép rút gọn: bỏ qua bước 2 (tự động gán
+    // nguyên nhân "Đoán mò") và cho lưu nhanh bỏ qua bước 4, dồn công sức mổ xẻ kỹ vào câu
+    // "Sai + Chắc chắn" (tưởng mình đúng mà sai — đáng mổ xẻ nhất).
+    const wasGuessed = answer?.confidence === 'guess';
     return (
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
         <div className="relative text-center mb-4">
@@ -1167,7 +1212,14 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
           {reviewStep === 1 && (
             <>
-              <p className="text-xs font-extrabold text-rose-500 dark:text-rose-400 mb-3">Bước 1 — Đoán lại khi chưa xem đáp án</p>
+              <p className={`text-xs font-extrabold text-rose-500 dark:text-rose-400 ${wasGuessed ? 'mb-1' : 'mb-3'}`}>Bước 1 — Đoán lại khi chưa xem đáp án</p>
+              {/* Rút gọn cho "Sai + Đoán" (ticket 010 hướng 2): nói trước là bước 2 (tìm nguyên
+                  nhân) sẽ bị bỏ qua, để không tưởng màn hình thiếu bước hay bị lỗi. */}
+              {wasGuessed && (
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 mb-3">
+                  Bạn đã đoán mò câu này lúc làm bài — mổ xẻ rút gọn: bỏ qua bước tìm nguyên nhân, xem đáp án luôn.
+                </p>
+              )}
               <div className="grid gap-2 mb-4">
                 {currentWrongQuestion.choices.map((c, i) => (
                   <button
@@ -1190,16 +1242,28 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   gì, làm hỏng chính mục đích của Bước 1 (phân biệt "không biết" với "lỡ tay").
                   Giờ phải chọn — hoặc nói thẳng là chịu, cũng là một câu trả lời có ý nghĩa. */}
               <button
-                onClick={() => setReviewStep(2)}
+                onClick={() => {
+                  if (wasGuessed) {
+                    setCause('doan_mo');
+                    setReviewStep(3);
+                  } else {
+                    setReviewStep(2);
+                  }
+                }}
                 disabled={reattemptIndex === null}
                 className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {reattemptIndex === null ? 'Chọn một đáp án để đi tiếp' : 'Giờ bạn chọn lại đáp án này →'}
+                {reattemptIndex === null ? 'Chọn một đáp án để đi tiếp' : wasGuessed ? 'Giờ bạn chọn lại đáp án này — xem đáp án →' : 'Giờ bạn chọn lại đáp án này →'}
               </button>
               <button
                 onClick={() => {
                   setReattemptIndex(null);
-                  setReviewStep(2);
+                  if (wasGuessed) {
+                    setCause('doan_mo');
+                    setReviewStep(3);
+                  } else {
+                    setReviewStep(2);
+                  }
                 }}
                 className="w-full mt-2 py-2 text-xs font-bold text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 cursor-pointer"
               >
@@ -1285,6 +1349,17 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   Tiếp tục
                 </button>
               </div>
+              {/* Làn rút gọn cho "Sai + Đoán" (ticket 010 hướng 2): bỏ qua bước 4 (tự viết,
+                  vốn không bắt buộc) luôn — đằng nào cũng không nhớ lý do chọn nên tự viết lại
+                  quy tắc không có nhiều giá trị. Vẫn để "Tiếp tục" song song cho ai muốn viết. */}
+              {cause === 'doan_mo' && (
+                <button
+                  onClick={finishOneReview}
+                  className="w-full mt-2 py-2 text-xs font-bold text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 cursor-pointer"
+                >
+                  Đã đoán mò lúc làm bài — lưu nhanh, bỏ qua bước tự viết →
+                </button>
+              )}
             </>
           )}
 
@@ -1390,8 +1465,15 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
         </div>
         <h3 className="text-xl font-extrabold text-slate-800 dark:text-neutral-100 mb-2">Đã xong buổi luyện tập</h3>
         {miniQuizIds.length > 0 && (
-          <p className="text-sm text-slate-500 dark:text-neutral-400 mb-6">
+          <p className="text-sm text-slate-500 dark:text-neutral-400 mb-2">
             Kiểm tra nhanh: {miniCorrect}/{miniQuizIds.length} câu đúng. Các câu sai đã được lên lịch ôn lại.
+          </p>
+        )}
+        {/* Còn sót vì bị trần REVIEW_BATCH_SIZE cắt bớt (ticket 010 hướng 3) — nói rõ để không
+            tưởng nhầm là đã mổ xẻ hết; khối "Hôm nay" (ticket 004) sẽ tự nhắc lại phần này. */}
+        {pendingReviewIds.length > 0 && (
+          <p className="text-sm text-slate-500 dark:text-neutral-400 mb-6">
+            Còn {pendingReviewIds.length} câu sai chưa mổ xẻ — hẹn bạn ở lần mở app kế tiếp.
           </p>
         )}
         <button onClick={onExit} className="px-6 py-3 bg-indigo-600 dark:bg-red-600 text-white rounded-xl font-bold hover:bg-indigo-700 dark:hover:bg-red-700 active:scale-95 transition-all cursor-pointer text-sm">
