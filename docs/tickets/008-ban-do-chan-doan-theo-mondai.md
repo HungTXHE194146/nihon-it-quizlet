@@ -1,7 +1,7 @@
 # 008 — Bản đồ chẩn đoán nhóm theo 問題 ở màn kết quả
 
 - **Ưu tiên:** P1
-- **Trạng thái:** Chưa bắt đầu
+- **Trạng thái:** Xong
 - **Phụ thuộc:** —
 
 ## Bối cảnh
@@ -32,9 +32,9 @@ màn kết quả.
 
 ## Tiêu chí hoàn thành
 
-- [ ] Bản đồ chẩn đoán ở màn kết quả hiện các câu được nhóm theo `問題`, không còn là một
+- [x] Bản đồ chẩn đoán ở màn kết quả hiện các câu được nhóm theo `問題`, không còn là một
       hàng phẳng theo thứ tự làm bài.
-- [ ] Nhìn vào thấy ngay nhóm nào yếu nhất mà không cần đếm thủ công.
+- [x] Nhìn vào thấy ngay nhóm nào yếu nhất mà không cần đếm thủ công.
 
 ## File / vùng code liên quan
 
@@ -45,3 +45,9 @@ màn kết quả.
 
 - 2026-09-07: Ticket tạo từ buổi audit UX. Việc nhỏ, giá trị cao, code mẫu đã có sẵn trong
   cùng file — ưu tiên làm sớm trong nhóm P1.
+- 2026-09-10: Đã làm xong. Thay vòng lặp phẳng `attempt.questionIds.map` ở view `results`
+  bằng vòng lặp theo `stored.exam.groups` (tái dùng đúng cách nhóm của khối "Phiếu trả lời"
+  ở view `taking`) — mỗi nhóm hiện tiêu đề `g.mondai`, dòng tổng kết `x/y đúng`, rồi tới các
+  ô vuông đúng/sai/bỏ trắng của câu thuộc nhóm đó (số thứ tự ô vẫn là vị trí trong toàn bài,
+  không phải trong nhóm, để khớp với "Phiếu trả lời"). Giữ nguyên chú thích màu. `tsc -b` và
+  `oxlint` chạy sạch trên file.
