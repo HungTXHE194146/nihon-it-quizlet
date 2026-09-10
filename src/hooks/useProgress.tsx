@@ -111,6 +111,15 @@ export interface ProgressSettings {
    * với người còn 3 ngày. Người học sửa được bất cứ lúc nào ở trang chủ.
    */
   examDate?: string;
+  /**
+   * Hiện furigana trên chữ Hán khó lúc làm bài JLPT (ticket 012).
+   *
+   * Mặc định TẮT: tài liệu thiết kế (mục 8.6, docs/jlpt-practice-test-research.md) khuyến nghị
+   * "Furigana cố định theo cấp -> Cho tắt/bật" — người ôn N3 đọc được phần lớn chữ Hán trong đề,
+   * bật sẵn cho mọi câu chỉ gây rối mắt. Bật lên khi cần thì nhớ cho các màn JLPT khác luôn
+   * (phòng thi, mổ xẻ, sổ tay lỗi) vì đây là một cài đặt chung, không phải bật riêng từng màn.
+   */
+  jlptFuriganaEnabled?: boolean;
 }
 
 export interface ProgressData {
@@ -139,6 +148,7 @@ const DEFAULT_SETTINGS: ProgressSettings = {
   // Kỳ thi JLPT tháng 12/2026. Đặt sẵn để lộ trình chạy được ngay từ lần mở đầu tiên thay vì
   // bắt người học cấu hình trước khi thấy được gì; đổi lại ở trang chủ nếu thi ngày khác.
   examDate: '2026-12-05',
+  jlptFuriganaEnabled: false,
 };
 
 function emptyData(): ProgressData {

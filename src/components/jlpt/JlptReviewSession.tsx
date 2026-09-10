@@ -43,7 +43,8 @@ type Phase = 'loading' | 'empty' | 'quiz' | 'done';
  * cách StudySession ôn thẻ từ vựng), chỉ cần đúng/sai.
  */
 export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) => {
-  const { buildJlptReviewQueue, recordReview } = useProgress();
+  const { buildJlptReviewQueue, recordReview, data: progressData } = useProgress();
+  const showFurigana = progressData.settings.jlptFuriganaEnabled ?? false;
   const { ownerId } = useJlptOwner();
 
   // Chốt hàng đợi NGAY LÚC MỞ MÀN, không phải mỗi lần render: trả lời một câu sẽ đổi
@@ -234,7 +235,11 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
         )}
         {current.question.stem && (
           <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
-            <StemText stem={current.question.stem} underline={current.question.stemUnderline} />
+            <StemText
+              stem={current.question.stem}
+              underline={current.question.stemUnderline}
+              furigana={showFurigana ? current.question.furigana : undefined}
+            />
           </p>
         )}
         <div className="grid gap-2">
