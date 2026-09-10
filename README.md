@@ -21,10 +21,14 @@
 Dự án này là trang web ôn tập và học tập kiểu Quizlet kết hợp trắc nghiệm, viết bằng **React, Vite, TypeScript, và Tailwind CSS**.
 Giao diện tiếng Việt hiện đại, thân thiện trên di động và máy tính, chạy hoàn toàn offline bằng dữ liệu local.
 
-Trang chủ lấy **luyện thi N3** làm trục chính: một hàng đợi ôn gộp cả từ vựng Mimi Kara Oboeru
-lẫn Kanji Master (`#/subject/n3/study?mode=srs`), khu **Phòng thi JLPT** ngay bên dưới, còn
-JIT401 / JFE301 nằm trong mục "Môn khác" gấp lại — vẫn dùng được đầy đủ, chỉ không chiếm chỗ
-của phần luyện thi.
+Trang chủ lấy **luyện thi N3** làm trục chính, xếp từ trên xuống theo đúng thứ tự người học
+cần: **Lộ trình tới ngày thi** (đếm ngược, chặng hiện tại, việc của hôm nay — xem
+`src/lib/roadmap.ts`), khối **Hôm nay** (một hành động kế tiếp duy nhất,
+`src/lib/todayAction.ts`), hàng đợi ôn gộp cả từ vựng Mimi Kara Oboeru lẫn Kanji Master
+(`#/subject/n3/study?mode=srs`, và `?mode=new` cho phiên chỉ học thẻ mới), rồi khu **Phòng thi
+JLPT** — danh sách đề ở đây sắp theo tình trạng của người học (đang làm dở → còn câu chưa mổ xẻ
+→ chưa làm → đã xong), không theo lúc đề được nhập vào máy. JIT401 / JFE301 nằm trong mục "Môn
+khác" gấp lại — vẫn dùng được đầy đủ, chỉ không chiếm chỗ của phần luyện thi.
 
 ---
 

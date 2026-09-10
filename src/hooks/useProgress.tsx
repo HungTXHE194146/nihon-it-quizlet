@@ -52,6 +52,17 @@ const PUSH_DEBOUNCE_MS = 1500;
 export interface DailyStat {
   reviews: number;
   correct: number;
+  /**
+   * Số thẻ được HỌC LẦN ĐẦU trong ngày (thẻ chưa từng có trạng thái SRS trước đó).
+   *
+   * Không suy ra được từ `cards` nên phải đếm ngay lúc ghi nhận: `card.seen === 1` chỉ đúng
+   * cho tới khi thẻ được ôn lần hai, còn `reps`/`interval` thì bị reset mỗi lần trả lời sai.
+   * Có con số này thì hạn mức thẻ mới mới thật sự là "mỗi NGÀY" — trước đây nó là "mỗi PHIÊN",
+   * nghĩa là mở lại phiên ôn 5 lần trong ngày là nạp 5×20 thẻ mới.
+   *
+   * Bản tiến độ cũ không có trường này; mọi nơi đọc phải dùng `?? 0`.
+   */
+  newCards?: number;
 }
 
 /** Phiên học đang dở, để khôi phục sau khi đóng tab. */
@@ -92,6 +103,14 @@ export interface ProgressSettings {
   practiceMode: 'default' | 'write-kanji' | 'type-reading';
   /** Đảo thứ tự phương án trắc nghiệm khi luyện tập. */
   shuffleChoices: boolean;
+  /**
+   * Ngày thi mục tiêu, dạng `YYYY-MM-DD` theo lịch địa phương (ticket 013).
+   *
+   * Là gốc toạ độ của toàn bộ lộ trình ở `src/lib/roadmap.ts`: thiếu mốc này thì mọi lời
+   * khuyên "hôm nay nên học bao nhiêu" đều tuỳ tiện, không phân biệt được người còn 3 tháng
+   * với người còn 3 ngày. Người học sửa được bất cứ lúc nào ở trang chủ.
+   */
+  examDate?: string;
 }
 
 export interface ProgressData {
@@ -117,6 +136,9 @@ const DEFAULT_SETTINGS: ProgressSettings = {
   dailyNewLimit: 20,
   practiceMode: 'default',
   shuffleChoices: true,
+  // Kỳ thi JLPT tháng 12/2026. Đặt sẵn để lộ trình chạy được ngay từ lần mở đầu tiên thay vì
+  // bắt người học cấu hình trước khi thấy được gì; đổi lại ở trang chủ nếu thi ngày khác.
+  examDate: '2026-12-05',
 };
 
 function emptyData(): ProgressData {
@@ -166,6 +188,45 @@ function hydrate(raw: Partial<ProgressData> | null): ProgressData {
   };
 }
 
+/**
+ * Rải thẻ mới ĐỀU khắp hàng đợi thẻ đến hạn, thay vì nối hết vào đuôi.
+ *
+ * Nối vào đuôi nghe có vẻ hợp lý ("ôn xong nợ cũ rồi mới học cái mới") nhưng trong thực tế
+ * nó khiến phần học mới không bao giờ tới lượt: mỗi thẻ trả lời sai được hẹn gặp lại sau 10
+ * phút (`RELEARN_MS` trong srs.ts) nên đầu hàng đợi tự mọc lại sau mỗi phiên, còn người học
+ * thì hiếm khi đi hết 100+ thẻ đến hạn trong một lần ngồi. Kết quả: mở app ngày nào cũng chỉ
+ * thấy ôn lại thứ mình từng sai.
+ *
+ * Đánh đổi có ý thức: bỏ dở phiên giữa chừng thì số thẻ đến hạn ôn được ít hơn một chút
+ * (20 thẻ đầu = 16 cũ + 4 mới thay vì 20 cũ). Đổi lại, MỌI phiên đều có phần học mới.
+ */
+function interleaveNew(due: string[], fresh: string[]): string[] {
+  if (fresh.length === 0) return due;
+  if (due.length === 0) return fresh;
+
+  const out: string[] = [];
+  const step = due.length / fresh.length; // khoảng cách trung bình giữa hai thẻ mới
+  let nextAt = step;
+  let f = 0;
+
+  for (let i = 0; i < due.length; i++) {
+    out.push(due[i]);
+    while (f < fresh.length && i + 1 >= nextAt) {
+      out.push(fresh[f]);
+      f += 1;
+      nextAt += step;
+    }
+  }
+  while (f < fresh.length) {
+    out.push(fresh[f]);
+    f += 1;
+  }
+  return out;
+}
+
+const applyLimit = (queue: string[], limit?: number) =>
+  typeof limit === 'number' ? queue.slice(0, limit) : queue;
+
 export interface SubjectStats {
   total: number;
   studied: number;
@@ -188,8 +249,20 @@ interface ProgressContextValue {
    */
   recordReview: (key: string, correct: boolean, confidence?: Confidence) => void;
   getCard: (key: string) => CardState | undefined;
-  /** Các thẻ đến hạn ôn, cộng thêm một ít thẻ mới, giới hạn theo cài đặt. */
+  /**
+   * Các thẻ đến hạn ôn, TRỘN LẪN một ít thẻ mới (xem `interleaveNew`), giới hạn theo hạn
+   * mức thẻ mới còn lại của hôm nay.
+   */
   buildReviewQueue: (scope: SubjectScope, limit?: number) => string[];
+  /**
+   * CHỈ thẻ chưa từng học, cho phiên "học từ mới hôm nay" — lối đi riêng để phần học mới
+   * không phải xếp hàng sau đống thẻ đến hạn. Mặc định lấy đúng phần hạn mức còn lại của
+   * hôm nay (`newCardsLeftToday`).
+   */
+  buildNewQueue: (scope: SubjectScope, limit?: number) => string[];
+  /** Số thẻ mới đã học hôm nay và số còn lại trong hạn mức ngày. */
+  newCardsToday: number;
+  newCardsLeftToday: number;
   /** Các thẻ từng trả lời sai, mới sai gần đây xếp trước. */
   buildMistakeQueue: (scope: SubjectScope) => string[];
   /** Câu hỏi JLPT đến hạn ôn lại — xem ghi chú tại định nghĩa hàm. */
@@ -415,7 +488,12 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const card = confidence
         ? applyConfidenceMatrix(prev.cards[key], correct, confidence, now)
         : srsReview(prev.cards[key], correct, now);
-      const prevDay = prev.daily[day] || { reviews: 0, correct: 0 };
+      const prevDay = prev.daily[day] || { reviews: 0, correct: 0, newCards: 0 };
+      // Thẻ chưa từng có trạng thái SRS = thẻ vừa được học lần đầu hôm nay. Câu hỏi JLPT
+      // (khoá `jlpt::`) cũng "mới" ở lần trả lời đầu nhưng KHÔNG tính vào hạn mức thẻ mới —
+      // hạn mức đó nói về giáo trình N3, còn câu hỏi JLPT vào lịch ôn khi làm đề, không có
+      // khái niệm "học mới mỗi ngày".
+      const isFirstTime = !prev.cards[key] && !isJlptCardKey(key);
 
       let streak = prev.streak;
       if (prev.streak.lastDay !== day) {
@@ -433,7 +511,11 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         cards: { ...prev.cards, [key]: card },
         daily: {
           ...prev.daily,
-          [day]: { reviews: prevDay.reviews + 1, correct: prevDay.correct + (correct ? 1 : 0) },
+          [day]: {
+            reviews: prevDay.reviews + 1,
+            correct: prevDay.correct + (correct ? 1 : 0),
+            newCards: (prevDay.newCards ?? 0) + (isFirstTime ? 1 : 0),
+          },
         },
         streak,
       };
@@ -441,6 +523,29 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [setDataTouched]);
 
   const getCard = useCallback((key: string) => data.cards[key], [data.cards]);
+
+  const todayStat = useMemo<DailyStat>(
+    () => data.daily[todayKey()] || { reviews: 0, correct: 0, newCards: 0 },
+    [data.daily]
+  );
+
+  const newCardsToday = todayStat.newCards ?? 0;
+  const newCardsLeftToday = Math.max(0, data.settings.dailyNewLimit - newCardsToday);
+
+  /** Các thẻ chưa từng học của một phạm vi, theo đúng thứ tự giáo trình, tối đa `max` thẻ. */
+  const collectNewKeys = useCallback(
+    (scope: SubjectScope, max: number): string[] => {
+      const fresh: string[] = [];
+      if (max <= 0) return fresh;
+      for (const [key, entry] of itemByKey) {
+        if (fresh.length >= max) break;
+        if (!subjectInScope(entry.subjectId, scope)) continue;
+        if (!data.cards[key]) fresh.push(key);
+      }
+      return fresh;
+    },
+    [data.cards]
+  );
 
   const buildReviewQueue = useCallback(
     (scope: SubjectScope, limit?: number) => {
@@ -460,19 +565,19 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       due.sort((a, b) => a.due - b.due);
 
       // Thẻ mới thì phải tra chỉ mục, nên chỉ lấy được từ các môn đã nạp dữ liệu.
-      const fresh: string[] = [];
-      const newLimit = data.settings.dailyNewLimit;
-      for (const [key, entry] of itemByKey) {
-        if (fresh.length >= newLimit) break;
-        if (!subjectInScope(entry.subjectId, scope)) continue;
-        if (!data.cards[key]) fresh.push(key);
-      }
+      // Hạn mức là của cả NGÀY, không phải của mỗi phiên: đã học 15 thẻ mới sáng nay thì
+      // chiều chỉ còn 5 suất, không phải 20 suất nữa.
+      const fresh = collectNewKeys(scope, newCardsLeftToday);
 
-      const queue = due.map((d) => d.key);
-      queue.push(...fresh);
-      return typeof limit === 'number' ? queue.slice(0, limit) : queue;
+      return applyLimit(interleaveNew(due.map((d) => d.key), fresh), limit);
     },
-    [data.cards, data.settings.dailyNewLimit]
+    [data.cards, collectNewKeys, newCardsLeftToday]
+  );
+
+  const buildNewQueue = useCallback(
+    (scope: SubjectScope, limit?: number) =>
+      collectNewKeys(scope, typeof limit === 'number' ? limit : newCardsLeftToday),
+    [collectNewKeys, newCardsLeftToday]
   );
 
   const buildMistakeQueue = useCallback(
@@ -547,11 +652,6 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const dueCount = useCallback((scope: SubjectScope) => statsFor(scope).due, [statsFor]);
 
-  const todayStat = useMemo(
-    () => data.daily[todayKey()] || { reviews: 0, correct: 0 },
-    [data.daily]
-  );
-
   const saveSession = useCallback((session: SavedSession | null) => {
     setDataTouched((prev) => ({ ...prev, session }));
   }, [setDataTouched]);
@@ -602,6 +702,9 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       recordReview,
       getCard,
       buildReviewQueue,
+      buildNewQueue,
+      newCardsToday,
+      newCardsLeftToday,
       buildMistakeQueue,
       buildJlptReviewQueue,
       statsFor,
@@ -622,6 +725,9 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       recordReview,
       getCard,
       buildReviewQueue,
+      buildNewQueue,
+      newCardsToday,
+      newCardsLeftToday,
       buildMistakeQueue,
       buildJlptReviewQueue,
       statsFor,

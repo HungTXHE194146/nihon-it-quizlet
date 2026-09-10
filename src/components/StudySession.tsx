@@ -87,7 +87,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
     recordReview,
     getCard,
     buildReviewQueue,
+    buildNewQueue,
     buildMistakeQueue,
+    newCardsToday,
     saveSession,
     clearSession,
     updateSettings,
@@ -123,6 +125,10 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
     if (mode === 'mistakes') {
       return questionsFromKeys(buildMistakeQueue(subjectId));
+    }
+
+    if (mode === 'new') {
+      return questionsFromKeys(buildNewQueue(subjectId));
     }
 
     const aggregated: SessionQuestion[] = [];
@@ -204,6 +210,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
     qTypeFilter,
     selectedSectionIds,
     buildReviewQueue,
+    buildNewQueue,
     buildMistakeQueue,
   ]);
 
@@ -223,7 +230,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const autoPlay = data.settings.ttsAutoplay;
   const lang = subjectLang(subjectId === 'all' ? 'nihon-it' : subjectId);
 
-  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signatureRef = useRef<string | null>(null);
 
   // Dựng lại phiên khi người dùng đổi lựa chọn (không phải mỗi lần tiến độ thay đổi).
@@ -243,12 +249,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
     // Chỉ mời khôi phục khi phiên cũ đúng lựa chọn này và đang dở giữa chừng.
     setResumable(saved && saved.signature === signature && saved.index > 0 ? saved : null);
   }, [signature, buildQuestions, data.session]);
-
-  useEffect(() => {
-    return () => {
-      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-    };
-  }, []);
 
   // Ghi lại tiến độ phiên sau mỗi câu để đóng tab giữa chừng vẫn quay lại được.
   useEffect(() => {
@@ -319,19 +319,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
       setWrongAnswers((prev) => [...prev, currentQ]);
     }
 
-    if (currentQ.sectionType === 'vocabulary') {
-      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-      // Chế độ gõ hiện cả đáp án lẫn chữ người học vừa nhập, cần thêm thời gian để đọc.
-      const delay = practiceMode === 'type-reading' ? 2000 : 900;
-      autoNextTimeoutRef.current = setTimeout(() => handleNext(), delay);
-    }
+    // KHÔNG tự chuyển sang thẻ kế tiếp. Trước đây thẻ từ vựng tự nhảy sau 0,9s (2s ở chế độ
+    // gõ cách đọc) — nhưng mặt sau của thẻ mới là chỗ đáng đọc nhất (cách đọc đúng, nghĩa,
+    // giải thích, câu ví dụ, và ở chế độ gõ là cả chữ mình vừa gõ sai). Một đồng hồ đếm
+    // ngược vô hình luôn hoặc quá nhanh với người đọc kỹ, hoặc quá chậm với người đã xong;
+    // để người học tự bấm là cách duy nhất đúng cho cả hai.
   };
 
   const handleNext = () => {
-    if (autoNextTimeoutRef.current) {
-      clearTimeout(autoNextTimeoutRef.current);
-      autoNextTimeoutRef.current = null;
-    }
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsAnswered(false);
@@ -341,15 +336,18 @@ export const StudySession: React.FC<StudySessionProps> = ({
     }
   };
 
-  // Sau khi đã chấm câu trắc nghiệm, Enter hoặc mũi tên phải để đi tiếp.
+  // Sau khi đã chấm (cả trắc nghiệm lẫn thẻ từ vựng), Enter / mũi tên phải / Space để đi tiếp.
+  //
+  // Không sợ đụng phím tắt của VocabularyCard: mọi phím tắt bên đó đều bọc trong `if
+  // (!isGraded)`, và listener này chỉ tồn tại KHI ĐÃ chấm. Chính lần bấm "→" để tự chấm cũng
+  // không kích hoạt nhầm — lúc phím đó được nhấn, `isAnswered` còn false nên listener này
+  // chưa được gắn.
   useEffect(() => {
     if (!isAnswered) return;
-    const q = questions[currentIndex];
-    if (!q || q.sectionType === 'vocabulary') return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'Enter' || e.key === 'ArrowRight') {
+      if (e.key === 'Enter' || e.key === 'ArrowRight' || e.code === 'Space') {
         e.preventDefault();
         handleNext();
       }
@@ -385,11 +383,17 @@ export const StudySession: React.FC<StudySessionProps> = ({
         ? 'Bạn không còn thẻ nào đến hạn ôn. Quay lại sau nhé!'
         : mode === 'mistakes'
         ? 'Sổ tay câu sai đang trống — bạn chưa sai câu nào.'
+        : mode === 'new'
+        ? `Hôm nay bạn đã học ${newCardsToday} thẻ mới — hết hạn mức ${data.settings.dailyNewLimit} thẻ/ngày. Hạ hoặc nâng hạn mức trong phần cài đặt của phiên ôn.`
         : 'Các phần học được chọn hiện tại không chứa dữ liệu câu hỏi.';
     return (
       <div className="w-full max-w-md mx-auto text-center py-16 px-4">
         <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-          {mode === 'srs' ? 'Đã ôn hết hôm nay!' : 'Không tìm thấy câu hỏi'}
+          {mode === 'srs'
+            ? 'Đã ôn hết hôm nay!'
+            : mode === 'new'
+            ? 'Đã đủ thẻ mới cho hôm nay'
+            : 'Không tìm thấy câu hỏi'}
         </h3>
         <p className="text-slate-500 dark:text-slate-400 mb-6">{emptyMessage}</p>
         <button
@@ -425,6 +429,8 @@ export const StudySession: React.FC<StudySessionProps> = ({
       ? { label: 'Ôn theo lịch', className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' }
       : mode === 'mistakes'
       ? { label: 'Sổ tay câu sai', className: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800' }
+      : mode === 'new'
+      ? { label: `Học mới · ${newCardsToday}/${data.settings.dailyNewLimit} hôm nay`, className: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800' }
       : null;
 
   return (
@@ -574,9 +580,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
         </div>
       )}
 
-      {/* Lower Navigation Footer */}
-      {isAnswered && currentQuestion.sectionType !== 'vocabulary' && (
-        <div className="mt-6 flex justify-center animate-bounce">
+      {/* Lower Navigation Footer — hiện cho cả thẻ từ vựng: không còn tự nhảy thẻ nữa. */}
+      {isAnswered && (
+        <div className="mt-6 flex flex-col items-center gap-2">
           <button
             onClick={handleNext}
             className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-extrabold shadow-lg shadow-indigo-100 dark:shadow-none flex items-center gap-2 active:scale-95 transition-all text-base cursor-pointer"
@@ -584,6 +590,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
             {currentIndex === questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'}
             <ArrowRight size={18} />
           </button>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            Đọc kỹ mặt sau rồi bấm — hoặc nhấn Enter / Space / →
+          </span>
         </div>
       )}
 

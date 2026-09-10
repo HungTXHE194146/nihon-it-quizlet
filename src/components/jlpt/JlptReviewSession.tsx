@@ -17,6 +17,12 @@ interface ReviewItem {
   examTitle: string;
   question: JlptQuestion;
   /**
+   * Đoạn văn của câu 読解, nếu có. Thiếu nó thì câu đọc hiểu tới hạn ôn là không thể trả lời
+   * — người học chỉ còn cách nhớ máy móc "câu này chọn số 3", đúng thứ mà lịch ôn ngắt quãng
+   * sinh ra để chống lại.
+   */
+  passageText: string | null;
+  /**
    * Lần mổ xẻ gần nhất của CHÍNH câu này (nếu có) — mang theo quy tắc/ví dụ người học tự
    * viết ở Bước 4. Câu sai vào lịch ôn ngay lúc nộp bài (xem submit() ở JlptExamRunner),
    * kể cả khi chưa từng mổ xẻ, nên trường này rất có thể là null — đó là bình thường,
@@ -100,6 +106,9 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
           key,
           examTitle: exam.exam.title,
           question,
+          passageText: question.passageId
+            ? exam.passages.find((p) => p.id === question.passageId)?.text ?? null
+            : null,
           pastMistake: latestMistakeByQuestion.get(`${p.examId}::${p.questionId}`) ?? null,
         });
       }
@@ -218,6 +227,11 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
       <p className="text-center text-[11px] font-bold text-indigo-500 dark:text-red-400 mb-3">{current.examTitle}</p>
 
       <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+        {current.passageText && (
+          <div className="bg-slate-50 dark:bg-neutral-800 rounded-xl p-4 mb-4 text-sm leading-relaxed text-slate-700 dark:text-neutral-300 whitespace-pre-wrap max-h-72 overflow-y-auto">
+            {current.passageText}
+          </div>
+        )}
         {current.question.stem && (
           <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
             <StemText stem={current.question.stem} underline={current.question.stemUnderline} />
@@ -246,10 +260,25 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
               )}
               <span>
                 {i + 1}. {c.text}
+                {/* Ghi chú từng phương án chỉ đáng giá SAU khi đã chọn — hiện trước là đưa
+                    luôn đáp án. Trước đây nó không được hiện ở màn này ở bất kỳ thời điểm
+                    nào, nên sai lại lần hai cũng không biết vì sao mình sai. */}
+                {choice !== null && c.note && (
+                  <span className="block mt-1 text-xs font-medium text-slate-500 dark:text-neutral-400">{c.note}</span>
+                )}
               </span>
             </button>
           ))}
         </div>
+
+        {choice !== null && current.question.explanation && (
+          <div className="mt-4 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 rounded-xl p-3.5">
+            <p className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 mb-1">Lời giải</p>
+            <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 leading-relaxed whitespace-pre-line">
+              {current.question.explanation}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Đúng lúc SRS nhắc lại câu này thì cũng là lúc quy tắc tự viết ở Bước 4 mổ xẻ có giá

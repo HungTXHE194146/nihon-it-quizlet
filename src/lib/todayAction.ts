@@ -22,6 +22,8 @@
  * 6. Thật sự không còn gì để gợi ý (đã thuộc hết N3, không có đề nào) — ăn mừng, không ép học.
  */
 
+import type { RoadmapPhase } from './roadmap';
+
 export interface N3TodayInput {
   due: number;
   newCards: number;
@@ -38,7 +40,7 @@ export interface JlptTodayInput {
    * bằng 0 (chưa có SRS riêng cho câu hỏi JLPT).
    */
   reviewDueCount: number;
-  /** Đề gần cập nhật nhất trong kho — dùng làm gợi ý "nhấm nháp" khi không còn việc gì khác. */
+  /** Đề nên làm tiếp — đề đầu danh sách đã sắp theo tình trạng của người học (useJlptSummary). */
   mostRecentExam: { examId: string; examTitle: string } | null;
 }
 
@@ -48,10 +50,25 @@ export type TodayAction =
   | { kind: 'jlpt-review-due'; count: number }
   | { kind: 'n3-due'; count: number }
   | { kind: 'n3-new'; count: number; isNewLearner: boolean }
-  | { kind: 'jlpt-taste'; examId: string; examTitle: string }
+  | { kind: 'jlpt-taste'; examId: string; examTitle: string; sessionHint: 'taste' | 'full' }
   | { kind: 'all-done' };
 
-export function pickTodayAction(n3: N3TodayInput, jlpt: JlptTodayInput): TodayAction {
+/**
+ * `phase` (ticket 013) chỉ đổi HAI thứ, cố ý không nhiều hơn:
+ *
+ * 1. Ở tuần chốt hạ, nhánh "học thẻ mới" bị bỏ qua — thẻ học ở tuần cuối không kịp qua đủ
+ *    vòng nhắc lại để thành trí nhớ dài hạn, gợi ý học thêm lúc này là gợi ý sai.
+ * 2. Càng gần ngày thi, gợi ý làm đề càng chuyển từ "nhấm nháp" sang "trọn đề tính giờ" —
+ *    thứ cần luyện lúc đó là sức bền và phân bổ thời gian, không phải vài câu lẻ.
+ *
+ * Thứ tự ưu tiên của các nhánh việc tồn đọng thì KHÔNG đổi theo chặng: nợ dở dang vẫn luôn
+ * đứng trước, dù còn 3 tháng hay 3 ngày.
+ */
+export function pickTodayAction(
+  n3: N3TodayInput,
+  jlpt: JlptTodayInput,
+  phase: RoadmapPhase = 'nen-tang'
+): TodayAction {
   if (jlpt.running) {
     return { kind: 'jlpt-running', examId: jlpt.running.examId, examTitle: jlpt.running.examTitle };
   }
@@ -69,7 +86,8 @@ export function pickTodayAction(n3: N3TodayInput, jlpt: JlptTodayInput): TodayAc
   if (n3.due > 0) {
     return { kind: 'n3-due', count: n3.due };
   }
-  if (n3.isNewLearner || n3.newCards > 0) {
+  const stopNewCards = phase === 'chot-ha' || phase === 'da-thi';
+  if (!stopNewCards && (n3.isNewLearner || n3.newCards > 0)) {
     return {
       kind: 'n3-new',
       count: n3.isNewLearner ? n3.firstSessionSize : n3.newCards,
@@ -77,7 +95,12 @@ export function pickTodayAction(n3: N3TodayInput, jlpt: JlptTodayInput): TodayAc
     };
   }
   if (jlpt.mostRecentExam) {
-    return { kind: 'jlpt-taste', examId: jlpt.mostRecentExam.examId, examTitle: jlpt.mostRecentExam.examTitle };
+    return {
+      kind: 'jlpt-taste',
+      examId: jlpt.mostRecentExam.examId,
+      examTitle: jlpt.mostRecentExam.examTitle,
+      sessionHint: phase === 'luyen-de' || phase === 'chot-ha' ? 'full' : 'taste',
+    };
   }
   return { kind: 'all-done' };
 }

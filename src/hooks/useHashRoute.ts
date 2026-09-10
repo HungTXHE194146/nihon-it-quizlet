@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
-/** Chế độ của một phiên luyện tập. */
-export type StudyMode = 'normal' | 'srs' | 'mistakes';
+/**
+ * Chế độ của một phiên luyện tập.
+ *
+ * `new` = CHỈ thẻ chưa từng học. Tách khỏi `srs` vì hàng đợi `srs` luôn phải phục vụ thẻ đến
+ * hạn trước; khi số thẻ đến hạn lớn (rất dễ xảy ra vì thẻ vừa sai được hẹn lại sau 10 phút),
+ * phần học mới thực tế không bao giờ tới lượt nếu không có lối đi riêng.
+ */
+export type StudyMode = 'normal' | 'srs' | 'mistakes' | 'new';
 
 export type AppRoute =
   | { page: 'home' }
@@ -97,7 +103,7 @@ function parseHash(hash: string): AppRoute {
 
       const rawMode = params.get('mode');
       const mode: StudyMode =
-        rawMode === 'srs' || rawMode === 'mistakes' ? rawMode : 'normal';
+        rawMode === 'srs' || rawMode === 'mistakes' || rawMode === 'new' ? rawMode : 'normal';
 
       return { page: 'study', subjectId, sections, range, mode };
     }

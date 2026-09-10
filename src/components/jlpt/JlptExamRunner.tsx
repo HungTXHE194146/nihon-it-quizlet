@@ -37,7 +37,7 @@ import {
 import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake, putReport } from '../../lib/jlpt/db';
 import { jlptCardKey } from '../../lib/jlpt/srsKey';
 import { useJlptOwner } from '../../hooks/useJlptOwner';
-import { CONFIDENCE_LABELS } from '../../lib/jlpt/mistakeStats';
+import { CONFIDENCE_LABELS, causeLabel } from '../../lib/jlpt/mistakeStats';
 import { formatClock } from '../../lib/format';
 import { StemText } from './StemText';
 
@@ -396,6 +396,18 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const currentWrongQuestion: JlptQuestion | null =
     reviewQueue[reviewIndex] ? questionsById.get(reviewQueue[reviewIndex]) ?? null : null;
 
+  /**
+   * Đoạn văn của câu đang mổ xẻ (ticket 009).
+   *
+   * Không có nó thì Bước 1 ("đoán lại khi chưa xem đáp án") là bất khả thi với mọi câu 読解:
+   * người học được yêu cầu chọn lại đáp án cho một câu hỏi về một đoạn văn mà họ không được
+   * nhìn thấy. Đó không phải truy hồi, chỉ là đoán mò lần thứ hai.
+   */
+  const passageOf = useCallback(
+    (q: JlptQuestion | null) => (q?.passageId ? stored?.passages.find((p) => p.id === q.passageId) : undefined),
+    [stored]
+  );
+
   const finishOneReview = async () => {
     if (!attempt || !stored || !currentWrongQuestion) return;
     const answer = attempt.answers[currentWrongQuestion.id];
@@ -435,8 +447,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       setMyRule('');
       setMyExample('');
     } else {
-      // Bước 7: mini-quiz với tối đa 5 câu vừa mổ xẻ trong lượt này.
-      const ids = reviewQueue.slice(0, 5);
+      // Bước 7: mini-quiz với tối đa 5 câu vừa mổ xẻ trong lượt này. Lấy 5 câu MỚI NHẤT
+      // (không phải 5 câu đầu hàng đợi như trước): mục đích của bước này là kết thúc bằng
+      // cảm giác thắng (peak-end, mục 4.7), nên phải hỏi những câu vừa mổ xẻ xong còn nóng
+      // hổi — hỏi lại câu đã mổ xẻ từ 20 phút trước thì dễ sai, đúng ngược mục đích.
+      const ids = reviewQueue.slice(-5);
       if (ids.length > 0) {
         setMiniQuizIds(ids);
         setMiniIndex(0);
@@ -472,9 +487,19 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const currentMiniQuestion = questionsById.get(miniQuizIds[miniIndex] ?? '') ?? null;
 
   const submitMiniAnswer = (idx: number) => {
-    if (!currentMiniQuestion) return;
+    if (!currentMiniQuestion || !stored) return;
     setMiniChoice(idx);
-    if (idx === currentMiniQuestion.answerIndex) setMiniCorrect((c) => c + 1);
+    const correct = idx === currentMiniQuestion.answerIndex;
+    if (correct) setMiniCorrect((c) => c + 1);
+
+    // Mini-quiz cũng là một lần truy hồi thật, phải chảy vào lịch ôn — trước đây kết quả ở
+    // đây không đi đâu cả, nghĩa là sai lần hai ngay sau khi mổ xẻ vẫn được lên lịch y hệt
+    // như trả lời đúng, trong khi màn "Xong" lại nói "các câu sai đã được lên lịch ôn lại".
+    //
+    // Chấm với độ chắc chắn 'unsure' chứ không phải 'sure': đáp án vừa hiện ra cách đây vài
+    // chục giây nên trả lời đúng ở đây là trí nhớ ngắn hạn, không đáng thưởng khoảng ôn dài
+    // như một lần nhớ lại nguội (ma trận mục 6.4 → nhân khoảng ôn ×0.6).
+    recordReview(jlptCardKey(stored.exam.id, currentMiniQuestion.id), correct, 'unsure');
   };
 
   const nextMini = () => {
@@ -1073,15 +1098,45 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   // ─ Review (mổ xẻ 7 bước) ─
   if (view === 'review' && currentWrongQuestion) {
     const answer = attempt?.answers[currentWrongQuestion.id];
+    const reviewPassage = passageOf(currentWrongQuestion);
     return (
       <div className="w-full max-w-2xl mx-auto px-4 py-8">
-        {/* Đếm theo hàng đợi của LƯỢT MỔ XẺ NÀY, không theo tổng số câu sai: quay lại mổ xẻ
-            nốt 3 câu còn thiếu thì phải là "1/3", không phải "10/12". */}
-        <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-4 text-center">
-          Mổ xẻ câu {reviewIndex + 1}/{reviewQueue.length}
-        </p>
+        <div className="relative text-center mb-4">
+          {/* Mổ xẻ dở dang phải rời đi được. Mỗi câu đã được ghi nhận NGAY khi xong
+              (finishOneReview), nên thoát giữa chừng không mất gì — nhưng trước đây màn này
+              không có một lối ra nào, chỉ còn cách bấm Back của trình duyệt (văng khỏi cả đề). */}
+          <button
+            onClick={() => setView('results')}
+            className="sm:absolute left-0 top-1/2 sm:-translate-y-1/2 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-red-400 text-xs font-extrabold shadow-sm cursor-pointer"
+          >
+            <ArrowLeft size={15} /> Để sau
+          </button>
+          {/* Đếm theo hàng đợi của LƯỢT MỔ XẺ NÀY, không theo tổng số câu sai: quay lại mổ xẻ
+              nốt 3 câu còn thiếu thì phải là "1/3", không phải "10/12". */}
+          <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500">
+            Mổ xẻ câu {reviewIndex + 1}/{reviewQueue.length} · bước {reviewStep}/4
+          </p>
+        </div>
+
+        {/* Thanh 4 bước: mổ xẻ mở dần từng bước (mục 9.3 — không đổ cả 7 bước lên một màn),
+            nên phải có chỉ báo nói rõ đang ở đâu và còn bao xa. */}
+        <div className="flex gap-1.5 mb-4">
+          {([1, 2, 3, 4] as const).map((s) => (
+            <div
+              key={s}
+              className={`h-1.5 flex-1 rounded-full ${
+                s <= reviewStep ? 'bg-indigo-500 dark:bg-red-500' : 'bg-slate-200 dark:bg-neutral-800'
+              }`}
+            />
+          ))}
+        </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+          {reviewPassage && (
+            <div className="bg-slate-50 dark:bg-neutral-800 rounded-xl p-4 mb-4 text-sm leading-relaxed text-slate-700 dark:text-neutral-300 whitespace-pre-wrap max-h-72 overflow-y-auto">
+              {reviewPassage.text}
+            </div>
+          )}
           {currentWrongQuestion.stem && (
             <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
               <StemText stem={currentWrongQuestion.stem} underline={currentWrongQuestion.stemUnderline} />
@@ -1109,18 +1164,36 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   </button>
                 ))}
               </div>
+              {/* Nút cũ ghi "Giờ bạn chọn lại đáp án này →" nhưng vẫn bấm được khi chưa chọn
+                  gì, làm hỏng chính mục đích của Bước 1 (phân biệt "không biết" với "lỡ tay").
+                  Giờ phải chọn — hoặc nói thẳng là chịu, cũng là một câu trả lời có ý nghĩa. */}
               <button
                 onClick={() => setReviewStep(2)}
-                className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer"
+                disabled={reattemptIndex === null}
+                className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Giờ bạn chọn lại đáp án này →
+                {reattemptIndex === null ? 'Chọn một đáp án để đi tiếp' : 'Giờ bạn chọn lại đáp án này →'}
+              </button>
+              <button
+                onClick={() => {
+                  setReattemptIndex(null);
+                  setReviewStep(2);
+                }}
+                className="w-full mt-2 py-2 text-xs font-bold text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 cursor-pointer"
+              >
+                Tôi chịu, không đoán được →
               </button>
             </>
           )}
 
           {reviewStep === 2 && (
             <>
-              <p className="text-xs font-extrabold text-rose-500 dark:text-rose-400 mb-3">Bước 2 — Cái gì đã khiến bạn chọn đáp án kia?</p>
+              <p className="text-xs font-extrabold text-rose-500 dark:text-rose-400 mb-1">Bước 2 — Cái gì đã khiến bạn chọn đáp án kia?</p>
+              <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 mb-3">
+                {reattemptIndex === null
+                  ? 'Vừa rồi bạn không đoán được. Đáp án đúng vẫn chưa hiện — chọn nguyên nhân trước đã.'
+                  : `Vừa rồi bạn đoán lại là đáp án ${reattemptIndex + 1}. Đáp án đúng hiện ở bước sau.`}
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {MISTAKE_CAUSES.map((c) => (
                   <button
@@ -1163,18 +1236,42 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   </div>
                 ))}
               </div>
+              {/* `JlptQuestion.explanation` tồn tại trong schema và trong mọi file đề, nhưng
+                  trước đây chỉ được hiện ở sổ tay lỗi — nghĩa là đúng lúc mổ xẻ (chỗ duy nhất
+                  người học thật sự cần nó) thì nó bị giấu đi. */}
+              {currentWrongQuestion.explanation && (
+                <div className="bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800 rounded-xl p-3.5 mb-4">
+                  <p className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 mb-1">Lời giải</p>
+                  <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 leading-relaxed whitespace-pre-line">
+                    {currentWrongQuestion.explanation}
+                  </p>
+                </div>
+              )}
+
               <p className="text-xs font-bold text-slate-500 dark:text-neutral-400 mb-4 italic">
                 Kiến thức hoặc kỹ năng nào lẽ ra đã giúp bạn làm đúng câu này?
               </p>
-              <button onClick={() => setReviewStep(4)} className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer">
-                Tiếp tục
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setReviewStep(2)}
+                  className="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 font-bold text-sm cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                  title="Chọn lại nguyên nhân"
+                >
+                  <ChevronLeft size={15} /> Chọn lại
+                </button>
+                <button onClick={() => setReviewStep(4)} className="flex-1 py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer">
+                  Tiếp tục
+                </button>
+              </div>
             </>
           )}
 
           {reviewStep === 4 && (
             <>
-              <p className="text-xs font-extrabold text-slate-500 dark:text-neutral-400 mb-3">Bước 4 — Tự viết lại (không bắt buộc)</p>
+              <p className="text-xs font-extrabold text-slate-500 dark:text-neutral-400 mb-1">Bước 4 — Tự viết lại (không bắt buộc)</p>
+              <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 mb-3">
+                Sẽ lưu vào sổ tay lỗi với nguyên nhân: <span className="font-extrabold text-slate-600 dark:text-neutral-300">{cause ? causeLabel(cause) : '—'}</span>
+              </p>
               <input
                 type="text"
                 maxLength={140}
@@ -1191,9 +1288,18 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 placeholder="Một câu ví dụ do bạn tự đặt..."
                 className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-200 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 text-sm font-semibold mb-4"
               />
-              <button onClick={finishOneReview} className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm cursor-pointer">
-                Lưu & tiếp
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setReviewStep(3)}
+                  className="px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 font-bold text-sm cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                  title="Xem lại đáp án và lời giải"
+                >
+                  <ChevronLeft size={15} /> Xem lại
+                </button>
+                <button onClick={finishOneReview} className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm cursor-pointer">
+                  {reviewIndex + 1 < reviewQueue.length ? 'Lưu & sang câu sau' : 'Lưu & kiểm tra nhanh'}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -1209,6 +1315,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           <Sparkles size={14} /> Kiểm tra nhanh {miniIndex + 1}/{miniQuizIds.length}
         </p>
         <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
+          {passageOf(currentMiniQuestion) && (
+            <div className="bg-slate-50 dark:bg-neutral-800 rounded-xl p-4 mb-4 text-sm leading-relaxed text-slate-700 dark:text-neutral-300 whitespace-pre-wrap max-h-60 overflow-y-auto">
+              {passageOf(currentMiniQuestion)?.text}
+            </div>
+          )}
           {currentMiniQuestion.stem && (
             <p className="text-base font-bold text-slate-800 dark:text-neutral-100 mb-4"><StemText stem={currentMiniQuestion.stem} underline={currentMiniQuestion.stemUnderline} /></p>
           )}
@@ -1232,9 +1343,16 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             ))}
           </div>
         </div>
-        {miniChoice !== null && (
+        {miniChoice !== null ? (
           <button onClick={nextMini} className="w-full py-3 rounded-xl bg-indigo-600 dark:bg-red-600 text-white font-bold text-sm cursor-pointer">
             {miniIndex + 1 < miniQuizIds.length ? 'Câu tiếp' : 'Xong'}
+          </button>
+        ) : (
+          <button
+            onClick={finishAttempt}
+            className="w-full py-2 text-xs font-bold text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 cursor-pointer"
+          >
+            Bỏ qua kiểm tra nhanh
           </button>
         )}
       </div>

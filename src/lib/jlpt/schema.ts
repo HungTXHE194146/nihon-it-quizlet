@@ -125,6 +125,15 @@ export interface JlptAttempt {
   level: JlptLevel;
   status: AttemptStatus;
   mode: AttemptMode;
+  /**
+   * Khối tính giờ đã chọn khi `mode === 'section'` (và nhãn của nó, chốt sẵn).
+   *
+   * Chốt nhãn ngay lúc tạo lượt để trang chủ trả lời được câu "mình đang làm tới phần nào
+   * của đề" mà KHÔNG phải nạp nội dung đề (mỗi đề cả trăm KB, trang chủ liệt kê nhiều đề
+   * cùng lúc) — cùng lý do với `scorePercent`/`wrongQuestionIds`.
+   */
+  blockId?: string;
+  blockLabel?: string;
   /** Câu hỏi thuộc phiên này, theo đúng thứ tự làm bài (phụ thuộc mode). */
   questionIds: string[];
   startedAt: number;

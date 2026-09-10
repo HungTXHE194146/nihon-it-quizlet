@@ -1,7 +1,7 @@
 # 010 — Giảm chi phí mổ xẻ (tạm dừng/tiếp tục, rút gọn bước)
 
 - **Ưu tiên:** P2
-- **Trạng thái:** Chưa bắt đầu
+- **Trạng thái:** Đang làm (mới xong hướng 1)
 - **Phụ thuộc:** 002 (cần dữ liệu "mổ xẻ dở" ghi nhận tăng dần mới có gì để tạm dừng/tiếp tục)
 
 ## Bối cảnh
@@ -30,10 +30,12 @@ nhận ticket cần cân nhắc và có thể trao đổi với chủ dự án t
 
 Vì đây là ticket đề xuất, tiêu chí hoàn thành do người nhận việc tự đặt ra khi chọn hướng đi,
 nhưng tối thiểu phải:
-- [ ] Có ít nhất một cách giảm được số lượt tương tác bắt buộc cho một phiên mổ xẻ nhiều câu
+- [x] Có ít nhất một cách giảm được số lượt tương tác bắt buộc cho một phiên mổ xẻ nhiều câu
       sai (>8 câu), so với hiện tại (4 bước × mọi câu, không thể tắt).
-- [ ] Không hạ thấp chất lượng mổ xẻ cho câu quan trọng nhất (sai + chắc chắn).
-- [ ] Ghi rõ hướng đã chọn và lý do vào Nhật ký.
+- [x] Không hạ thấp chất lượng mổ xẻ cho câu quan trọng nhất (sai + chắc chắn).
+- [x] Ghi rõ hướng đã chọn và lý do vào Nhật ký.
+
+Hướng 2 (rút gọn bước cho câu "Sai + Đoán") và hướng 3 (giới hạn số câu mỗi lượt) vẫn còn mở.
 
 ## File / vùng code liên quan
 
@@ -45,3 +47,28 @@ nhưng tối thiểu phải:
 
 - 2026-09-07: Ticket tạo từ buổi audit UX, dạng đề xuất — cần cân nhắc trước khi code diện
   rộng, không phải "cứ làm theo checklist".
+- 2026-09-10: Làm **hướng 1**, và xác nhận nghi ngờ ghi trong chính ticket: view `review`
+  KHÔNG có đường thoát nào cả. Bấm "Bắt đầu mổ xẻ" là bị nhốt tới khi xong hết, chỉ còn cách
+  bấm Back của trình duyệt — mà Back thì văng ra khỏi cả đề. Đã thêm nút "Để sau" quay về màn
+  kết quả (mỗi câu đã được ghi nhận ngay khi xong ở `finishOneReview` nên không mất gì), và
+  nút "Bỏ qua kiểm tra nhanh" ở mini-quiz.
+
+  Cùng lượt, sửa mấy chỗ mâu thuẫn trong chính luồng 4 bước — chúng cũng là chi phí, chỉ là
+  chi phí do lỗi chứ không do thiết kế:
+  - Bước 1 có nút ghi "Giờ bạn chọn lại đáp án này →" nhưng bấm được cả khi chưa chọn gì, làm
+    hỏng đúng mục đích của bước 1 (phân biệt "không biết" với "lỡ tay"). Nay phải chọn, hoặc
+    bấm "Tôi chịu, không đoán được" — cũng là một câu trả lời có ý nghĩa.
+  - Không có đường quay lại bước trước: lỡ tay chọn nhầm nguyên nhân ở bước 2 là chịu chết,
+    vì bước 2 nhảy sang bước 3 ngay khi chạm. Nay bước 3 có "Chọn lại" (→ bước 2) và bước 4
+    có "Xem lại" (→ bước 3). Cố ý KHÔNG cho quay về bước 1: đáp án đúng đã hiện ở bước 3 nên
+    "đoán lại" sau đó là vô nghĩa.
+  - Thêm thanh chỉ báo "bước n/4" — quy trình cố ý mở dần từng bước (mục 9.3) nên bắt buộc
+    phải có gì đó nói người học đang ở đâu và còn bao xa.
+  - Mini-quiz (bước 7) không đẩy kết quả vào lịch ôn: trả lời sai lần hai ngay sau khi mổ xẻ
+    được xử lý y hệt trả lời đúng, trong khi màn "Xong" lại nói "các câu sai đã được lên lịch
+    ôn lại". Nay có `recordReview(..., 'unsure')` — 'unsure' chứ không phải 'sure' vì đáp án
+    vừa hiện cách đó vài chục giây, đúng ở đây là trí nhớ ngắn hạn, không đáng thưởng khoảng
+    ôn dài (ma trận mục 6.4 → ×0.6).
+  - Mini-quiz lấy `reviewQueue.slice(0, 5)` (5 câu mổ xẻ ĐẦU tiên) — trái mục đích "kết thúc
+    bằng cảm giác thắng" (mục 4.7), vì đó là những câu đã mổ xẻ lâu nhất. Đổi thành
+    `slice(-5)`.
