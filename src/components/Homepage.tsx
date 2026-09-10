@@ -4,6 +4,9 @@ import type { SubjectMeta } from '../data/subjectMeta';
 import { useProgress } from '../hooks/useProgress';
 import { useJlptSummary } from '../hooks/useJlptSummary';
 import { pickTodayAction } from '../lib/todayAction';
+import { buildRoadmap } from '../lib/roadmap';
+import type { RoadmapActionKind } from '../lib/roadmap';
+import { RoadmapPanel } from './RoadmapPanel';
 import { InstallButton } from './PWAPrompt';
 import { SyncButton } from './SyncLogin';
 import {
@@ -33,12 +36,20 @@ import {
   Timer,
   PartyPopper,
   RotateCcw,
+  Sprout,
+  CheckCircle2,
+  Timer as TimerIcon,
 } from 'lucide-react';
 
 interface HomepageProps {
   onSelectSubject: (subjectId: string, directFlashcard?: boolean) => void;
   /** Mở phiên ôn theo lịch SRS cho một phạm vi ("n3" = gộp các môn N3, "all" = mọi môn). */
   onStartReview: (scope: string) => void;
+  /**
+   * Mở phiên CHỈ học thẻ mới. Lối đi riêng, không đi qua hàng đợi SRS: khi số thẻ đến hạn
+   * lớn, phần học mới trong hàng đợi chung thực tế không bao giờ tới lượt.
+   */
+  onStartNewCards: (scope: string) => void;
   onOpenMistakes: () => void;
   /** Sổ tay lỗi JLPT — cùng màn với sổ tay câu sai, mở sẵn tab đề JLPT. */
   onOpenJlptMistakes: () => void;
@@ -69,13 +80,25 @@ function matchesQuery(subject: SubjectMeta, query: string): boolean {
 export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
   onStartReview,
+  onStartNewCards,
   onOpenMistakes,
   onOpenJlptMistakes,
   onOpenJlptImport,
   onOpenJlptExam,
   onOpenJlptReview,
 }) => {
-  const { data, statsFor, todayStat, exportData, importData, resetAll, buildJlptReviewQueue } = useProgress();
+  const {
+    data,
+    statsFor,
+    todayStat,
+    newCardsToday,
+    newCardsLeftToday,
+    updateSettings,
+    exportData,
+    importData,
+    resetAll,
+    buildJlptReviewQueue,
+  } = useProgress();
   const jlpt = useJlptSummary();
   const [searchQuery, setSearchQuery] = useState('');
   const [showOthers, setShowOthers] = useState(false);
@@ -96,6 +119,41 @@ export const Homepage: React.FC<HomepageProps> = ({
    */
   const firstExam = jlpt.exams[0];
   const jlptReviewDue = useMemo(() => buildJlptReviewQueue().length, [buildJlptReviewQueue]);
+
+  /**
+   * Lộ trình tới ngày thi (ticket 013) — nguồn duy nhất cho cả bảng lộ trình lẫn "chặng hiện
+   * tại" mà khối "Hôm nay" đọc để điều chỉnh gợi ý.
+   */
+  const roadmap = useMemo(
+    () =>
+      buildRoadmap({
+        examDate: data.settings.examDate,
+        n3Total: n3Stats.total,
+        n3Studied: n3Stats.studied,
+        n3Due: n3Stats.due,
+        newCardsToday,
+        dailyNewLimit: data.settings.dailyNewLimit,
+        jlptReviewDue,
+        jlptPendingReview: jlpt.pendingReview?.pendingCount ?? 0,
+        examCount: jlpt.exams.length,
+        submittedThisWeek: jlpt.submittedThisWeek,
+        fullAttemptsThisWeek: jlpt.fullAttemptsThisWeek,
+      }),
+    [
+      data.settings.examDate,
+      data.settings.dailyNewLimit,
+      n3Stats.total,
+      n3Stats.studied,
+      n3Stats.due,
+      newCardsToday,
+      jlptReviewDue,
+      jlpt.pendingReview,
+      jlpt.exams.length,
+      jlpt.submittedThisWeek,
+      jlpt.fullAttemptsThisWeek,
+    ]
+  );
+
   const todayAction = useMemo(
     () =>
       pickTodayAction(
@@ -105,7 +163,8 @@ export const Homepage: React.FC<HomepageProps> = ({
           pendingReview: jlpt.pendingReview,
           reviewDueCount: jlptReviewDue,
           mostRecentExam: firstExam ? { examId: firstExam.id, examTitle: firstExam.title } : null,
-        }
+        },
+        roadmap.phase
       ),
     [
       n3Stats.due,
@@ -116,8 +175,18 @@ export const Homepage: React.FC<HomepageProps> = ({
       jlpt.pendingReview,
       jlptReviewDue,
       firstExam,
+      roadmap.phase,
     ]
   );
+
+  const runRoadmapTask = (kind: RoadmapActionKind) => {
+    if (kind === 'n3-due') onStartReview(N3_SCOPE);
+    else if (kind === 'n3-new') onStartNewCards(N3_SCOPE);
+    else if (kind === 'jlpt-review') onOpenJlptReview();
+    else if (kind === 'jlpt-dissect' && jlpt.pendingReview) onOpenJlptExam(jlpt.pendingReview.examId);
+    else if (kind === 'jlpt-exam' && firstExam) onOpenJlptExam(firstExam.id);
+    else onOpenJlptImport();
+  };
 
   // Việc tồn đọng KHÔNG được chọn làm hành động chính vẫn phải hiện ra — chỉ nhỏ hơn, không
   // phải một CTA ngang hàng — theo đúng thứ tự ưu tiên, không nhánh nào bị chọn làm chính thì
@@ -140,6 +209,15 @@ export const Homepage: React.FC<HomepageProps> = ({
     todaySecondary.push({
       label: `${n3Stats.due} thẻ N3 khác cũng đã đến hạn`,
       onClick: () => onStartReview(N3_SCOPE),
+    });
+  }
+  // Phần học mới phải hiện KỂ CẢ khi không được chọn làm hành động chính. Trước đây nhánh
+  // "n3-new" chỉ tới lượt khi số thẻ đến hạn bằng 0 — mà thẻ vừa trả lời sai được hẹn lại sau
+  // 10 phút, nên con số đó gần như không bao giờ về 0 và mục học mới biến mất khỏi trang chủ.
+  if (todayAction.kind !== 'n3-new' && roadmap.todayNewTarget > 0 && newCardsLeftToday > 0) {
+    todaySecondary.push({
+      label: `Học ${Math.min(newCardsLeftToday, roadmap.todayNewTarget)} thẻ N3 mới của hôm nay`,
+      onClick: () => onStartNewCards(N3_SCOPE),
     });
   }
 
@@ -341,6 +419,17 @@ export const Homepage: React.FC<HomepageProps> = ({
         </div>
       </div>
 
+      {/* Lộ trình tới ngày thi: trả lời "tôi đang ở đâu trong kế hoạch". Đặt TRÊN khối "Hôm
+          nay" vì nó là bối cảnh; khối "Hôm nay" bên dưới vẫn giữ vai trò "một hành động kế
+          tiếp, không phải một bảng kế hoạch". */}
+      <RoadmapPanel
+        roadmap={roadmap}
+        dailyNewLimit={data.settings.dailyNewLimit}
+        onChangeExamDate={(examDate) => updateSettings({ examDate })}
+        onChangeDailyNewLimit={(dailyNewLimit) => updateSettings({ dailyNewLimit })}
+        onRunTask={runRoadmapTask}
+      />
+
       {/* Khối "Hôm nay": một CTA duy nhất, đứng trên cùng, không bắt người học so sánh hai
           lối đi ngang hàng bên dưới (ôn N3 / phòng thi JLPT) — xem lib/todayAction.ts. */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 md:p-8 shadow-xl">
@@ -366,7 +455,10 @@ export const Homepage: React.FC<HomepageProps> = ({
               {todayAction.kind === 'n3-due' && `${todayAction.count} thẻ N3 đến hạn ôn`}
               {todayAction.kind === 'n3-new' &&
                 (todayAction.isNewLearner ? 'Bắt đầu lộ trình N3' : `Học thêm ${todayAction.count} thẻ N3 mới`)}
-              {todayAction.kind === 'jlpt-taste' && `Thử nhấm nháp: ${todayAction.examTitle}`}
+              {todayAction.kind === 'jlpt-taste' &&
+                (todayAction.sessionHint === 'full'
+                  ? `Đến lúc làm trọn đề: ${todayAction.examTitle}`
+                  : `Thử nhấm nháp: ${todayAction.examTitle}`)}
               {todayAction.kind === 'all-done' && 'Bạn đã ôn hết mọi thứ hôm nay!'}
             </h2>
             <p className="text-sm text-indigo-100 font-medium mt-1.5 max-w-xl leading-relaxed">
@@ -383,7 +475,9 @@ export const Homepage: React.FC<HomepageProps> = ({
                   ? 'Từ vựng và Kanji N3 nằm chung một hàng đợi ôn ngắt quãng.'
                   : 'Không còn thẻ nào đến hạn — học thêm thẻ mới trong lúc chờ.')}
               {todayAction.kind === 'jlpt-taste' &&
-                'Thẻ N3 đã ôn hết hôm nay. Làm thử vài câu (khoảng 5 phút) để đổi món.'}
+                (todayAction.sessionHint === 'full'
+                  ? 'Giai đoạn này cần luyện sức bền và phân bổ thời gian, không phải vài câu lẻ — chọn cỡ phiên "Trọn đề" ở phòng chờ.'
+                  : 'Thẻ N3 đã ôn hết hôm nay. Làm thử vài câu (khoảng 5 phút) để đổi món.')}
               {todayAction.kind === 'all-done' &&
                 'Không còn thẻ N3 nào đến hạn và chưa có đề JLPT nào trong kho. Nghỉ ngơi, hoặc nhập đề đầu tiên.'}
             </p>
@@ -407,7 +501,7 @@ export const Homepage: React.FC<HomepageProps> = ({
             {todayAction.kind === 'jlpt-review-due' && 'Ôn ngay'}
             {todayAction.kind === 'n3-due' && 'Ôn N3 ngay'}
             {todayAction.kind === 'n3-new' && (todayAction.isNewLearner ? 'Bắt đầu' : 'Học thẻ mới')}
-            {todayAction.kind === 'jlpt-taste' && 'Làm thử'}
+            {todayAction.kind === 'jlpt-taste' && (todayAction.sessionHint === 'full' ? 'Vào phòng thi' : 'Làm thử')}
             {todayAction.kind === 'all-done' && 'Nhập đề JLPT'}
           </button>
         </div>
@@ -457,6 +551,12 @@ export const Homepage: React.FC<HomepageProps> = ({
                 : n3Stats.newCards > 0
                 ? `Không còn thẻ N3 đến hạn. Bạn có thể học thêm ${n3Stats.newCards} thẻ mới.`
                 : 'Tuyệt vời! Toàn bộ thẻ N3 đều đã thuộc và chưa tới hạn ôn.'}
+              {n3Stats.newCards > 0 && (
+                <>
+                  {' '}Hôm nay đã học <strong className="text-violet-600 dark:text-violet-400">{newCardsToday}</strong>/{data.settings.dailyNewLimit} thẻ mới;
+                  còn {n3Stats.newCards} thẻ chưa từng nhìn thấy.
+                </>
+              )}
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2 justify-center sm:justify-start">
@@ -465,7 +565,25 @@ export const Homepage: React.FC<HomepageProps> = ({
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-100 dark:shadow-none hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer"
               >
                 <Play size={15} fill="currentColor" />
-                {n3Stats.due > 0 ? 'Ôn N3 ngay' : 'Học thẻ N3 mới'}
+                {n3Stats.due > 0 ? 'Ôn N3 ngay' : 'Ôn theo lịch'}
+              </button>
+              {/* Nút riêng cho phần học mới. Gộp chung với "Ôn N3 ngay" như trước là sai:
+                  một nút mà lúc thì ôn, lúc thì học mới, tuỳ vào một con số người dùng không
+                  nhìn thấy — và trong thực tế nó gần như luôn rơi vào nhánh "ôn". */}
+              <button
+                onClick={() => onStartNewCards(N3_SCOPE)}
+                disabled={newCardsLeftToday === 0 || n3Stats.newCards === 0}
+                title={
+                  n3Stats.newCards === 0
+                    ? 'Đã học qua toàn bộ thẻ N3'
+                    : newCardsLeftToday === 0
+                    ? `Đã đủ ${data.settings.dailyNewLimit} thẻ mới hôm nay`
+                    : undefined
+                }
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-sm font-bold hover:bg-violet-100 dark:hover:bg-violet-900/40 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sprout size={15} />
+                Học từ mới ({newCardsToday}/{data.settings.dailyNewLimit} hôm nay)
               </button>
               {n3Stats.wrong > 0 && (
                 <button
@@ -606,35 +724,111 @@ export const Homepage: React.FC<HomepageProps> = ({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {jlpt.exams.slice(0, 6).map((exam) => (
-              <button
-                key={exam.id}
-                onClick={() => onOpenJlptExam(exam.id)}
-                className="text-left p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer bg-white dark:bg-slate-900 group"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
-                    {exam.level}
-                  </span>
-                  {!exam.reviewed && (
-                    <span
-                      className="text-[10px] font-bold text-amber-600 dark:text-amber-400"
-                      title="Đề chưa được người kiểm lại — kết quả chỉ để tham khảo"
-                    >
-                      chưa kiểm
+          <>
+            {/* Danh sách đề được sắp theo TÌNH TRẠNG CỦA NGƯỜI HỌC (đang làm dở → còn câu chưa
+                mổ xẻ → chưa làm → đã xong), không theo lúc đề được nhập vào máy như trước —
+                xem EXAM_STATE_ORDER trong useJlptSummary.ts. Mỗi thẻ nói rõ đề đó đang ở đâu,
+                nên không còn phải mở từng đề ra mới biết mình làm tới đâu. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {jlpt.exams.slice(0, 6).map((exam) => {
+                const badge =
+                  exam.state === 'running'
+                    ? { text: 'Đang làm dở', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300', icon: <TimerIcon className="w-3 h-3" /> }
+                    : exam.state === 'pending-review'
+                    ? { text: `${exam.pendingCount} câu chưa mổ xẻ`, cls: 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300', icon: <AlertTriangle className="w-3 h-3" /> }
+                    : exam.state === 'fresh'
+                    ? { text: 'Chưa làm', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300', icon: null }
+                    : { text: 'Đã mổ xẻ xong', cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300', icon: <CheckCircle2 className="w-3 h-3" /> };
+
+                return (
+                  <button
+                    key={exam.id}
+                    onClick={() => onOpenJlptExam(exam.id)}
+                    className={`text-left p-4 rounded-2xl border hover:shadow-md transition-all cursor-pointer bg-white dark:bg-slate-900 group flex flex-col ${
+                      exam.state === 'running' || exam.state === 'pending-review'
+                        ? 'border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-100 dark:ring-indigo-900'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                        {exam.level}
+                      </span>
+                      {!exam.reviewed && (
+                        <span
+                          className="text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                          title="Đề chưa được người kiểm lại — kết quả chỉ để tham khảo"
+                        >
+                          chưa kiểm
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-2 line-clamp-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+                      {exam.title}
+                    </p>
+
+                    <span className={`mt-2 inline-flex w-fit items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${badge.cls}`}>
+                      {badge.icon}
+                      {badge.text}
                     </span>
-                  )}
-                </div>
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-2 line-clamp-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
-                  {exam.title}
-                </p>
-                <span className="mt-2 inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
-                  Vào làm <ArrowRight className="w-3.5 h-3.5" />
-                </span>
+
+                    {/* "Đang làm đến phần nào" — thanh tiến độ của lượt dở, và tên khối tính
+                        giờ (blockLabel chốt sẵn trên attempt, không phải nạp lại nội dung đề). */}
+                    {exam.progress && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                          <span>{exam.lastScopeLabel ?? 'Phiên đang dở'}</span>
+                          <span className="font-mono">
+                            {exam.progress.answered}/{exam.progress.total} câu
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-500 rounded-full"
+                            style={{ width: `${exam.progress.total > 0 ? (exam.progress.answered / exam.progress.total) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {!exam.progress && exam.attemptCount > 0 && (
+                      <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        Đã làm {exam.attemptCount} lượt
+                        {exam.lastPercent !== null && (
+                          <>
+                            {' · '}
+                            <span className="font-black text-emerald-600 dark:text-emerald-400">{exam.lastPercent}%</span>
+                          </>
+                        )}
+                        {exam.lastScopeLabel && ` · ${exam.lastScopeLabel}`}
+                      </p>
+                    )}
+
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+                      {exam.state === 'running'
+                        ? 'Làm tiếp'
+                        : exam.state === 'pending-review'
+                        ? 'Mổ xẻ'
+                        : exam.state === 'fresh'
+                        ? 'Vào làm'
+                        : 'Làm lại'}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {jlpt.exams.length > 6 && (
+              <button
+                onClick={onOpenJlptImport}
+                className="w-full mt-1 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Xem tất cả {jlpt.exams.length} đề →
               </button>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 

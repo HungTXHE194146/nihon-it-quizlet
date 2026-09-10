@@ -13,12 +13,48 @@ import { listStoredExams, listAttempts, listMistakes } from '../lib/jlpt/db';
 import { pendingReviewIdsOf } from '../lib/jlpt/attemptLogic';
 import { useJlptOwner } from './useJlptOwner';
 
+/**
+ * Đề này đang ở đâu trong hành trình của NGƯỜI HỌC — thứ tự cũng chính là thứ tự ưu tiên
+ * hiện ở trang chủ.
+ *
+ * Trước đây danh sách đề chỉ được sắp theo `updatedAt` (lúc NHẬP đề vào máy), một con số
+ * không nói gì về người học: đề mới nhập luôn đứng đầu kể cả khi đang có một đề khác làm dở.
+ */
+export type JlptExamState =
+  | 'running'         // đang làm dở, chưa nộp
+  | 'pending-review'  // đã nộp, còn câu sai chưa mổ xẻ
+  | 'fresh'           // chưa từng đụng tới
+  | 'done';           // đã nộp và mổ xẻ xong
+
+export const EXAM_STATE_ORDER: Record<JlptExamState, number> = {
+  running: 0,
+  'pending-review': 1,
+  fresh: 2,
+  done: 3,
+};
+
 export interface JlptExamBrief {
   id: string;
   title: string;
   level: string;
   reviewed: boolean;
   updatedAt: number;
+  state: JlptExamState;
+  /** Số lượt đã nộp của đề này. */
+  attemptCount: number;
+  /** % đúng của lượt nộp gần nhất (null với lượt cũ chưa chốt sẵn điểm). */
+  lastPercent: number | null;
+  /** Thời điểm nộp gần nhất, 0 nếu chưa nộp lần nào. */
+  lastAt: number;
+  /** Số câu sai còn chờ mổ xẻ, cộng dồn mọi lượt của đề này. */
+  pendingCount: number;
+  /** Với đề đang làm dở: đã trả lời bao nhiêu / tổng bao nhiêu câu của phiên đó. */
+  progress: { answered: number; total: number } | null;
+  /**
+   * "Đang làm tới phần nào" — nhãn khối tính giờ của lượt gần nhất (`mode === 'section'`),
+   * hoặc cỡ phiên khi không gắn với khối cụ thể.
+   */
+  lastScopeLabel: string | null;
 }
 
 export interface JlptSummary {
@@ -38,6 +74,10 @@ export interface JlptSummary {
    */
   pendingReview: { examId: string; examTitle: string; pendingCount: number } | null;
   submittedCount: number;
+  /** Số lượt nộp trong 7 ngày gần nhất, và trong đó bao nhiêu lượt là trọn đề — lộ trình
+   * (src/lib/roadmap.ts) dùng để biết chỉ tiêu luyện đề của tuần này đã đạt chưa. */
+  submittedThisWeek: number;
+  fullAttemptsThisWeek: number;
   /**
    * Số câu đã mổ xẻ xong và nằm trong sổ tay lỗi JLPT.
    *
@@ -54,8 +94,18 @@ const EMPTY: JlptSummary = {
   last: null,
   pendingReview: null,
   submittedCount: 0,
+  submittedThisWeek: 0,
+  fullAttemptsThisWeek: 0,
   mistakeCount: 0,
 };
+
+const MODE_LABELS: Record<string, string> = {
+  taste: 'Nhấm nháp',
+  section: 'Một khối',
+  full: 'Trọn đề',
+};
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function useJlptSummary(): JlptSummary {
   const { ownerId, claimEpoch } = useJlptOwner();
@@ -86,17 +136,61 @@ export function useJlptSummary(): JlptSummary {
         // trang chủ có thể có nhiều đề). Lượt cũ thiếu wrongQuestionIds sẽ ra 0 và bị bỏ qua.
         const pending = submitted.find((a) => pendingReviewIdsOf(a).length > 0);
 
+        const weekAgo = Date.now() - WEEK_MS;
+        const recent = submitted.filter((a) => (a.submittedAt ?? 0) >= weekAgo);
+
+        const briefs: JlptExamBrief[] = storedExams.map((e) => {
+          const mine = attempts.filter((a) => a.examId === e.exam.id);
+          const run = mine.find((a) => a.status === 'running') ?? null;
+          const done = mine
+            .filter((a) => a.status !== 'running' && a.submittedAt)
+            .sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0));
+          const latestOfExam = done[0];
+          const pendingCount = done.reduce((sum, a) => sum + pendingReviewIdsOf(a).length, 0);
+          const scopeSource = run ?? latestOfExam;
+
+          const state: JlptExamState = run
+            ? 'running'
+            : pendingCount > 0
+            ? 'pending-review'
+            : done.length === 0
+            ? 'fresh'
+            : 'done';
+
+          return {
+            id: e.exam.id,
+            title: e.exam.title,
+            level: e.exam.level,
+            reviewed: e.reviewed,
+            updatedAt: e.updatedAt,
+            state,
+            attemptCount: done.length,
+            lastPercent: latestOfExam?.scorePercent ?? null,
+            lastAt: latestOfExam?.submittedAt ?? 0,
+            pendingCount,
+            progress: run
+              ? {
+                  answered: Object.values(run.answers).filter((a) => a.chosenIndex !== null).length,
+                  total: run.questionIds.length,
+                }
+              : null,
+            lastScopeLabel: scopeSource
+              ? scopeSource.blockLabel ?? MODE_LABELS[scopeSource.mode] ?? null
+              : null,
+          };
+        });
+
+        // Sắp theo việc người học cần làm tiếp, KHÔNG theo lúc đề được nhập vào máy. Cùng
+        // nhóm thì đề đụng gần đây nhất lên trước (đề chưa làm thì lấy lúc nhập làm mốc).
+        briefs.sort(
+          (a, b) =>
+            EXAM_STATE_ORDER[a.state] - EXAM_STATE_ORDER[b.state] ||
+            Math.max(b.lastAt, b.updatedAt) - Math.max(a.lastAt, a.updatedAt)
+        );
+
         setSummary({
           loading: false,
-          exams: storedExams
-            .map((e) => ({
-              id: e.exam.id,
-              title: e.exam.title,
-              level: e.exam.level,
-              reviewed: e.reviewed,
-              updatedAt: e.updatedAt,
-            }))
-            .sort((a, b) => b.updatedAt - a.updatedAt),
+          exams: briefs,
           running: running
             ? { attemptId: running.id, examId: running.examId, examTitle: titleOf(running.examId) }
             : null,
@@ -116,6 +210,8 @@ export function useJlptSummary(): JlptSummary {
               }
             : null,
           submittedCount: submitted.length,
+          submittedThisWeek: recent.length,
+          fullAttemptsThisWeek: recent.filter((a) => a.mode === 'full').length,
           mistakeCount: mistakes.length,
         });
       } catch {

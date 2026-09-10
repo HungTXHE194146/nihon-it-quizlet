@@ -313,6 +313,7 @@ function App() {
           <Homepage
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
+            onStartNewCards={(subjectId) => navigate(`/subject/${subjectId}/study?mode=new`)}
             onOpenMistakes={() => navigate('/mistakes')}
             onOpenJlptMistakes={() => navigate('/mistakes?tab=jlpt')}
             onOpenJlptImport={() => navigate('/jlpt/import')}

@@ -59,12 +59,15 @@ function timedMinutesFor(exam: JlptExam, mode: AttemptMode, blockId?: string): n
 export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: string): JlptAttempt {
   const now = Date.now();
   const minutes = timedMinutesFor(exam, mode, blockId);
+  const block = mode === 'section' && blockId ? exam.blocks.find((b) => b.id === blockId) : undefined;
   return {
     id: newAttemptId(),
     examId: exam.id,
     level: exam.level,
     status: 'running',
     mode,
+    blockId: block?.id,
+    blockLabel: block?.label,
     questionIds: questionIdsForMode(exam, mode, blockId),
     startedAt: now,
     deadline: minutes !== null ? now + minutes * 60_000 : undefined,

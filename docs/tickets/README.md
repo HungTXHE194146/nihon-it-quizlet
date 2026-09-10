@@ -37,13 +37,14 @@ không cần đọc lại toàn bộ lịch sử hội thoại.
 | [006](006-ma-tran-do-chac-chan.md) | Áp dụng đủ ma trận độ chắc chắn × đúng-sai vào lịch ôn | P1 | Xong | 005 |
 | [007](007-dong-ho-dem-gio.md) | Đồng hồ đếm giờ + tự nộp bài JLPT | P1 | Xong | — |
 | [008](008-ban-do-chan-doan-theo-mondai.md) | Bản đồ chẩn đoán nhóm theo 問題 ở màn kết quả | P1 | Chưa bắt đầu | — |
-| [009](009-hien-passage-khi-mo-xe.md) | Hiện lại đoạn văn (passage) khi mổ xẻ câu đọc hiểu | P2 | Chưa bắt đầu | — |
-| [010](010-giam-chi-phi-mo-xe.md) | Giảm chi phí mổ xẻ (tạm dừng/tiếp tục, rút gọn bước) | P2 | Chưa bắt đầu | 002 |
+| [009](009-hien-passage-khi-mo-xe.md) | Hiện lại đoạn văn (passage) khi mổ xẻ câu đọc hiểu | P2 | Xong | — |
+| [010](010-giam-chi-phi-mo-xe.md) | Giảm chi phí mổ xẻ (tạm dừng/tiếp tục, rút gọn bước) | P2 | Đang làm | 002 |
 | [011](011-nhap-nhieu-de-cung-luc.md) | Nhập nhiều đề JLPT cùng lúc (multi-file) | P2 | Chưa bắt đầu | — |
 | [012](012-furigana-va-phim-tat.md) | Furigana + phím tắt khi làm bài JLPT | P3 | Chưa bắt đầu | — |
-| [013](013-ngay-thi-va-dem-nguoc.md) | Ngày thi mục tiêu + đếm ngược + phân bổ khối lượng ôn | P3 | Chưa bắt đầu | 004 |
+| [013](013-ngay-thi-va-dem-nguoc.md) | Ngày thi mục tiêu + đếm ngược + phân bổ khối lượng ôn | P3 | Xong | 004 |
 | [014](014-audio-nghe-hieu.md) | Audio 聴解 (nghe hiểu) | P3 | Chặn (cần quyết định) | — |
 | [015](015-nap-de-jlpt-tu-thu-muc-repo.md) | Nạp đề JLPT từ thư mục repo (thay vì chỉ dựa KV) | P2 | Chặn (cần quyết định) | 001 |
+| [016](016-loi-ux-luong-hoc-hang-ngay.md) | Lỗi UX luồng học hàng ngày (thẻ tự nhảy, thẻ mới bị chôn, đề vô trật tự) | P0 | Xong | — |
 
 ## Nguồn gốc các ticket này
 
