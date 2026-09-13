@@ -6,7 +6,10 @@
  * "dữ liệu không hợp lệ" — người soạn đề (kể cả một AI khác) không chắc đọc được TypeScript.
  */
 
-import { MONDAI_TYPES, type JlptImportFile, type JlptQuestion } from './schema';
+import { MONDAI_TYPES, type AudioSegment, type JlptImportFile, type JlptQuestion } from './schema';
+
+/** Dưới ngưỡng này, mốc thời gian tự căn của một câu 聴解 được coi là "nên nghe soát lại". */
+export const LOW_ALIGN_CONFIDENCE = 0.6;
 
 export interface ValidationResult {
   /** Có lỗi chặn thì không cho nhập gì cả. */
@@ -57,6 +60,30 @@ export function validateImportFile(value: unknown): ValidationResult {
     if (typeof exam.title !== 'string' || !exam.title) errors.push('Thiếu "exam.title".');
     if (!Array.isArray(exam.blocks)) errors.push('Thiếu "exam.blocks" (mảng các khối tính giờ).');
   }
+
+  // 聴解: file nghe là tuỳ chọn. Chỉ nhận KHOÁ trên kho audio, không nhận URL — file nhập không
+  // được trỏ tới tài nguyên bên ngoài (một đề dán vào có thể do bất kỳ ai soạn).
+  const audioDurations = new Map<string, number>();
+  if (isPlainObject(exam) && exam.audio !== undefined) {
+    if (!Array.isArray(exam.audio)) {
+      errors.push('"exam.audio" phải là một mảng các file nghe.');
+    } else {
+      exam.audio.forEach((raw: unknown, idx: number) => {
+        if (!isPlainObject(raw) || typeof raw.id !== 'string' || !raw.id) {
+          errors.push(`exam.audio[${idx}]: thiếu "id".`);
+          return;
+        }
+        if (typeof raw.key !== 'string' || !/^choukai\/[^/]+\.mp3$/.test(raw.key)) {
+          errors.push(`File nghe "${raw.id}": "key" phải có dạng "choukai/<tên>.mp3" (khoá trên kho audio, không phải URL).`);
+        }
+        const duration = typeof raw.durationSec === 'number' && raw.durationSec > 0 ? raw.durationSec : 0;
+        if (!duration) errors.push(`File nghe "${raw.id}": thiếu "durationSec" (độ dài file, giây).`);
+        audioDurations.set(raw.id, duration);
+      });
+    }
+  }
+  let unalignedChoukai = 0;
+  let lowConfidenceSegments = 0;
 
   const groups = Array.isArray(value.groups) ? value.groups : null;
   if (!groups) errors.push('Thiếu "groups" (mảng nhóm 問題).');
@@ -135,7 +162,37 @@ export function validateImportFile(value: unknown): ValidationResult {
     if (typeof q.passageId === 'string' && q.passageId && !validPassageIds.has(q.passageId)) {
       errors.push(`Câu ${qId}: "passageId" = "${q.passageId}" không khớp đoạn văn nào trong "passages".`);
     }
+
+    if (q.audioSegment !== undefined) {
+      const seg = (isPlainObject(q.audioSegment) ? q.audioSegment : {}) as Partial<AudioSegment>;
+      const { start, speechEnd, end } = seg;
+      const trackDuration = typeof q.audioId === 'string' ? audioDurations.get(q.audioId) : undefined;
+      if (typeof start !== 'number' || typeof speechEnd !== 'number' || typeof end !== 'number') {
+        errors.push(`Câu ${qId}: "audioSegment" cần đủ ba mốc start, speechEnd, end (tính bằng giây).`);
+      } else if (!(start >= 0 && start <= speechEnd && speechEnd <= end)) {
+        errors.push(`Câu ${qId}: "audioSegment" phải thoả 0 ≤ start ≤ speechEnd ≤ end (đang là ${start} / ${speechEnd} / ${end}).`);
+      } else if (trackDuration && end > trackDuration + 1) {
+        errors.push(`Câu ${qId}: "audioSegment.end" = ${end}s vượt quá độ dài file nghe (${Math.round(trackDuration)}s).`);
+      }
+      if (trackDuration === undefined) {
+        errors.push(`Câu ${qId}: có "audioSegment" nhưng "audioId" = "${q.audioId ?? ''}" không khớp file nghe nào trong "exam.audio".`);
+      }
+      if (typeof seg.confidence === 'number' && seg.confidence < LOW_ALIGN_CONFIDENCE) lowConfidenceSegments += 1;
+      const transcriptLines = typeof q.transcript === 'string' ? q.transcript.split('\n').length : 0;
+      if (Array.isArray(seg.lines) && seg.lines.length !== transcriptLines) {
+        warnings.push(`Câu ${qId}: có ${seg.lines.length} mốc dòng thoại nhưng transcript có ${transcriptLines} dòng — lời thoại sẽ không tô theo audio được.`);
+      }
+    } else if (q.scoringSection === 'choukai' && audioDurations.size > 0) {
+      unalignedChoukai += 1;
+    }
   });
+
+  if (unalignedChoukai > 0) {
+    warnings.push(`${unalignedChoukai} câu 聴解 chưa có "audioSegment" — vẫn làm được nhưng không phát được audio cho các câu này.`);
+  }
+  if (lowConfidenceSegments > 0) {
+    warnings.push(`${lowConfidenceSegments} câu 聴解 có mốc thời gian tự căn độ khớp thấp — nên nghe soát lại.`);
+  }
 
   if (groups) {
     groups.forEach((raw: unknown, idx: number) => {

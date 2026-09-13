@@ -10,6 +10,8 @@ import type {
   AttemptMode,
   ScoringSection,
   Confidence,
+  MondaiType,
+  TimedBlock,
 } from './schema';
 import { review, withIntervalDays, dropEaseExtra, asFreshLearning } from '../srs';
 import type { CardState } from '../srs';
@@ -17,8 +19,36 @@ import type { CardState } from '../srs';
 /** Cỡ phiên mặc định là NHỎ NHẤT theo mục 5.1 — hạ chi phí khởi động. */
 export const DEFAULT_ATTEMPT_MODE: AttemptMode = 'taste';
 
+/** Các 問題 của phần nghe — nhận ra khối 聴解 theo nội dung, không phụ thuộc id khối người soạn đặt. */
+export const CHOUKAI_MONDAI: ReadonlySet<MondaiType> = new Set<MondaiType>([
+  'kadai_rikai',
+  'point_rikai',
+  'gaiyou_rikai',
+  'hatsuwa_hyougen',
+  'sokuji_outou',
+]);
+
+export function isListeningBlock(block: TimedBlock): boolean {
+  return block.mondai.length > 0 && block.mondai.every((m) => CHOUKAI_MONDAI.has(m));
+}
+
+export interface CreateAttemptOptions {
+  /** Phiên nhấm nháp nhắm vào đúng nhóm 問題 này (vd. 'sokuji_outou' cho phiên nghe ngắn). */
+  tasteMondai?: MondaiType;
+  /**
+   * Đề có file nghe đã căn mốc. Khi đó thời lượng phần nghe do CHÍNH FILE NGHE quyết định
+   * (hết băng là hết giờ, như đề thật) — không đếm ngược theo số phút ghi trên khối nữa.
+   */
+  listeningHasAudio?: boolean;
+}
+
 /** Câu hỏi thuộc phiên, theo mode đã chọn. `blockId` chỉ cần khi mode = 'section'. */
-export function questionIdsForMode(exam: JlptExam, mode: AttemptMode, blockId?: string): string[] {
+export function questionIdsForMode(
+  exam: JlptExam,
+  mode: AttemptMode,
+  blockId?: string,
+  tasteMondai?: MondaiType
+): string[] {
   if (mode === 'full') return exam.questionIds;
 
   if (mode === 'section' && blockId) {
@@ -26,6 +56,11 @@ export function questionIdsForMode(exam: JlptExam, mode: AttemptMode, blockId?: 
     if (!block) return exam.questionIds;
     const mondaiInBlock = new Set(block.mondai);
     return exam.groups.filter((g) => mondaiInBlock.has(g.mondai)).flatMap((g) => g.questionIds);
+  }
+
+  if (tasteMondai) {
+    const ids = exam.groups.filter((g) => g.mondai === tasteMondai).flatMap((g) => g.questionIds);
+    if (ids.length > 0) return ids;
   }
 
   // 'taste': chỉ nhóm 問題 đầu tiên — vài câu, đủ để thử mà không tốn nhiều thời gian.
@@ -45,21 +80,36 @@ function newAttemptId(): string {
  * ngược lại mục đích hạ chi phí khởi động của cỡ phiên này. `full`/`section` thì thi thật SAO
  * chép y hệt cấu trúc thời gian của đề, nên phải đếm ngược và tự nộp khi hết giờ.
  */
-function timedMinutesFor(exam: JlptExam, mode: AttemptMode, blockId?: string): number | null {
+function timedMinutesFor(
+  exam: JlptExam,
+  mode: AttemptMode,
+  blockId: string | undefined,
+  listeningHasAudio: boolean
+): number | null {
+  // Có file nghe thì khối 聴解 không đếm theo phút: băng chạy hết là hết giờ. Trọn đề khi đó chỉ
+  // đếm ngược phần đọc; sang phần nghe thì JlptExamRunner giao việc canh giờ cho file nghe.
+  const counts = (b: TimedBlock) => !(listeningHasAudio && isListeningBlock(b));
   if (mode === 'full') {
-    const total = exam.blocks.reduce((sum, b) => sum + b.minutes, 0);
+    const total = exam.blocks.filter(counts).reduce((sum, b) => sum + b.minutes, 0);
     return total > 0 ? total : null;
   }
   if (mode === 'section' && blockId) {
-    return exam.blocks.find((b) => b.id === blockId)?.minutes ?? null;
+    const block = exam.blocks.find((b) => b.id === blockId);
+    return block && counts(block) ? block.minutes : null;
   }
   return null;
 }
 
-export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: string): JlptAttempt {
+export function createAttempt(
+  exam: JlptExam,
+  mode: AttemptMode,
+  blockId?: string,
+  opts: CreateAttemptOptions = {}
+): JlptAttempt {
   const now = Date.now();
-  const minutes = timedMinutesFor(exam, mode, blockId);
+  const minutes = timedMinutesFor(exam, mode, blockId, opts.listeningHasAudio ?? false);
   const block = mode === 'section' && blockId ? exam.blocks.find((b) => b.id === blockId) : undefined;
+  const tasteMondai = mode === 'taste' ? opts.tasteMondai : undefined;
   return {
     id: newAttemptId(),
     examId: exam.id,
@@ -68,7 +118,8 @@ export function createAttempt(exam: JlptExam, mode: AttemptMode, blockId?: strin
     mode,
     blockId: block?.id,
     blockLabel: block?.label,
-    questionIds: questionIdsForMode(exam, mode, blockId),
+    tasteMondai,
+    questionIds: questionIdsForMode(exam, mode, blockId, tasteMondai),
     startedAt: now,
     deadline: minutes !== null ? now + minutes * 60_000 : undefined,
     answers: {},

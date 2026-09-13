@@ -1,59 +1,71 @@
 # 014 — Audio 聴解 (nghe hiểu)
 
-- **Ưu tiên:** P3
-- **Trạng thái:** Chặn (cần quyết định)
+- **Ưu tiên:** P1
+- **Trạng thái:** Đang làm — code xong, chờ tải file lên R2 và soát mốc thời gian
 - **Phụ thuộc:** —
 
-## Chặn bởi
+## Quyết định (chủ dự án chốt ngày 2026-09-14)
 
-Đây vốn đã là câu hỏi mở **chưa được trả lời từ chính tài liệu thiết kế gốc**
-(`docs/jlpt-practice-test-research.md`, mục 16, câu hỏi số 2: *"⛔ Audio 聴解 — chặn giai đoạn
-8"*). Cần chủ dự án quyết định trước khi code, vì các lựa chọn đánh đổi rất khác nhau:
+| Câu hỏi | Chốt | Vì sao |
+|---|---|---|
+| Nguồn audio | **Băng thật** của 12 đề đã extract (7/2010, 7/2020–12/2025) | TTS một giọng làm bài nghe dễ hơn thật → tự tin giả (mục 7.4) |
+| Lưu ở đâu | **Cloudflare R2, bucket đóng**; link ký tạm 6 giờ qua `/api/jlpt/audio`, phải đăng nhập | Đề có bản quyền, web đang mở đăng ký; R2 miễn phí băng thông |
+| Mốc thời gian từng câu | **Tự động**: faster-whisper nhận dạng → khớp với transcript trong `exam.json` | 12 × 28 = 336 câu, đánh tay không bền; có thêm mốc từng dòng thoại |
+| Màn thi hiện gì | **Giống đề giấy thật**: không hiện câu hỏi; 問題3–5 chỉ có nút số | Hiện chữ = biến bài nghe thành bài đọc |
 
-1. **Không làm phần nghe** — chấp nhận app chỉ luyện 3/4 phần thi (文字語彙, 文法, 読解), bỏ
-   聴解. Rẻ nhất, nhưng thiếu 1/3 điểm số thật của kỳ thi.
-2. **Tự thu âm / thuê thu âm** cho từng đề nhập — chất lượng cao nhất nhưng tốn công theo từng
-   đề, không mở rộng được nhanh (đi ngược lại việc "tự import đề cho mọi người" ở quy mô lớn).
-3. **TTS (giọng đọc máy)** — app đã có tích hợp Web Speech API cho từ vựng
-   (`src/lib/tts.ts`). Có thể tận dụng để đọc `transcript` của câu 聴解 thay vì cần file audio
-   thật. Rẻ, nhanh mở rộng, nhưng giọng máy không giống người thi thật (nhịp điệu, ngữ điệu tự
-   nhiên của hội thoại tiếng Nhật thật rất khác TTS).
-4. **Nguồn audio có sẵn** (nếu tìm được nguồn hợp pháp để dùng) — cần chủ dự án xác nhận nguồn
-   trước.
+## Thiết kế học
 
-## Bối cảnh kỹ thuật (đã sẵn, chờ quyết định ở trên)
+### A. Lần thi đầu — khoá như phòng thi (`useLockedListening.ts`, `ListeningControls.tsx`)
 
-Schema đã có sẵn chỗ cho việc này (`src/lib/jlpt/schema.ts`, `JlptQuestion`):
-```ts
-audioId?: string;
-transcript?: string;
-transcriptAnswerSpan?: [number, number];
-```
-Không có route/component nào đọc các trường này. `scoringSection: 'choukai'` cũng đã có trong
-enum `ScoringSection` và được tính điểm riêng ở `attemptLogic.ts` (`SECTION_LABELS`) — nghĩa
-là **phần chấm điểm đã sẵn sàng cho 聴解**, chỉ thiếu phần phát được audio/transcript trong lúc
-làm bài.
+- Cổng vào phần nghe: nói luật trước, **tải trọn file về máy** (Cache Storage) rồi mới cho bắt
+  đầu, có nút thử loa. Đã cấm tua thì không được để mạng giật giữa bài.
+- Băng chạy liền; không tạm dừng/tua/đổi tốc độ — chặn cả nút tua trên màn khoá, tai nghe
+  (Media Session) và mọi cú tua không do app gây ra.
+- Câu hỏi tự chuyển theo băng; câu đã nghe qua sửa được đáp án, câu chưa tới thì khoá.
+- Hết băng → 30 giây tô nốt phiếu → tự nộp. Trọn đề: đồng hồ chỉ canh phần đọc; sang phần nghe
+  (hoặc hết giờ phần đọc) thì phần đọc bị thu lại.
+- Bị gián đoạn (F5, rút tai nghe, cuộc gọi): phát lại **từ đầu câu đang dở**, câu đó bị gắn
+  `heardTwice` để lúc mổ xẻ biết.
+- Phiên "Nghe nhanh" ở sảnh: 問題5 即時応答 (~5 phút), cùng luật băng.
 
-## Việc cần làm (sau khi có quyết định)
+### B. Mổ xẻ — mở khoá theo bậc thang (`ChoukaiReplayPanel.tsx`)
 
-1. Nếu chọn hướng TTS: thêm nút phát trong view `taking` của `JlptExamRunner.tsx`, gọi
-   `speak(question.transcript, { lang: 'ja', rate })` (xem cách `VocabularyCard.tsx` dùng
-   `src/lib/tts.ts` làm mẫu). Cân nhắc: có nên cho tua lại/nghe lại nhiều lần hay giới hạn số
-   lần nghe (thi thật thường chỉ nghe 1 lần) — đây cũng là một quyết định UX cần chốt.
-2. Nếu chọn hướng file audio thật: cần thêm chỗ lưu file (khác hẳn `data/jlpt-exams/` vốn chỉ
-   chứa JSON văn bản — file âm thanh nặng hơn nhiều, cần cân nhắc lưu ở đâu, có nên đưa vào
-   git hay dùng nơi lưu trữ khác).
-3. Cập nhật `docs/jlpt-practice-test-research.md` mục 16 — đánh dấu câu hỏi này đã được trả
-   lời, không còn là "chặn".
+Bước 1 (đoán lại) chỉ cho nghe lại đoạn của câu; người học tự mở thêm bậc khi cần. Bậc cao
+nhất đã mở lưu vào `MistakeEntry.listenHintLevel` — đó chính là chẩn đoán:
+
+| Bậc | Được dùng | Tới bậc này mới đúng → |
+|---|---|---|
+| 1 | Nghe lại, tua được | nghe sót / mất tập trung |
+| 2 | + nghe 0.85×/0.7×, lặp dòng | chưa theo kịp tốc độ |
+| 3 | + lời thoại (chưa có đáp án) | chưa nhận ra âm, hoặc thiếu từ |
+
+Bước 3 trở đi: lời thoại kiểu karaoke (dòng đang phát được tô, bấm dòng để nhảy, lặp dòng),
+đoạn chứa căn cứ cho đáp án được tô xanh (`transcriptAnswerSpan`, suy từ lời giải).
+Mini-quiz và màn ôn SRS (`JlptReviewSession.tsx`) cũng phát băng trước, chữ chỉ hiện sau khi
+trả lời.
+
+## Dữ liệu
+
+- `JlptExam.audio: JlptAudioTrack[]` — `key` trên R2 (không phải URL), `durationSec`, `bytes`.
+- `JlptQuestion.audioSegment` — `start` (tiếng "N番"), `speechEnd`, `end`, `lines[]`, `confidence`.
+- `JlptAttempt.listening` — `resumeAt`, `started`, `finished`; `JlptAttempt.tasteMondai`.
+- `validate.ts` kiểm tra mốc, cảnh báo câu chưa căn mốc / độ khớp thấp.
+
+Pipeline tạo dữ liệu: [`tools/jlpt-audio/README.md`](../../tools/jlpt-audio/README.md).
+Cấu hình R2: [`api/README.md`](../../api/README.md), mục "Kho audio 聴解".
 
 ## Tiêu chí hoàn thành
 
-- [ ] Chủ dự án đã chọn 1 trong các hướng trên (hoặc hướng khác) — ghi quyết định vào Nhật ký.
-- [ ] Câu hỏi 聴解 phát được nội dung nghe trong lúc làm bài.
-- [ ] Màn kết quả tính điểm phần 聴解 đúng như các phần khác (hạ tầng chấm điểm đã có sẵn,
-      không cần sửa).
+- [x] Chủ dự án đã chọn hướng — ghi ở trên.
+- [x] Câu hỏi 聴解 phát được băng trong lúc làm bài, khoá tua.
+- [x] Mổ xẻ + ôn SRS nghe lại được, có lời thoại theo bậc.
+- [ ] Tạo bucket R2 + đặt biến môi trường trên Vercel (chủ dự án làm — cần tài khoản Cloudflare).
+- [ ] Chạy đủ 4 bước pipeline cho 12 đề, soát các câu độ khớp thấp.
+- [ ] Nhập 12 đề đã gắn audio qua `#/jlpt/import`, thử trọn một lượt thi + mổ xẻ trên điện thoại.
 
 ## Nhật ký
 
 - 2026-09-07: Ticket tạo từ buổi audit UX, kế thừa câu hỏi mở chưa trả lời từ tài liệu thiết
   kế gốc. Chưa có quyết định.
+- 2026-09-14: Chốt 4 quyết định ở trên. Làm pipeline `tools/jlpt-audio` (nén → nhận dạng → khớp
+  mốc → tải lên), API ký link R2, chế độ thi khoá tua, bậc thang nghe lại khi mổ xẻ và ôn SRS.

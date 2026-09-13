@@ -114,7 +114,64 @@ vercel dev        # chạy cả web tĩnh lẫn /api trên cùng 1 cổng, giố
 ```
 
 `npm run dev` (Vite thuần) sẽ KHÔNG chạy được `/api/*` — chỉ `vercel dev` mới giả lập được
-cả hai cùng lúc.
+cả hai cùng lúc. Riêng file nghe 聴解 thì `npm run dev` vẫn phát được: không gọi được
+`/api/jlpt/audio` thì app tự lấy file từ `data/_audio_build/dist` trên máy (plugin dev trong
+`vite.config.ts`, chỉ tồn tại lúc dev).
+
+## Kho audio 聴解 (Cloudflare R2)
+
+File nghe là **đề thật**, nên nằm trong một bucket R2 **đóng** (không bật public access).
+Trình duyệt xin link tạm qua `/api/jlpt/audio` — phải đăng nhập, link hết hạn sau 6 giờ — rồi
+tải thẳng từ R2. Vercel chỉ ký link, không chuyển tiếp byte nào (file ~15 MB/đề). Bản đã tải
+được giữ trong Cache Storage của trình duyệt, lần sau mở lại đề không tốn mạng.
+
+### Bước 1 — Tạo bucket
+
+Cloudflare Dashboard → **R2** → **Create bucket**, ví dụ `nihonit-choukai`. Để nguyên
+**Public access: Disabled**.
+
+### Bước 2 — CORS cho bucket
+
+Bucket → **Settings** → **CORS policy**, dán (thay domain của bạn):
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<domain-web>", "http://localhost:3000"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+Thiếu bước này thì link ký vẫn đúng nhưng trình duyệt chặn đọc file — màn "Phần nghe" báo
+không tải được, console có lỗi CORS.
+
+### Bước 3 — Khoá API
+
+R2 → **Manage API tokens** → **Create API token**, chỉ áp cho bucket vừa tạo. Nên tạo **hai**
+token: **Object Read only** cho Vercel (server chỉ cần ký link đọc), **Object Read & Write** cho
+máy chạy script tải file lên. Ghi lại Access Key ID, Secret Access Key và Account ID.
+
+### Bước 4 — Biến môi trường
+
+| Tên | Giá trị |
+|---|---|
+| `R2_ACCOUNT_ID` | Account ID của Cloudflare |
+| `R2_ACCESS_KEY_ID` | Access Key ID của token |
+| `R2_SECRET_ACCESS_KEY` | Secret Access Key của token |
+| `R2_BUCKET` | tên bucket, ví dụ `nihonit-choukai` |
+
+Trên Vercel: đặt cho cả 3 môi trường bằng token **Read only**, rồi redeploy. Thiếu biến nào thì
+`/api/jlpt/audio` trả `503 audio_not_configured` — phần còn lại của web vẫn chạy bình thường.
+
+Trên máy chạy script tải lên: đặt cùng 4 biến (token **Read & Write**) vào `.env.local` ở gốc
+repo (đã có trong `.gitignore`).
+
+### Bước 5 — Tải file lên và nhập đề
+
+Xem [`tools/jlpt-audio/README.md`](../tools/jlpt-audio/README.md).
 
 ## Các route
 
@@ -127,6 +184,7 @@ cả hai cùng lúc.
 | `/api/auth/change-password` | POST `{currentPassword, newPassword}` | **Có** | Đổi mật khẩu của chính mình; cấp lại cookie mới cho máy vừa đổi |
 | `/api/progress` | GET / PUT | **Có** | Đọc/ghi tiến độ **của chính người đang đăng nhập** |
 | `/api/jlpt/exams` | GET / POST / DELETE | **Có** | Kho đề chung; sửa/xoá giới hạn ở người đã nhập đề đó |
+| `/api/jlpt/audio?key=choukai/<file>.mp3` | GET | **Có** | Ký link tải file nghe 聴解 từ R2, hạn 6 giờ; chỉ nhận đúng dạng khoá do `tools/jlpt-audio` sinh ra |
 
 Mọi route "Có" đều gọi `requireUser()` ở dòng đầu tiên — xem `api/_lib/requireAuth.ts`.
 

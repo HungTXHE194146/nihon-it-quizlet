@@ -1810,10 +1810,11 @@ trong một dự án mã nguồn mở. Ba lựa chọn:
 
 → **Khuyến nghị: (a) + (b)**, và mô hình dữ liệu đã có sẵn trường `source` để phân biệt.
 
-### ⛔ 2. Audio 聴解 — chặn giai đoạn 8
+### ✅ 2. Audio 聴解 — đã trả lời (2026-09-14)
 
-TTS có đủ không, hay cần thu âm/mua giọng? Nếu dùng TTS thì **phải nói rõ với người học** rằng
-bài nghe dễ hơn đề thật. Xem mục 7.4.
+~~TTS có đủ không, hay cần thu âm/mua giọng?~~ Dùng **băng thật** của các đề đã extract, lưu ở
+kho R2 đóng, mốc thời gian từng câu căn tự động bằng nhận dạng giọng nói. Thi thì khoá tua như
+phòng thi; mổ xẻ thì mở khoá theo bậc thang. Chi tiết: `docs/tickets/014-audio-nghe-hieu.md`.
 
 ### ❓ 3. Có làm cấp độ khác ngoài N3 không?
 

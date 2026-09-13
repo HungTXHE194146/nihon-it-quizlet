@@ -5,8 +5,10 @@ import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { getStoredExam, listMistakes } from '../../lib/jlpt/db';
 import { parseJlptCardKey } from '../../lib/jlpt/srsKey';
 import { causeLabel } from '../../lib/jlpt/mistakeStats';
-import type { JlptQuestion, MistakeEntry } from '../../lib/jlpt/schema';
+import type { JlptAudioTrack, JlptQuestion, MistakeEntry } from '../../lib/jlpt/schema';
 import { StemText } from './StemText';
+import { ChoukaiReplayPanel, type HintLevel } from './ChoukaiReplayPanel';
+import { choicesArePrinted } from '../../lib/jlpt/audio';
 
 interface JlptReviewSessionProps {
   onExit: () => void;
@@ -29,6 +31,11 @@ interface ReviewItem {
    * không phải lỗi thiếu dữ liệu.
    */
   pastMistake: MistakeEntry | null;
+  /**
+   * File nghe của câu 聴解 (nếu đề đã có audio). Ôn một câu nghe mà chỉ đọc chữ thì là ôn đọc,
+   * không phải ôn nghe — nên câu có băng phải được nghe lại trước khi trả lời.
+   */
+  track: JlptAudioTrack | null;
 }
 
 type Phase = 'loading' | 'empty' | 'quiz' | 'done';
@@ -58,6 +65,8 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
   const [index, setIndex] = useState(0);
   const [choice, setChoice] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
+  /** Câu nghe: bậc trợ giúp đang mở (1 nghe lại · 2 nghe chậm · 3 xem lời thoại). */
+  const [hintLevel, setHintLevel] = useState<HintLevel>(1);
 
   useEffect(() => {
     if (dueKeys.length === 0) {
@@ -111,6 +120,10 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
             ? exam.passages.find((p) => p.id === question.passageId)?.text ?? null
             : null,
           pastMistake: latestMistakeByQuestion.get(`${p.examId}::${p.questionId}`) ?? null,
+          track:
+            question.audioSegment && question.audioId
+              ? exam.exam.audio?.find((t) => t.id === question.audioId) ?? null
+              : null,
         });
       }
 
@@ -139,6 +152,7 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
     if (index + 1 < items.length) {
       setIndex((v) => v + 1);
       setChoice(null);
+      setHintLevel(1);
     } else {
       setPhase('done');
     }
@@ -233,7 +247,18 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
             {current.passageText}
           </div>
         )}
-        {current.question.stem && (
+        {current.track && current.question.audioSegment && (
+          <ChoukaiReplayPanel
+            key={current.key}
+            track={current.track}
+            question={current.question}
+            segment={current.question.audioSegment}
+            hintLevel={hintLevel}
+            onHintLevelChange={choice === null ? setHintLevel : undefined}
+            revealed={choice !== null}
+          />
+        )}
+        {current.question.stem && !(current.track && choice === null && hintLevel < 3) && (
           <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
             <StemText
               stem={current.question.stem}
@@ -264,7 +289,10 @@ export const JlptReviewSession: React.FC<JlptReviewSessionProps> = ({ onExit }) 
                 <XCircle size={14} className="text-rose-500 dark:text-rose-400 shrink-0" />
               )}
               <span>
-                {i + 1}. {c.text}
+                {i + 1}.
+                {current.track && choice === null && hintLevel < 3 && !choicesArePrinted(current.question.mondai)
+                  ? ''
+                  : ` ${c.text}`}
                 {/* Ghi chú từng phương án chỉ đáng giá SAU khi đã chọn — hiện trước là đưa
                     luôn đáp án. Trước đây nó không được hiện ở màn này ở bất kỳ thời điểm
                     nào, nên sai lại lần hai cũng không biết vì sao mình sai. */}

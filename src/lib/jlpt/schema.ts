@@ -38,6 +38,8 @@ export interface JlptExam {
   groups: MondaiGroup[];
   questionIds: string[];
   source: 'original' | 'official-sample' | 'user-provided';
+  /** File nghe 聴解 (nếu đề đã có audio) — xem `JlptAudioTrack`. */
+  audio?: JlptAudioTrack[];
 }
 
 export interface JlptChoice {
@@ -58,9 +60,14 @@ export interface JlptQuestion {
   explanation?: string;
   furigana?: { text: string; reading: string }[];
   passageId?: string;
+  /** 聴解: trỏ tới `JlptAudioTrack.id` của đề (một file nghe liền cho cả khối). */
   audioId?: string;
+  /** 聴解: lời thoại, mỗi dòng một câu nói (tách bằng "\n") — chỉ hiện SAU khi đã trả lời. */
   transcript?: string;
+  /** Khoảng ký tự [từ, tới) trong `transcript` chứa căn cứ cho đáp án — tô sáng lúc mổ xẻ. */
   transcriptAnswerSpan?: [number, number];
+  /** 聴解: vị trí của câu này trong file nghe. Thiếu = đề chưa căn mốc, phát audio không được. */
+  audioSegment?: AudioSegment;
   grammarPoint?: string;
   confusableWith?: string[];
   vocabIds?: string[];
@@ -76,6 +83,48 @@ export interface Passage {
   source?: string;
 }
 
+// ─── 聴解: file nghe và mốc thời gian ────────────────────────────────
+
+/**
+ * Một file nghe liền cho cả khối 聴解 — đúng như băng thi thật (hướng dẫn, ví dụ, 問題1…5,
+ * khoảng lặng chọn đáp án), không cắt nhỏ theo câu. Lúc thi phát liền từ đầu tới cuối; lúc
+ * mổ xẻ thì nhảy tới `AudioSegment` của từng câu trong chính file này.
+ */
+export interface JlptAudioTrack {
+  id: string;
+  /**
+   * Khoá object trên kho audio R2, vd. "choukai/n3-2020-12.3f9a1c2b.mp3" — KHÔNG phải URL.
+   * Kho đóng hoàn toàn; link tải được ký tạm qua /api/jlpt/audio cho tài khoản đã đăng nhập.
+   * Tên có hash nội dung nên bản đã tải về máy dùng được mãi, encode lại là tự đổi khoá.
+   */
+  key: string;
+  durationSec: number;
+  bytes: number;
+}
+
+/** Mốc (giây) của một dòng lời thoại — cùng thứ tự với các dòng của `JlptQuestion.transcript`. */
+export interface AudioLine {
+  start: number;
+  end: number;
+}
+
+/**
+ * Vị trí một câu 聴解 trong file nghe (giây, tính từ đầu file): start ≤ speechEnd ≤ end.
+ * Sinh tự động bởi tools/jlpt-audio (nhận dạng giọng nói rồi khớp với transcript).
+ */
+export interface AudioSegment {
+  /** Tiếng "N番" — lúc thi, màn hình chuyển sang câu này đúng mốc này. */
+  start: number;
+  /** Hết phần nói — nghe lại lúc mổ xẻ dừng ở đây, không bắt ngồi chờ khoảng lặng chọn đáp án. */
+  speechEnd: number;
+  /** Hết khoảng lặng chọn đáp án (thường trùng `start` của câu kế tiếp). */
+  end: number;
+  /** Mốc từng dòng của `transcript`; `null` = dòng đó không căn được mốc. */
+  lines?: (AudioLine | null)[];
+  /** Độ khớp 0–1 của bước căn mốc tự động. Thấp = nên nghe soát lại trước khi tin. */
+  confidence?: number;
+}
+
 /** Hình dạng của một file nhập (dán JSON / tải file), theo mục 11.3. */
 export interface JlptImportFile {
   formatVersion: 1;
@@ -85,6 +134,8 @@ export interface JlptImportFile {
     title: string;
     source?: 'original' | 'official-sample' | 'user-provided';
     blocks: TimedBlock[];
+    /** Tuỳ chọn — file nghe 聴解 đã tải lên kho audio. */
+    audio?: JlptAudioTrack[];
   };
   groups: MondaiGroup[];
   questions: JlptQuestion[];
@@ -114,6 +165,11 @@ export interface JlptAnswer {
   flagged: boolean;
   timeSpentMs: number;
   changeCount: number;
+  /**
+   * 聴解: bài bị gián đoạn đúng lúc đang nghe câu này, nên khi quay lại câu này được phát lại
+   * từ đầu — tức là người học đã nghe nó hơn một lần. Kết quả vẫn tính, nhưng mổ xẻ cần biết.
+   */
+  heardTwice?: boolean;
 }
 
 export type AttemptStatus = 'running' | 'paused' | 'submitted' | 'reviewing' | 'reviewed' | 'abandoned';
@@ -167,6 +223,24 @@ export interface JlptAttempt {
    * phải tính lại bằng `scoreAttempt()` — xem `wrongIdsOf()` trong attemptLogic.ts.
    */
   wrongQuestionIds?: string[];
+  /**
+   * Phiên nhấm nháp nhắm vào một nhóm 問題 cụ thể thay vì nhóm đầu tiên của đề — dùng cho phiên
+   * nghe ngắn 問題5 即時応答 (mục 7.4 tài liệu thiết kế).
+   */
+  tasteMondai?: MondaiType;
+  /**
+   * Tiến độ phát file nghe ở chế độ thi (khoá tua). Chỉ chốt MỐC ĐẦU CÂU đang nghe, không
+   * ghi từng giây: bị gián đoạn thì quay lại phát từ đầu câu đó, không phát nối giữa đoạn hội
+   * thoại — nghe nửa sau của một đoạn hội thoại thì không trả lời được gì.
+   */
+  listening?: {
+    /** Giây trong file nghe sẽ phát tiếp khi quay lại. */
+    resumeAt: number;
+    /** Đã sang phần nghe (chế độ trọn đề): các câu phần đọc bị khoá, giống thu bài đọc ở đề thật. */
+    started: boolean;
+    /** File đã phát hết — chỉ còn nộp bài. */
+    finished?: boolean;
+  };
 }
 
 // ─── Sổ tay lỗi riêng cho JLPT (mục 6.2-6.4) ─────────────────────────
@@ -201,6 +275,12 @@ export interface MistakeEntry {
   confidenceAtAnswer: Confidence;
   chosenIndex: number | null;
   reattemptIndex?: number | null;
+  /**
+   * 聴解: bậc trợ giúp cao nhất đã mở trước khi đoán lại ở bước 1 mổ xẻ — 1 = chỉ nghe lại,
+   * 2 = nghe chậm/lặp đoạn, 3 = xem lời thoại. Bậc cần tới chính là chẩn đoán: nghe lại lần
+   * hai đã đúng thì lỗi nằm ở tập trung/tốc độ, phải đọc chữ mới hiểu thì lỗi nằm ở nhận âm.
+   */
+  listenHintLevel?: 1 | 2 | 3;
   myRule?: string;
   myExample?: string;
   /** Khoá thẻ SRS liên quan, nếu câu này (hoặc đáp án đúng) nối được với thẻ đã có. */

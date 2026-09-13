@@ -100,3 +100,9 @@ export const jlptExamsApi = {
     }),
   remove: (id: string) => request(`/api/jlpt/exams?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
+
+export const jlptAudioApi = {
+  /** Xin link tải (ký tạm, hết hạn sau vài giờ) cho một file nghe 聴解 trên kho R2. */
+  sign: (key: string) =>
+    request<{ url: string; expiresAt: number }>(`/api/jlpt/audio?key=${encodeURIComponent(key)}`),
+};

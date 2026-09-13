@@ -42,7 +42,7 @@ không cần đọc lại toàn bộ lịch sử hội thoại.
 | [011](011-nhap-nhieu-de-cung-luc.md) | Nhập nhiều đề JLPT cùng lúc (multi-file) | P2 | Xong | — |
 | [012](012-furigana-va-phim-tat.md) | Furigana + phím tắt khi làm bài JLPT | P3 | Xong | — |
 | [013](013-ngay-thi-va-dem-nguoc.md) | Ngày thi mục tiêu + đếm ngược + phân bổ khối lượng ôn | P3 | Xong | 004 |
-| [014](014-audio-nghe-hieu.md) | Audio 聴解 (nghe hiểu) | P3 | Chặn (cần quyết định) | — |
+| [014](014-audio-nghe-hieu.md) | Audio 聴解 (nghe hiểu): băng thật, thi khoá tua, mổ xẻ có transcript | P1 | Đang làm (chờ tải lên R2 + soát mốc) | — |
 | [015](015-nap-de-jlpt-tu-thu-muc-repo.md) | Nạp đề JLPT từ thư mục repo (thay vì chỉ dựa KV) | P2 | Chặn (cần quyết định) | 001 |
 | [016](016-loi-ux-luong-hoc-hang-ngay.md) | Lỗi UX luồng học hàng ngày (thẻ tự nhảy, thẻ mới bị chôn, đề vô trật tự) | P0 | Xong | — |
 

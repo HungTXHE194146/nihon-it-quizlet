@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Flag,
@@ -14,6 +14,7 @@ import {
   Clock,
   Bug,
   Type,
+  Headphones,
 } from 'lucide-react';
 import { useProgress } from '../../hooks/useProgress';
 import { itemByKey } from '../../lib/itemIndex';
@@ -25,6 +26,7 @@ import type {
   AttemptMode,
   MistakeCause,
   ReportIssueType,
+  MondaiType,
 } from '../../lib/jlpt/schema';
 import { MISTAKE_CAUSES, REPORT_ISSUE_TYPES } from '../../lib/jlpt/schema';
 import {
@@ -33,6 +35,7 @@ import {
   wrongIdsOf,
   pendingReviewIdsOf,
   SECTION_LABELS,
+  CHOUKAI_MONDAI,
   type AttemptScore,
 } from '../../lib/jlpt/attemptLogic';
 import { getStoredExam, listAttempts, putAttempt, deleteAttempt, putMistake, putReport } from '../../lib/jlpt/db';
@@ -41,6 +44,30 @@ import { useJlptOwner } from '../../hooks/useJlptOwner';
 import { CONFIDENCE_LABELS, causeLabel } from '../../lib/jlpt/mistakeStats';
 import { formatClock } from '../../lib/format';
 import { StemText } from './StemText';
+import {
+  buildTimeline,
+  choicesArePrinted,
+  entryAt,
+  examHasAudio,
+  listeningRange,
+  trackOf,
+} from '../../lib/jlpt/audio';
+import { useLockedListening } from './useLockedListening';
+import { ListeningBar, ListeningGate } from './ListeningControls';
+import { ChoukaiReplayPanel, type HintLevel } from './ChoukaiReplayPanel';
+
+/** Hết băng thì còn chừng này để tô nốt phiếu trả lời trước khi tự nộp. */
+const TAPE_END_GRACE_MS = 30_000;
+
+/**
+ * Cách đọc kết quả bậc thang nghe lại ở bước 1 mổ xẻ. Nói theo điều kiện ("nếu lần này đúng")
+ * vì lúc hiện gợi ý (bước 2) đáp án đúng vẫn chưa được lộ ra.
+ */
+const LISTEN_HINT_ADVICE: Record<HintLevel, string> = {
+  1: 'Bạn chỉ cần nghe lại, không phải nghe chậm hay xem chữ. Nếu lần này chọn đúng, lỗi thường là nghe sót / mất tập trung lúc thi.',
+  2: 'Bạn phải nghe chậm hoặc lặp đoạn. Nếu lần này chọn đúng, tai chưa theo kịp tốc độ thật — vẫn là "Nghe sót / nghe nhầm".',
+  3: 'Bạn phải đọc lời thoại. Đọc mới hiểu thì hoặc có từ biết mặt chữ mà chưa nhận ra âm ("Nghe sót / nghe nhầm"), hoặc có từ chưa biết ("Không biết từ"). Đọc rồi vẫn chọn sai thì lỗi không nằm ở tai.',
+};
 
 interface JlptExamRunnerProps {
   examId: string;
@@ -96,6 +123,8 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const [mode, setMode] = useState<AttemptMode>('taste');
   const [blockId, setBlockId] = useState<string | undefined>(undefined);
   const [predictedPercent, setPredictedPercent] = useState<number | ''>('');
+  /** Phiên nhấm nháp nhắm vào một nhóm 問題 cụ thể — hiện chỉ dùng cho "Nghe nhanh" (問題5). */
+  const [tasteMondai, setTasteMondai] = useState<MondaiType | undefined>(undefined);
 
   const [attempt, setAttempt] = useState<JlptAttempt | null>(null);
   const [qIndex, setQIndex] = useState(0);
@@ -127,6 +156,8 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const [cause, setCause] = useState<MistakeCause | null>(null);
   const [myRule, setMyRule] = useState('');
   const [myExample, setMyExample] = useState('');
+  /** Bậc trợ giúp nghe đã mở ở bước 1 mổ xẻ một câu 聴解 — lưu vào sổ tay lỗi làm dữ liệu chẩn đoán. */
+  const [hintLevel, setHintLevel] = useState<HintLevel>(1);
 
   const [miniQuizIds, setMiniQuizIds] = useState<string[]>([]);
   const [miniIndex, setMiniIndex] = useState(0);
@@ -203,7 +234,26 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   /** Bài đã nộp gần nhất (dù đã mổ xẻ xong hay chưa) — để xem lại kết quả. */
   const lastSubmittedAttempt = attempts.find((a) => a.status !== 'running' && a.submittedAt) ?? null;
 
+  /**
+   * Bản lượt làm bài mới nhất, cập nhật ĐỒNG BỘ ngay khi ghi. Callback của file nghe (sang câu,
+   * chốt mốc phát tiếp) chạy ngoài chu kỳ render — dựa vào `attempt` trong closure thì có thể
+   * ghi đè mất đáp án người học vừa bấm trong cùng khoảnh khắc.
+   */
+  const attemptRef = useRef<JlptAttempt | null>(null);
+  useEffect(() => {
+    attemptRef.current = attempt;
+  }, [attempt]);
+
+  /** Sửa lượt làm bài dựa trên bản mới nhất; trả về đúng bản cũ thì không ghi gì. */
+  const updateAttempt = (fn: (a: JlptAttempt) => JlptAttempt) => {
+    const base = attemptRef.current;
+    if (!base) return;
+    const next = fn(base);
+    if (next !== base) persistAttempt(next);
+  };
+
   const persistAttempt = (next: JlptAttempt) => {
+    attemptRef.current = next;
     setAttempt(next);
     // Giữ danh sách lượt làm bài khớp với bản vừa ghi, để sảnh và màn kết quả không hiện
     // thông tin cũ sau khi nộp bài / mổ xẻ xong.
@@ -223,7 +273,10 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   const startAttempt = () => {
     if (!stored) return;
-    const a = createAttempt(stored.exam, mode, blockId);
+    const a = createAttempt(stored.exam, mode, blockId, {
+      tasteMondai,
+      listeningHasAudio: examHasAudio(stored),
+    });
     if (predictedPercent !== '') a.predictedPercent = predictedPercent;
     persistAttempt(a);
     setQIndex(0);
@@ -233,7 +286,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   const resume = () => {
     if (!runningAttempt) return;
     setAttempt(runningAttempt);
-    setQIndex(0);
+    // Đã sang phần nghe thì phần đọc đã khoá — mở thẳng câu nghe đầu tiên (cổng "Nghe tiếp").
+    const listenIdx = runningAttempt.listening?.started
+      ? runningAttempt.questionIds.findIndex((id) => !!questionsById.get(id)?.audioSegment)
+      : -1;
+    setQIndex(Math.max(0, listenIdx));
     setView('taking');
   };
 
@@ -252,23 +309,27 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   };
 
   const setAnswer = (chosenIndex: number) => {
-    if (!attempt || !currentQuestion) return;
-    const prev = attempt.answers[currentQuestion.id];
-    const next: JlptAttempt = {
-      ...attempt,
-      answers: {
-        ...attempt.answers,
-        [currentQuestion.id]: {
-          questionId: currentQuestion.id,
-          chosenIndex,
-          confidence: prev?.confidence ?? 'unsure',
-          flagged: prev?.flagged ?? false,
-          timeSpentMs: prev?.timeSpentMs ?? 0,
-          changeCount: prev ? prev.changeCount + 1 : 0,
+    if (!currentQuestion) return;
+    const qId = currentQuestion.id;
+    updateAttempt((a) => {
+      const prev = a.answers[qId];
+      return {
+        ...a,
+        answers: {
+          ...a.answers,
+          [qId]: {
+            // Giữ các cờ đã có trên câu (vd. `heardTwice` gắn trước khi kịp chọn đáp án).
+            ...prev,
+            questionId: qId,
+            chosenIndex,
+            confidence: prev?.confidence ?? 'unsure',
+            flagged: prev?.flagged ?? false,
+            timeSpentMs: prev?.timeSpentMs ?? 0,
+            changeCount: prev && prev.chosenIndex !== null ? prev.changeCount + 1 : prev?.changeCount ?? 0,
+          },
         },
-      },
-    };
-    persistAttempt(next);
+      };
+    });
   };
 
   const setConfidence = (confidence: Confidence) => {
@@ -372,6 +433,138 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     onExit();
   };
 
+  // ─── 聴解: phát file nghe như phòng thi (khoá tua) ──────────────────
+  //
+  // Chỉ bật khi đề có file nghe đã căn mốc (tools/jlpt-audio). Đề chưa có audio vẫn chạy như cũ:
+  // câu 聴解 hiện chữ, không có băng.
+
+  const examAudioReady = stored ? examHasAudio(stored) : false;
+  const attemptQuestionIds = attempt?.questionIds;
+
+  const listeningTrack = useMemo(() => {
+    if (!stored || !attemptQuestionIds) return null;
+    for (const id of attemptQuestionIds) {
+      const track = trackOf(stored, questionsById.get(id));
+      if (track) return track;
+    }
+    return null;
+  }, [stored, attemptQuestionIds, questionsById]);
+
+  const timeline = useMemo(
+    () => (stored && attemptQuestionIds && listeningTrack ? buildTimeline(stored, attemptQuestionIds, listeningTrack.id) : []),
+    [stored, attemptQuestionIds, listeningTrack]
+  );
+  const listeningIds = useMemo(() => new Set(timeline.map((e) => e.questionId)), [timeline]);
+  const listeningRangeSec = useMemo<[number, number]>(
+    () => (stored && attemptQuestionIds && listeningTrack ? listeningRange(stored, attemptQuestionIds, listeningTrack) : [0, 0]),
+    [stored, attemptQuestionIds, listeningTrack]
+  );
+
+  /** "問題2・3番" — cách đề thật gọi tên câu nghe (khác số thứ tự câu trong lượt làm bài). */
+  const listeningLabel = useCallback(
+    (questionId: string): string => {
+      if (!stored) return '';
+      const groups = stored.exam.groups.filter((g) => CHOUKAI_MONDAI.has(g.mondai));
+      const gi = groups.findIndex((g) => g.questionIds.includes(questionId));
+      return gi < 0 ? '' : `問題${gi + 1}・${groups[gi].questionIds.indexOf(questionId) + 1}番`;
+    },
+    [stored]
+  );
+
+  /** Người học đã bấm phát (bắt đầu / nghe tiếp) kể từ lúc mở màn này chưa — F5 xong là chưa. */
+  const [playedThisSession, setPlayedThisSession] = useState(false);
+  /** Lúc hết băng (epoch ms) — mốc đếm lùi thời gian tô nốt phiếu trước khi tự nộp. */
+  const [tapeEndedAt, setTapeEndedAt] = useState<number | null>(null);
+
+  const listening = useLockedListening({
+    track: listeningTrack,
+    timeline,
+    range: listeningRangeSec,
+    enabled: view === 'taking' && timeline.length > 0 && attempt?.status === 'running' && !attempt?.listening?.finished,
+    onEnterQuestion: (questionId) => {
+      const idx = attemptRef.current?.questionIds.indexOf(questionId) ?? -1;
+      if (idx >= 0) setQIndex(idx);
+    },
+    onCheckpoint: (resumeAt) => {
+      updateAttempt((a) =>
+        a.listening && a.listening.resumeAt !== resumeAt ? { ...a, listening: { ...a.listening, resumeAt } } : a
+      );
+    },
+    onFinished: () => {
+      updateAttempt((a) => ({ ...a, listening: { resumeAt: listeningRangeSec[1], started: true, finished: true } }));
+      setTapeEndedAt(Date.now());
+    },
+  });
+
+  const listeningStarted = !!attempt?.listening?.started;
+  const listeningLive = listeningStarted && !attempt?.listening?.finished;
+  /** Trọn đề có file nghe: hết giờ phần đọc thì phần đọc bị thu lại, chỉ còn đường sang phần nghe. */
+  const readingTimeUp = timeline.length > 0 && attempt?.deadline !== undefined && now >= attempt.deadline;
+  const readingLocked = timeline.length > 0 && (listeningStarted || readingTimeUp);
+  const isListeningQ = !!currentQuestion && listeningIds.has(currentQuestion.id);
+  const listeningGate: 'start' | 'resume' | null = !isListeningQ
+    ? null
+    : !listeningStarted
+    ? 'start'
+    : listeningLive && (!playedThisSession || listening.interrupted)
+    ? 'resume'
+    : null;
+
+  /**
+   * Mở được câu thứ `idx` không. Lúc băng đang chạy: câu nghe chỉ mở được khi băng đã đọc tới
+   * (không nhìn trước lựa chọn của câu sau), câu phần đọc thì đã bị thu lại.
+   */
+  const canOpenQuestion = (idx: number): boolean => {
+    const id = attempt?.questionIds[idx];
+    if (!id) return false;
+    if (timeline.length === 0) return true;
+    if (!listeningIds.has(id)) return !readingLocked;
+    if (!listeningLive) return true;
+    const seg = questionsById.get(id)?.audioSegment;
+    return !!seg && seg.start <= listening.time + 0.05;
+  };
+
+  const goTo = (idx: number) => {
+    if (canOpenQuestion(idx)) setQIndex(idx);
+  };
+
+  const startListening = () => {
+    const [from] = listeningRangeSec;
+    updateAttempt((a) => ({ ...a, listening: { resumeAt: from, started: true } }));
+    const firstIdx = attempt?.questionIds.findIndex((id) => listeningIds.has(id)) ?? -1;
+    if (firstIdx >= 0) setQIndex(firstIdx);
+    setPlayedThisSession(true);
+    void listening.playFrom(from);
+  };
+
+  const resumeListening = () => {
+    const at = attemptRef.current?.listening?.resumeAt ?? listeningRangeSec[0];
+    // Phát lại từ ĐẦU một câu = câu đó được nghe lần hai; phát tiếp từ CUỐI một câu thì không.
+    const replayed = timeline.find((e) => Math.abs(e.segment.start - at) < 0.01);
+    if (replayed) {
+      const qId = replayed.questionId;
+      updateAttempt((a) => {
+        // Câu chưa chọn đáp án thì chưa có bản ghi — tạo bản trống để gắn được cờ.
+        const prev = qId in a.answers
+          ? a.answers[qId]
+          : { questionId: qId, chosenIndex: null, confidence: 'unsure' as const, flagged: false, timeSpentMs: 0, changeCount: 0 };
+        return { ...a, answers: { ...a.answers, [qId]: { ...prev, heardTwice: true } } };
+      });
+    }
+    setPlayedThisSession(true);
+    void listening.playFrom(at);
+  };
+
+  // Hết băng: cho ít giây tô nốt phiếu rồi tự nộp — kể cả khi hết băng từ trước lúc tải lại trang.
+  useEffect(() => {
+    if (view !== 'taking' || !attempt || attempt.status !== 'running' || !attempt.listening?.finished) return;
+    if (tapeEndedAt === null) {
+      setTapeEndedAt(Date.now());
+      return;
+    }
+    if (now - tapeEndedAt >= TAPE_END_GRACE_MS) submit();
+  }, [now, view, attempt, tapeEndedAt, submit]);
+
   // ─── Đồng hồ đếm ngược (mode full/section) ─────────────────────────
   //
   // `deadline` chỉ tồn tại khi mode có hạn tính giờ (xem `createAttempt`) — mode `taste` cố ý
@@ -392,8 +585,17 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   useEffect(() => {
     if (view !== 'taking' || !attempt || attempt.deadline === undefined) return;
     if (attempt.status !== 'running') return; // đã nộp rồi thì đừng gọi lại
+    // Có file nghe: hạn này chỉ canh PHẦN ĐỌC. Hết giờ thì thu phần đọc và đưa sang cổng phần
+    // nghe — nộp cả bài lúc này là mất trắng phần nghe chưa làm. Phần nghe hết khi hết băng.
+    if (timeline.length > 0) {
+      if (now >= attempt.deadline && !attempt.listening?.started && currentQuestion && !listeningIds.has(currentQuestion.id)) {
+        const firstIdx = attempt.questionIds.findIndex((id) => listeningIds.has(id));
+        if (firstIdx >= 0) setQIndex(firstIdx);
+      }
+      return;
+    }
     if (now >= attempt.deadline) submit();
-  }, [now, view, attempt, submit]);
+  }, [now, view, attempt, submit, timeline, listeningIds, currentQuestion]);
 
   // ─── Phím tắt khi làm bài (ticket 012) ──────────────────────────
   //
@@ -403,7 +605,8 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   // bài/báo lỗi câu) — bấm "1" để chọn đáp án lúc đang xác nhận thoát sẽ rất khó hiểu.
   useEffect(() => {
     if (view !== 'taking' || !attempt || !currentQuestion) return;
-    if (exitConfirm || submitConfirm || reportOpenFor) return;
+    // Cổng phần nghe đang che câu hỏi: bấm số lúc này sẽ chọn đáp án cho câu người học chưa thấy.
+    if (exitConfirm || submitConfirm || reportOpenFor || listeningGate) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -411,10 +614,10 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setQIndex((i) => Math.min(attempt.questionIds.length - 1, i + 1));
+        goTo(qIndex + 1);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setQIndex((i) => Math.max(0, i - 1));
+        goTo(qIndex - 1);
       } else if (/^[1-9]$/.test(e.key)) {
         const idx = Number(e.key) - 1;
         if (idx < currentQuestion.choices.length) {
@@ -437,7 +640,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     // sau MỌI thao tác đáng kể (chọn đáp án, chuyển câu), nên effect vẫn gắn lại listener với
     // bản mới nhất của cả hai đúng lúc cần, không có cửa sổ nào dùng bản cũ.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, attempt, currentQuestion, exitConfirm, submitConfirm, reportOpenFor]);
+  }, [view, attempt, currentQuestion, qIndex, exitConfirm, submitConfirm, reportOpenFor, listeningGate]);
 
   // ─── Mổ xẻ (review) ──────────────────────────────────────────────
 
@@ -462,6 +665,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     setReviewQueue(queue);
     setReviewIndex(0);
     setReviewStep(1);
+    setHintLevel(1);
     setReattemptIndex(null);
     setCause(null);
     setMyRule('');
@@ -498,6 +702,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
       confidenceAtAnswer: answer?.confidence ?? 'unsure',
       chosenIndex: answer?.chosenIndex ?? null,
       reattemptIndex,
+      listenHintLevel: trackOf(stored, currentWrongQuestion) ? hintLevel : undefined,
       myRule: myRule.trim() || undefined,
       myExample: myExample.trim() || undefined,
       srsKey: key ?? undefined,
@@ -518,6 +723,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     if (nextIndex < reviewQueue.length) {
       setReviewIndex(nextIndex);
       setReviewStep(1);
+      setHintLevel(1);
       setReattemptIndex(null);
       setCause(null);
       setMyRule('');
@@ -640,6 +846,16 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           hổng chỗ nào.
         </div>
 
+        {examAudioReady && (
+          <div className="flex items-start gap-3 bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-4 mb-4">
+            <Headphones size={18} className="text-indigo-600 dark:text-red-400 mt-0.5 shrink-0" />
+            <p className="text-sm font-semibold text-slate-600 dark:text-neutral-300 leading-relaxed">
+              Đề có băng nghe thật. Lúc thi, phần 聴解 phát <b>một lần, không tua</b> — như phòng thi. Nộp bài xong, lúc
+              mổ xẻ mới được nghe lại, nghe chậm và xem lời thoại.
+            </p>
+          </div>
+        )}
+
         {runningAttempt && (
           <button
             onClick={resume}
@@ -672,23 +888,28 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
         <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
           <p className="text-xs font-extrabold text-slate-400 dark:text-neutral-500 mb-3">Chọn cỡ phiên</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+          <div className={`grid grid-cols-1 ${examAudioReady ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-2 mb-3`}>
             {(
               [
-                { value: 'taste' as AttemptMode, label: 'Nhấm nháp', desc: '1 nhóm 問題 đầu' },
-                { value: 'section' as AttemptMode, label: 'Từng khối', desc: 'chọn 1 khối' },
-                { value: 'full' as AttemptMode, label: 'Trọn đề', desc: 'toàn bộ câu' },
-              ]
+                { key: 'taste', value: 'taste', label: 'Nhấm nháp', desc: '1 nhóm 問題 đầu' },
+                // Phiên nghe ngắn (mục 7.4 tài liệu thiết kế): 問題5 即時応答 ~5 phút, cùng luật băng như thi thật.
+                ...(examAudioReady && stored.exam.groups.some((g) => g.mondai === 'sokuji_outou')
+                  ? [{ key: 'listen', value: 'taste', label: 'Nghe nhanh', desc: '問題5 · ~5 phút', tasteMondai: 'sokuji_outou' }]
+                  : []),
+                { key: 'section', value: 'section', label: 'Từng khối', desc: 'chọn 1 khối' },
+                { key: 'full', value: 'full', label: 'Trọn đề', desc: 'toàn bộ câu' },
+              ] as { key: string; value: AttemptMode; label: string; desc: string; tasteMondai?: MondaiType }[]
             ).map((opt) => (
               <button
-                key={opt.value}
+                key={opt.key}
                 onClick={() => {
                   setMode(opt.value);
+                  setTasteMondai(opt.tasteMondai);
                   if (opt.value !== 'section') setBlockId(undefined);
                   else setBlockId(stored.exam.blocks[0]?.id);
                 }}
                 className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
-                  mode === opt.value
+                  mode === opt.value && tasteMondai === opt.tasteMondai
                     ? 'border-indigo-500 bg-indigo-50 dark:border-red-500 dark:bg-red-950/30'
                     : 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600'
                 }`}
@@ -744,7 +965,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     const answer = attempt.answers[currentQuestion.id];
     // `deadline` chỉ tồn tại ở mode full/section (mục 5.1: mode taste cố ý không có áp lực
     // thời gian gắt — xem `createAttempt`) nên đồng hồ chỉ hiện khi có.
-    const remainingSec = attempt.deadline !== undefined ? (attempt.deadline - now) / 1000 : null;
+    // Có file nghe: đồng hồ chỉ canh phần đọc; sang phần nghe thì chính băng là đồng hồ (ListeningBar).
+    const remainingSec = attempt.deadline !== undefined && !readingLocked ? (attempt.deadline - now) / 1000 : null;
+    const playingEntry = listeningStarted ? entryAt(timeline, listening.time) : null;
+    // Mốc phát tiếp là đầu một câu (sẽ nghe lại câu đó) hoặc cuối một câu (câu đó đã nghe trọn).
+    const resumeAt = attempt.listening?.resumeAt ?? -1;
+    const resumeEntry = timeline.find((e) => Math.abs(e.segment.start - resumeAt) < 0.01);
+    const resumeAfterEntry = resumeEntry ? undefined : timeline.find((e) => Math.abs(e.segment.end - resumeAt) < 0.01);
     const urgent = remainingSec !== null && remainingSec <= 300;
 
     // Phiếu trả lời: hiện cố định trong sidebar bên phải ở màn lớn (kiểu Bunpro), và vẫn là
@@ -766,11 +993,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                   return (
                     <button
                       key={id}
+                      disabled={!canOpenQuestion(idx)}
                       onClick={() => {
-                        setQIndex(idx);
+                        goTo(idx);
                         setShowAnswerSheet(false);
                       }}
-                      className={`w-8 h-8 rounded-lg text-xs font-extrabold border-2 transition-all cursor-pointer ${
+                      className={`w-8 h-8 rounded-lg text-xs font-extrabold border-2 transition-all cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
                         isCurrent
                           ? 'border-indigo-500 bg-indigo-500 text-white dark:border-red-500 dark:bg-red-600'
                           : a?.chosenIndex !== undefined && a?.chosenIndex !== null
@@ -832,6 +1060,40 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
               </div>
             )}
 
+            {listeningGate && listeningTrack ? (
+              <ListeningGate
+                kind={listeningGate}
+                load={listening.load}
+                progress={listening.progress}
+                error={listening.error}
+                onRetry={listening.retry}
+                onTestSound={() => void listening.testSound()}
+                onStart={listeningGate === 'start' ? startListening : resumeListening}
+                durationSec={listeningRangeSec[1] - listeningRangeSec[0]}
+                locksReading={attempt.questionIds.some((id) => !listeningIds.has(id))}
+                readingTimeUp={readingTimeUp}
+                resumeLabel={listeningLabel((resumeEntry ?? resumeAfterEntry)?.questionId ?? '')}
+                resumeAfter={!resumeEntry && !!resumeAfterEntry}
+              />
+            ) : (
+            <>
+            {isListeningQ && listeningStarted && (
+              <ListeningBar
+                playingLabel={playingEntry ? listeningLabel(playingEntry.questionId) : ''}
+                time={listening.time}
+                range={listeningRangeSec}
+                playing={listening.playing}
+                onVolume={listening.setVolume}
+                onJumpToPlaying={
+                  playingEntry && playingEntry.questionId !== currentQuestion.id
+                    ? () => goTo(attempt.questionIds.indexOf(playingEntry.questionId))
+                    : undefined
+                }
+                finished={!!attempt.listening?.finished}
+                graceLeftSec={tapeEndedAt !== null ? Math.ceil((TAPE_END_GRACE_MS - (now - tapeEndedAt)) / 1000) : null}
+                onSubmitNow={submit}
+              />
+            )}
             <div className="bg-white rounded-2xl border border-slate-200 dark:bg-neutral-900 dark:border-neutral-800 p-5 mb-4">
               {currentGroup && (
                 <p className="text-xs font-bold text-slate-400 dark:text-neutral-500 mb-3 pb-3 border-b border-slate-100 dark:border-neutral-800">{currentGroup.instruction}</p>
@@ -844,7 +1106,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
               )}
 
               <div className="flex items-start justify-between gap-3 mb-4">
-                {currentQuestion.stem && (
+                {/* Câu nghe: đề giấy thật không in câu hỏi (chỉ có trong băng) — chỉ hiện số câu. */}
+                {isListeningQ && (
+                  <p className="text-base font-black text-slate-800 dark:text-neutral-100">{listeningLabel(currentQuestion.id)}</p>
+                )}
+                {currentQuestion.stem && !isListeningQ && (
                   <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed">
                     <StemText
                       stem={currentQuestion.stem}
@@ -936,21 +1202,44 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 </div>
               )}
 
-              <div className="grid gap-2 mb-4">
-                {currentQuestion.choices.map((c, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setAnswer(i)}
-                    className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
-                      answer?.chosenIndex === i
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:border-red-500 dark:bg-red-950/30 dark:text-red-200'
-                        : 'border-slate-200 hover:border-slate-300 text-slate-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-300'
-                    }`}
-                  >
-                    {i + 1}. {c.text}
-                  </button>
-                ))}
-              </div>
+              {isListeningQ && !choicesArePrinted(currentQuestion.mondai) ? (
+                // 問題3/4/5: lựa chọn chỉ có trong băng, đề giấy để trống — ở đây cũng chỉ có số.
+                <div
+                  className="grid gap-2 mb-4"
+                  style={{ gridTemplateColumns: `repeat(${currentQuestion.choices.length}, minmax(0, 1fr))` }}
+                >
+                  {currentQuestion.choices.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setAnswer(i)}
+                      aria-label={`Chọn đáp án ${i + 1}`}
+                      className={`py-4 rounded-xl border-2 text-lg font-black transition-all cursor-pointer ${
+                        answer?.chosenIndex === i
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:border-red-500 dark:bg-red-950/30 dark:text-red-200'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-300'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-2 mb-4">
+                  {currentQuestion.choices.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setAnswer(i)}
+                      className={`text-left px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
+                        answer?.chosenIndex === i
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:border-red-500 dark:bg-red-950/30 dark:text-red-200'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-300'
+                      }`}
+                    >
+                      {i + 1}. {c.text}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {answer && answer.chosenIndex !== null && (
                 <div className="flex items-center gap-2">
@@ -971,11 +1260,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                 </div>
               )}
             </div>
+            </>
+            )}
 
             <div className="flex items-center justify-between gap-2">
               <button
-                onClick={() => setQIndex((i) => Math.max(0, i - 1))}
-                disabled={qIndex === 0}
+                onClick={() => goTo(qIndex - 1)}
+                disabled={!canOpenQuestion(qIndex - 1)}
                 className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-300 text-xs font-extrabold disabled:opacity-40 cursor-pointer"
               >
                 <ChevronLeft size={15} /> Câu trước
@@ -983,10 +1274,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
               {qIndex + 1 < attempt.questionIds.length ? (
                 <button
-                  onClick={() => setQIndex((i) => i + 1)}
-                  className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-slate-800 text-white dark:bg-red-600 text-xs font-extrabold cursor-pointer"
+                  onClick={() => goTo(qIndex + 1)}
+                  disabled={!canOpenQuestion(qIndex + 1)}
+                  className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl bg-slate-800 text-white dark:bg-red-600 text-xs font-extrabold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Câu sau <ChevronRight size={15} />
+                  {listeningLive && isListeningQ && !canOpenQuestion(qIndex + 1) ? 'Chờ băng đọc tới' : 'Câu sau'} <ChevronRight size={15} />
                 </button>
               ) : (
                 <button
@@ -1036,8 +1328,14 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full dark:bg-neutral-900">
               <p className="font-extrabold text-slate-800 dark:text-neutral-100 mb-4">Bạn muốn làm gì với bài đang làm dở?</p>
               <div className="flex flex-col gap-2">
-                <button onClick={onExit} className="py-2.5 rounded-xl bg-indigo-600 text-white dark:bg-red-600 text-sm font-bold cursor-pointer">
-                  Tạm dừng (giữ bài, làm tiếp sau)
+                <button
+                  onClick={() => {
+                    listening.stop();
+                    onExit();
+                  }}
+                  className="py-2.5 rounded-xl bg-indigo-600 text-white dark:bg-red-600 text-sm font-bold cursor-pointer"
+                >
+                  {listeningLive ? 'Tạm dừng (giữ bài — băng sẽ phát lại từ đầu câu đang nghe)' : 'Tạm dừng (giữ bài, làm tiếp sau)'}
                 </button>
                 <button
                   onClick={() => {
@@ -1248,6 +1546,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
   if (view === 'review' && currentWrongQuestion) {
     const answer = attempt?.answers[currentWrongQuestion.id];
     const reviewPassage = passageOf(currentWrongQuestion);
+    const reviewTrack = trackOf(stored, currentWrongQuestion);
+    const reviewSegment = reviewTrack ? currentWrongQuestion.audioSegment : undefined;
+    // Câu nghe: chưa mở tới bậc "xem lời thoại" và chưa xem đáp án thì chưa cho đọc câu hỏi, cũng
+    // như lựa chọn của 問題 không in trên đề — nếu không, "nghe lại" thực chất là "đọc lại".
+    const hideListeningText = !!reviewSegment && hintLevel < 3 && reviewStep < 3;
     // "Sai + Đoán" (ma trận ticket 006): lúc làm bài tự nhận là đoán mò, nên đằng nào cũng
     // không nhớ lý do chọn — ticket 010 hướng 2 cho phép rút gọn: bỏ qua bước 2 (tự động gán
     // nguyên nhân "Đoán mò") và cho lưu nhanh bỏ qua bước 4, dồn công sức mổ xẻ kỹ vào câu
@@ -1291,7 +1594,19 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
               {reviewPassage.text}
             </div>
           )}
-          {currentWrongQuestion.stem && (
+          {/* Một khung phát duy nhất cho cả bước 1→4: chuyển bước không làm đứt tiếng đang nghe. */}
+          {reviewTrack && reviewSegment && (
+            <ChoukaiReplayPanel
+              key={currentWrongQuestion.id}
+              track={reviewTrack}
+              question={currentWrongQuestion}
+              segment={reviewSegment}
+              hintLevel={hintLevel}
+              onHintLevelChange={reviewStep === 1 ? setHintLevel : undefined}
+              revealed={reviewStep >= 3}
+            />
+          )}
+          {currentWrongQuestion.stem && !hideListeningText && (
             <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
               <StemText
                 stem={currentWrongQuestion.stem}
@@ -1304,6 +1619,12 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           {reviewStep === 1 && (
             <>
               <p className={`text-xs font-extrabold text-rose-500 dark:text-rose-400 ${wasGuessed ? 'mb-1' : 'mb-3'}`}>Bước 1 — Đoán lại khi chưa xem đáp án</p>
+              {reviewSegment && (
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 mb-3">
+                  Nghe lại đoạn băng ở trên rồi chọn lại. Chỉ mở thêm trợ giúp khi thật sự cần — bậc bạn phải mở tới chính là chỗ đang hổng.
+                  {answer?.heardTwice && ' (Lúc thi câu này bị gián đoạn nên bạn đã nghe 2 lần.)'}
+                </p>
+              )}
               {/* Rút gọn cho "Sai + Đoán" (ticket 010 hướng 2): nói trước là bước 2 (tìm nguyên
                   nhân) sẽ bị bỏ qua, để không tưởng màn hình thiếu bước hay bị lỗi. */}
               {wasGuessed && (
@@ -1324,7 +1645,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
                         : 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600'
                     }`}
                   >
-                    {i + 1}. {c.text}
+                    {i + 1}.{hideListeningText && !choicesArePrinted(currentWrongQuestion.mondai) ? '' : ` ${c.text}`}
                     {i === answer?.chosenIndex && <span className="ml-2 text-[11px] text-rose-500 dark:text-rose-400 font-bold">(bạn đã chọn — sai)</span>}
                   </button>
                 ))}
@@ -1366,6 +1687,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           {reviewStep === 2 && (
             <>
               <p className="text-xs font-extrabold text-rose-500 dark:text-rose-400 mb-1">Bước 2 — Cái gì đã khiến bạn chọn đáp án kia?</p>
+              {reviewSegment && (
+                <p className="text-[11px] font-bold text-indigo-700 bg-indigo-50 dark:text-red-300 dark:bg-red-950/30 rounded-lg px-2.5 py-2 mb-2 leading-relaxed">
+                  {LISTEN_HINT_ADVICE[hintLevel]}
+                </p>
+              )}
               <p className="text-[11px] font-semibold text-slate-400 dark:text-neutral-500 mb-3">
                 {reattemptIndex === null
                   ? 'Vừa rồi bạn không đoán được. Đáp án đúng vẫn chưa hiện — chọn nguyên nhân trước đã.'
@@ -1497,6 +1823,7 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
 
   // ─ Mini-quiz kết thúc ─
   if (view === 'miniquiz' && currentMiniQuestion) {
+    const miniTrack = trackOf(stored, currentMiniQuestion);
     return (
       <div className="w-full max-w-xl mx-auto px-4 py-8">
         <p className="text-xs font-extrabold text-violet-500 dark:text-violet-400 mb-4 text-center flex items-center justify-center gap-1.5">
@@ -1507,6 +1834,16 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             <div className="bg-slate-50 dark:bg-neutral-800 rounded-xl p-4 mb-4 text-sm leading-relaxed text-slate-700 dark:text-neutral-300 whitespace-pre-wrap max-h-60 overflow-y-auto">
               {passageOf(currentMiniQuestion)?.text}
             </div>
+          )}
+          {miniTrack && currentMiniQuestion.audioSegment && (
+            <ChoukaiReplayPanel
+              key={currentMiniQuestion.id}
+              track={miniTrack}
+              question={currentMiniQuestion}
+              segment={currentMiniQuestion.audioSegment}
+              hintLevel={1}
+              revealed={miniChoice !== null}
+            />
           )}
           {currentMiniQuestion.stem && (
             <p className="text-base font-bold text-slate-800 dark:text-neutral-100 mb-4">

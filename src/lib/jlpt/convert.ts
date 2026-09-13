@@ -23,6 +23,7 @@ export function importFileToExam(file: JlptImportFile): JlptExam {
     groups: file.groups,
     questionIds: file.groups.flatMap((g) => g.questionIds),
     source: file.exam.source ?? 'user-provided',
+    audio: file.exam.audio,
   };
 }
 
@@ -51,6 +52,7 @@ export function toSyncPayload(stored: StoredJlptExam): JlptSyncPayload {
       title: stored.exam.title,
       source: stored.exam.source,
       blocks: stored.exam.blocks,
+      audio: stored.exam.audio,
     },
     groups: stored.exam.groups,
     questions: stored.questions,

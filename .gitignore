@@ -28,6 +28,9 @@ dist-ssr
 # Đây là nơi để cục bộ trên máy bạn; xuất ra rồi tự nhập vào app qua #/jlpt/import.
 jlpt-source/
 tools/jlpt-import/output/
+data/N3_my_AI_generated_practice_exam/
+# Audio 聴解 đã nén + kết quả nhận dạng giọng nói (tools/jlpt-audio) — file nặng, lên R2 chứ không vào git.
+data/_audio_build/
 __pycache__/
 *.pyc
 
