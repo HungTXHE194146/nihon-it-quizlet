@@ -53,7 +53,8 @@ const CONFIDENCE_STYLE: Record<Confidence, string> = {
 export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, onOpenImport, onOpenReview }) => {
   const { authenticated } = useAuth();
   const { ownerId, claimEpoch } = useJlptOwner();
-  const { buildJlptReviewQueue } = useProgress();
+  const { buildJlptReviewQueue, data: progressData } = useProgress();
+  const showFurigana = progressData.settings.jlptFuriganaEnabled ?? false;
   const reviewDueCount = useMemo(() => buildJlptReviewQueue().length, [buildJlptReviewQueue]);
 
   // Câu hỏi JLPT vào lịch ôn ngay lúc nộp bài (không cần mổ xẻ), nên có thể có câu đến hạn dù
@@ -360,7 +361,11 @@ export const JlptMistakeList: React.FC<JlptMistakeListProps> = ({ onOpenExam, on
                 <>
                   {question.stem && (
                     <p className="text-sm font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-2.5">
-                      <StemText stem={question.stem} underline={question.stemUnderline} />
+                      <StemText
+                        stem={question.stem}
+                        underline={question.stemUnderline}
+                        furigana={showFurigana ? question.furigana : undefined}
+                      />
                     </p>
                   )}
                   <div className="grid gap-1.5 mb-3">

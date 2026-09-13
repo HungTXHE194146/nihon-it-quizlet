@@ -13,6 +13,7 @@ import {
   BookOpen,
   Clock,
   Bug,
+  Type,
 } from 'lucide-react';
 import { useProgress } from '../../hooks/useProgress';
 import { itemByKey } from '../../lib/itemIndex';
@@ -75,7 +76,8 @@ const REVIEW_BATCH_SIZE = 5;
 const REVIEW_PRIORITY: Record<Confidence, number> = { sure: 0, unsure: 1, guess: 2 };
 
 export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }) => {
-  const { recordReview } = useProgress();
+  const { recordReview, data: progressData, updateSettings } = useProgress();
+  const showFurigana = progressData.settings.jlptFuriganaEnabled ?? false;
   // Đề dùng chung cả máy, nhưng lượt làm bài thì của riêng người đang đăng nhập.
   const { ownerId, claimEpoch } = useJlptOwner();
 
@@ -392,6 +394,50 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
     if (attempt.status !== 'running') return; // đã nộp rồi thì đừng gọi lại
     if (now >= attempt.deadline) submit();
   }, [now, view, attempt, submit]);
+
+  // ─── Phím tắt khi làm bài (ticket 012) ──────────────────────────
+  //
+  // Cùng quy ước với ExamSession.tsx/QuestionCard.tsx: bỏ qua khi đang gõ vào input/textarea
+  // (không có ở view này, nhưng giữ cho nhất quán và an toàn nếu sau này thêm), khi đang giữ
+  // phím bổ trợ (tránh đụng shortcut trình duyệt), và khi có hộp thoại che màn hình (thoát/nộp
+  // bài/báo lỗi câu) — bấm "1" để chọn đáp án lúc đang xác nhận thoát sẽ rất khó hiểu.
+  useEffect(() => {
+    if (view !== 'taking' || !attempt || !currentQuestion) return;
+    if (exitConfirm || submitConfirm || reportOpenFor) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setQIndex((i) => Math.min(attempt.questionIds.length - 1, i + 1));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setQIndex((i) => Math.max(0, i - 1));
+      } else if (/^[1-9]$/.test(e.key)) {
+        const idx = Number(e.key) - 1;
+        if (idx < currentQuestion.choices.length) {
+          e.preventDefault();
+          setAnswer(idx);
+        }
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        toggleFlag();
+      } else if (e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setShowAnswerSheet((s) => !s);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // `setAnswer`/`toggleFlag` không được memo hoá (tạo lại mỗi lượt render, như mọi hàm khác
+    // trong component này) nên cố ý không liệt kê vào deps — `attempt`/`currentQuestion` đã đổi
+    // sau MỌI thao tác đáng kể (chọn đáp án, chuyển câu), nên effect vẫn gắn lại listener với
+    // bản mới nhất của cả hai đúng lúc cần, không có cửa sổ nào dùng bản cũ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, attempt, currentQuestion, exitConfirm, submitConfirm, reportOpenFor]);
 
   // ─── Mổ xẻ (review) ──────────────────────────────────────────────
 
@@ -800,10 +846,27 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
               <div className="flex items-start justify-between gap-3 mb-4">
                 {currentQuestion.stem && (
                   <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed">
-                    <StemText stem={currentQuestion.stem} underline={currentQuestion.stemUnderline} />
+                    <StemText
+                      stem={currentQuestion.stem}
+                      underline={currentQuestion.stemUnderline}
+                      furigana={showFurigana ? currentQuestion.furigana : undefined}
+                    />
                   </p>
                 )}
                 <div className="shrink-0 flex items-center gap-1.5">
+                  {currentQuestion.furigana && currentQuestion.furigana.length > 0 && (
+                    <button
+                      onClick={() => updateSettings({ jlptFuriganaEnabled: !showFurigana })}
+                      title={showFurigana ? 'Ẩn furigana' : 'Hiện furigana (cách đọc chữ Hán)'}
+                      className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                        showFurigana
+                          ? 'bg-sky-50 border-sky-300 text-sky-600 dark:bg-sky-950/40 dark:border-sky-700 dark:text-sky-400'
+                          : 'bg-white border-slate-200 text-slate-300 hover:text-sky-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-600 dark:hover:text-sky-400'
+                      }`}
+                    >
+                      <Type size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       setReportOpenFor((cur) => (cur === currentQuestion.id ? null : currentQuestion.id))
@@ -942,6 +1005,30 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
               {answerSheetGrid}
             </div>
           </aside>
+        </div>
+
+        {/* Gợi ý phím tắt (ticket 012) — cùng kiểu với ExamSession.tsx để người học đã quen
+            phòng thi kia không phải học lại quy ước mới. */}
+        <div className="mt-4 flex justify-center">
+          <span className="text-[10px] text-slate-400 dark:text-neutral-500 font-bold uppercase tracking-wider bg-slate-100/60 dark:bg-neutral-800/60 py-1.5 px-3 rounded-lg border border-slate-200/50 dark:border-neutral-700/50 select-none flex items-center gap-3 flex-wrap justify-center">
+            <span>
+              <kbd className="px-1.5 py-0.5 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-neutral-400">1-4</kbd>{' '}
+              chọn đáp án
+            </span>
+            <span>
+              <kbd className="px-1.5 py-0.5 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-neutral-400">←</kbd>{' '}
+              <kbd className="px-1.5 py-0.5 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-neutral-400">→</kbd>{' '}
+              chuyển câu
+            </span>
+            <span>
+              <kbd className="px-1.5 py-0.5 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-neutral-400">F</kbd>{' '}
+              đánh dấu cờ
+            </span>
+            <span>
+              <kbd className="px-1.5 py-0.5 bg-white dark:bg-neutral-900 border border-slate-300 dark:border-neutral-600 rounded shadow-sm font-mono text-[9px] text-slate-500 dark:text-neutral-400">A</kbd>{' '}
+              phiếu trả lời
+            </span>
+          </span>
         </div>
 
         {exitConfirm && (
@@ -1206,7 +1293,11 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
           )}
           {currentWrongQuestion.stem && (
             <p className="text-base font-bold text-slate-800 dark:text-neutral-100 leading-relaxed mb-4">
-              <StemText stem={currentWrongQuestion.stem} underline={currentWrongQuestion.stemUnderline} />
+              <StemText
+                stem={currentWrongQuestion.stem}
+                underline={currentWrongQuestion.stemUnderline}
+                furigana={showFurigana ? currentWrongQuestion.furigana : undefined}
+              />
             </p>
           )}
 
@@ -1418,7 +1509,13 @@ export const JlptExamRunner: React.FC<JlptExamRunnerProps> = ({ examId, onExit }
             </div>
           )}
           {currentMiniQuestion.stem && (
-            <p className="text-base font-bold text-slate-800 dark:text-neutral-100 mb-4"><StemText stem={currentMiniQuestion.stem} underline={currentMiniQuestion.stemUnderline} /></p>
+            <p className="text-base font-bold text-slate-800 dark:text-neutral-100 mb-4">
+              <StemText
+                stem={currentMiniQuestion.stem}
+                underline={currentMiniQuestion.stemUnderline}
+                furigana={showFurigana ? currentMiniQuestion.furigana : undefined}
+              />
+            </p>
           )}
           <div className="grid gap-2">
             {currentMiniQuestion.choices.map((c, i) => (

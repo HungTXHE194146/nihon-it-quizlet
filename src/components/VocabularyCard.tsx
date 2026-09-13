@@ -340,7 +340,13 @@ export const VocabularyCard: React.FC<VocabularyCardProps> = ({
             </div>
 
             {/* Meaning / Kanji details */}
-            <div className="text-center my-auto flex flex-col items-center justify-center overflow-y-auto max-h-[190px] py-2 px-1 w-full">
+            {/* justify-center-safe (không phải justify-center) là cố ý: khi nội dung dài hơn
+                max-h-[190px] (giải thích ngữ pháp nhiều dòng, ví dụ dài...), justify-center
+                thường sẽ CẮT MẤT phần đầu nội dung — trình duyệt canh giữa toàn bộ nội dung
+                trong không gian ảo rồi mới cuộn, nên phần tràn phía trên bị giấu và không cuộn
+                tới được. "-safe" tự lùi về canh đầu khi tràn để luôn cuộn được trọn nội dung,
+                vẫn canh giữa bình thường khi nội dung ngắn vừa khung. */}
+            <div className="text-center my-auto flex flex-col items-center justify-center-safe overflow-y-auto max-h-[190px] py-2 px-1 w-full">
               {mode === 'type-reading' ? (
                 <>
                   {/* Kết quả chấm: cho thấy ngay mình gõ đúng hay sai ở đâu */}

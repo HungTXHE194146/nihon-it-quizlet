@@ -40,7 +40,7 @@ không cần đọc lại toàn bộ lịch sử hội thoại.
 | [009](009-hien-passage-khi-mo-xe.md) | Hiện lại đoạn văn (passage) khi mổ xẻ câu đọc hiểu | P2 | Xong | — |
 | [010](010-giam-chi-phi-mo-xe.md) | Giảm chi phí mổ xẻ (tạm dừng/tiếp tục, rút gọn bước) | P2 | Xong | 002 |
 | [011](011-nhap-nhieu-de-cung-luc.md) | Nhập nhiều đề JLPT cùng lúc (multi-file) | P2 | Xong | — |
-| [012](012-furigana-va-phim-tat.md) | Furigana + phím tắt khi làm bài JLPT | P3 | Chưa bắt đầu | — |
+| [012](012-furigana-va-phim-tat.md) | Furigana + phím tắt khi làm bài JLPT | P3 | Xong | — |
 | [013](013-ngay-thi-va-dem-nguoc.md) | Ngày thi mục tiêu + đếm ngược + phân bổ khối lượng ôn | P3 | Xong | 004 |
 | [014](014-audio-nghe-hieu.md) | Audio 聴解 (nghe hiểu) | P3 | Chặn (cần quyết định) | — |
 | [015](015-nap-de-jlpt-tu-thu-muc-repo.md) | Nạp đề JLPT từ thư mục repo (thay vì chỉ dựa KV) | P2 | Chặn (cần quyết định) | 001 |
