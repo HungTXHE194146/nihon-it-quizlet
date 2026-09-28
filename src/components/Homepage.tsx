@@ -1,8 +1,14 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { subjectMeta } from '../data/subjectMeta';
+import { subjectMeta, subjectsOfTrack, N3_SCOPE } from '../data/subjectMeta';
 import type { SubjectMeta } from '../data/subjectMeta';
 import { useProgress } from '../hooks/useProgress';
+import { useJlptSummary } from '../hooks/useJlptSummary';
+import { pickTodayAction } from '../lib/todayAction';
+import { buildRoadmap } from '../lib/roadmap';
+import type { RoadmapActionKind } from '../lib/roadmap';
+import { RoadmapPanel } from './RoadmapPanel';
 import { InstallButton } from './PWAPrompt';
+import { SyncButton } from './SyncLogin';
 import {
   Code,
   Languages,
@@ -24,36 +30,204 @@ import {
   Upload,
   Trash2,
   Target,
+  FileJson,
+  ClipboardList,
+  ChevronDown,
+  Timer,
+  PartyPopper,
+  RotateCcw,
+  Sprout,
+  CheckCircle2,
+  Timer as TimerIcon,
 } from 'lucide-react';
 
 interface HomepageProps {
   onSelectSubject: (subjectId: string, directFlashcard?: boolean) => void;
-  /** Mở phiên ôn theo lịch SRS cho một môn ("all" = gộp mọi môn). */
-  onStartReview: (subjectId: string) => void;
+  /** Mở phiên ôn theo lịch SRS cho một phạm vi ("n3" = gộp các môn N3, "all" = mọi môn). */
+  onStartReview: (scope: string) => void;
+  /**
+   * Mở phiên CHỈ học thẻ mới. Lối đi riêng, không đi qua hàng đợi SRS: khi số thẻ đến hạn
+   * lớn, phần học mới trong hàng đợi chung thực tế không bao giờ tới lượt.
+   */
+  onStartNewCards: (scope: string) => void;
   onOpenMistakes: () => void;
+  /** Sổ tay lỗi JLPT — cùng màn với sổ tay câu sai, mở sẵn tab đề JLPT. */
+  onOpenJlptMistakes: () => void;
+  onOpenJlptImport: () => void;
+  onOpenJlptExam: (examId: string) => void;
+  /** Ôn câu hỏi JLPT đến hạn (ticket 005) — nhánh "Hôm nay" #3. */
+  onOpenJlptReview: () => void;
 }
 
-const CATEGORIES = ['Tất cả', ...Array.from(new Set(subjectMeta.map(s => s.category)))];
+const N3_SUBJECTS = subjectsOfTrack('n3');
+const OTHER_SUBJECTS = subjectsOfTrack('it');
 
+function matchesQuery(subject: SubjectMeta, query: string): boolean {
+  const q = query.toLowerCase().trim();
+  if (!q) return true;
+  return (
+    subject.title.toLowerCase().includes(q) ||
+    (subject.japaneseTitle?.toLowerCase().includes(q) ?? false) ||
+    subject.description.toLowerCase().includes(q) ||
+    subject.category.toLowerCase().includes(q)
+  );
+}
+
+/**
+ * Trang chủ lấy việc luyện thi N3 làm trục chính: hàng đợi ôn N3 hôm nay, phòng thi JLPT,
+ * rồi mới tới hai môn IT/tiếng Anh (vẫn dùng được đầy đủ, chỉ nằm ở khu phụ bên dưới).
+ */
 export const Homepage: React.FC<HomepageProps> = ({
   onSelectSubject,
   onStartReview,
+  onStartNewCards,
   onOpenMistakes,
+  onOpenJlptMistakes,
+  onOpenJlptImport,
+  onOpenJlptExam,
+  onOpenJlptReview,
 }) => {
-  const { data, statsFor, todayStat, exportData, importData, resetAll } = useProgress();
+  const {
+    data,
+    statsFor,
+    todayStat,
+    newCardsToday,
+    newCardsLeftToday,
+    updateSettings,
+    exportData,
+    importData,
+    resetAll,
+    buildJlptReviewQueue,
+  } = useProgress();
+  const jlpt = useJlptSummary();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+  const [showOthers, setShowOthers] = useState(false);
   const [dataMessage, setDataMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const globalStats = useMemo(() => statsFor('all'), [statsFor]);
-  // Người mới chưa có thẻ nào đến hạn; hiển thị kích thước phiên đầu tiên thay cho số 0.
-  const isNewLearner = globalStats.studied === 0;
-  const firstSessionSize = Math.min(data.settings.dailyNewLimit, globalStats.total);
+  const n3Stats = useMemo(() => statsFor(N3_SCOPE), [statsFor]);
+  const allStats = useMemo(() => statsFor('all'), [statsFor]);
+  // Thẻ đến hạn nằm ngoài nhánh N3: chỉ nhắc khi thực sự có, để trang chủ không kéo sự chú
+  // ý ra khỏi việc luyện thi.
+  const otherDue = allStats.due - n3Stats.due;
+  const isNewLearner = n3Stats.studied === 0;
+  const firstSessionSize = Math.min(data.settings.dailyNewLimit, n3Stats.total);
+
+  /**
+   * Khối "Hôm nay": MỘT hành động duy nhất, không bắt người học so sánh hai lối đi ngang
+   * hàng (ôn N3 / phòng thi JLPT) như trước — xem lib/todayAction.ts để biết thứ tự ưu tiên.
+   */
+  const firstExam = jlpt.exams[0];
+  const jlptReviewDue = useMemo(() => buildJlptReviewQueue().length, [buildJlptReviewQueue]);
+
+  /**
+   * Lộ trình tới ngày thi (ticket 013) — nguồn duy nhất cho cả bảng lộ trình lẫn "chặng hiện
+   * tại" mà khối "Hôm nay" đọc để điều chỉnh gợi ý.
+   */
+  const roadmap = useMemo(
+    () =>
+      buildRoadmap({
+        examDate: data.settings.examDate,
+        n3Total: n3Stats.total,
+        n3Studied: n3Stats.studied,
+        n3Due: n3Stats.due,
+        newCardsToday,
+        dailyNewLimit: data.settings.dailyNewLimit,
+        jlptReviewDue,
+        jlptPendingReview: jlpt.pendingReview?.pendingCount ?? 0,
+        examCount: jlpt.exams.length,
+        submittedThisWeek: jlpt.submittedThisWeek,
+        fullAttemptsThisWeek: jlpt.fullAttemptsThisWeek,
+      }),
+    [
+      data.settings.examDate,
+      data.settings.dailyNewLimit,
+      n3Stats.total,
+      n3Stats.studied,
+      n3Stats.due,
+      newCardsToday,
+      jlptReviewDue,
+      jlpt.pendingReview,
+      jlpt.exams.length,
+      jlpt.submittedThisWeek,
+      jlpt.fullAttemptsThisWeek,
+    ]
+  );
+
+  const todayAction = useMemo(
+    () =>
+      pickTodayAction(
+        { due: n3Stats.due, newCards: n3Stats.newCards, isNewLearner, firstSessionSize },
+        {
+          running: jlpt.running,
+          pendingReview: jlpt.pendingReview,
+          reviewDueCount: jlptReviewDue,
+          mostRecentExam: firstExam ? { examId: firstExam.id, examTitle: firstExam.title } : null,
+        },
+        roadmap.phase
+      ),
+    [
+      n3Stats.due,
+      n3Stats.newCards,
+      isNewLearner,
+      firstSessionSize,
+      jlpt.running,
+      jlpt.pendingReview,
+      jlptReviewDue,
+      firstExam,
+      roadmap.phase,
+    ]
+  );
+
+  const runRoadmapTask = (kind: RoadmapActionKind) => {
+    if (kind === 'n3-due') onStartReview(N3_SCOPE);
+    else if (kind === 'n3-new') onStartNewCards(N3_SCOPE);
+    else if (kind === 'jlpt-review') onOpenJlptReview();
+    else if (kind === 'jlpt-dissect' && jlpt.pendingReview) onOpenJlptExam(jlpt.pendingReview.examId);
+    else if (kind === 'jlpt-exam' && firstExam) onOpenJlptExam(firstExam.id);
+    else onOpenJlptImport();
+  };
+
+  // Việc tồn đọng KHÔNG được chọn làm hành động chính vẫn phải hiện ra — chỉ nhỏ hơn, không
+  // phải một CTA ngang hàng — theo đúng thứ tự ưu tiên, không nhánh nào bị chọn làm chính thì
+  // mới lọt xuống đây được (xem pickTodayAction).
+  const todaySecondary: { label: string; onClick: () => void }[] = [];
+  if (todayAction.kind !== 'jlpt-pending-review' && jlpt.pendingReview) {
+    const pr = jlpt.pendingReview;
+    todaySecondary.push({
+      label: `Còn ${pr.pendingCount} câu sai chưa mổ xẻ: ${pr.examTitle}`,
+      onClick: () => onOpenJlptExam(pr.examId),
+    });
+  }
+  if (todayAction.kind !== 'jlpt-review-due' && jlptReviewDue > 0) {
+    todaySecondary.push({
+      label: `${jlptReviewDue} câu JLPT khác cũng đến hạn ôn`,
+      onClick: onOpenJlptReview,
+    });
+  }
+  if (todayAction.kind !== 'n3-due' && n3Stats.due > 0) {
+    todaySecondary.push({
+      label: `${n3Stats.due} thẻ N3 khác cũng đã đến hạn`,
+      onClick: () => onStartReview(N3_SCOPE),
+    });
+  }
+  // Phần học mới phải hiện KỂ CẢ khi không được chọn làm hành động chính. Trước đây nhánh
+  // "n3-new" chỉ tới lượt khi số thẻ đến hạn bằng 0 — mà thẻ vừa trả lời sai được hẹn lại sau
+  // 10 phút, nên con số đó gần như không bao giờ về 0 và mục học mới biến mất khỏi trang chủ.
+  if (todayAction.kind !== 'n3-new' && roadmap.todayNewTarget > 0 && newCardsLeftToday > 0) {
+    todaySecondary.push({
+      label: `Học ${Math.min(newCardsLeftToday, roadmap.todayNewTarget)} thẻ N3 mới của hôm nay`,
+      onClick: () => onStartNewCards(N3_SCOPE),
+    });
+  }
+
   const perSubjectStats = useMemo(
     () => Object.fromEntries(subjectMeta.map((s) => [s.id, statsFor(s.id)])),
     [statsFor]
   );
+
+  const n3Matches = useMemo(() => N3_SUBJECTS.filter((s) => matchesQuery(s, searchQuery)), [searchQuery]);
+  const otherMatches = useMemo(() => OTHER_SUBJECTS.filter((s) => matchesQuery(s, searchQuery)), [searchQuery]);
 
   const handleExport = () => {
     const blob = new Blob([exportData()], { type: 'application/json' });
@@ -79,24 +253,6 @@ export const Homepage: React.FC<HomepageProps> = ({
     }
   };
 
-  // Filter subjectMeta based on search query and selected category
-  const filteredSubjects = useMemo(() => {
-    return subjectMeta.filter(subject => {
-      const matchesCategory =
-        selectedCategory === 'Tất cả' || subject.category === selectedCategory;
-      
-      const q = searchQuery.toLowerCase().trim();
-      const matchesQuery =
-        !q ||
-        subject.title.toLowerCase().includes(q) ||
-        (subject.japaneseTitle && subject.japaneseTitle.toLowerCase().includes(q)) ||
-        subject.description.toLowerCase().includes(q) ||
-        subject.category.toLowerCase().includes(q);
-
-      return matchesCategory && matchesQuery;
-    });
-  }, [searchQuery, selectedCategory]);
-
   const renderIcon = (iconType: SubjectMeta['icon']) => {
     switch (iconType) {
       case 'code':
@@ -114,37 +270,123 @@ export const Homepage: React.FC<HomepageProps> = ({
     }
   };
 
-  return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-6 space-y-10">
-      {/* Hero Banner Section */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-950 text-white p-8 md:p-12 shadow-2xl border border-indigo-500/20">
-        {/* Decorative Background Glowing Orbs */}
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 w-80 h-80 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
+  const renderSubjectCard = (subject: SubjectMeta) => {
+    const st = perSubjectStats[subject.id];
+    const percent = st && st.total > 0 ? Math.round((st.mature / st.total) * 100) : 0;
 
-        <div className="relative z-10 space-y-6 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-bold tracking-wide backdrop-blur-md">
-            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-            <span>Nền tảng Ôn tập & Hỗ trợ Luyện thi Đa Môn</span>
+    return (
+      <div
+        key={subject.id}
+        onClick={() => subject.isAvailable && onSelectSubject(subject.id, subject.isFlashcardOnly)}
+        className={`group relative bg-white dark:bg-slate-800 rounded-2xl p-6 border transition-all duration-300 flex flex-col justify-between ${
+          subject.isAvailable
+            ? 'border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer'
+            : 'border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/70 opacity-80 cursor-not-allowed'
+        }`}
+      >
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-2">
+            <div
+              className={`p-3 rounded-2xl bg-gradient-to-br ${subject.gradient} text-white shadow-md transition-transform group-hover:scale-105`}
+            >
+              {renderIcon(subject.icon)}
+            </div>
+
+            {subject.badge && (
+              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                {subject.badge}
+              </span>
+            )}
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-transparent">
-            Chọn Môn Học & Bắt Đầu Ôn Tập Tri Thức Ngay
+          <div>
+            <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
+              {subject.title}
+            </h3>
+            {subject.japaneseTitle && (
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5">{subject.japaneseTitle}</p>
+            )}
+          </div>
+
+          <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed line-clamp-3">{subject.description}</p>
+        </div>
+
+        {st && st.studied > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+              <span className="flex items-center gap-1">
+                <Target className="w-3 h-3 text-emerald-500" />
+                Đã thuộc {percent}%
+              </span>
+              {st.due > 0 && <span className="text-indigo-600 dark:text-indigo-400">{st.due} thẻ đến hạn</span>}
+            </div>
+            <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span className="flex items-center gap-1">
+              <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+              {subject.totalLessons} bài
+            </span>
+            <span className="flex items-center gap-1">
+              <Zap className="w-3.5 h-3.5 text-amber-500" />
+              {subject.totalItems} mục
+            </span>
+          </div>
+
+          {subject.isAvailable ? (
+            <button className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 group-hover:translate-x-1 transition-all">
+              <span>Vào học</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              Sắp ra mắt
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full max-w-6xl mx-auto px-4 py-6 space-y-10">
+      {/* Hero: xác định rõ web này để làm gì — luyện thi N3 */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-900 via-slate-900 to-indigo-950 text-white p-8 md:p-12 shadow-2xl border border-emerald-500/20">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-10 w-80 h-80 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-6 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-100 text-xs font-bold tracking-wide backdrop-blur-md">
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            <span>Luyện thi JLPT N3 — từ vựng, Kanji và đề thi thử</span>
+          </div>
+
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight bg-gradient-to-r from-white via-emerald-100 to-indigo-200 bg-clip-text text-transparent">
+            Mỗi ngày một phiên N3, đúng lúc sắp quên
           </h1>
 
           <p className="text-slate-300 text-sm md:text-base leading-relaxed">
-            Kho tài liệu từ vựng chuyên ngành, ngữ pháp, bài giảng lý thuyết và trắc nghiệm thực hành dành riêng cho IT Developers & Ngoại ngữ chuyên sâu.
+            Từ vựng Mimi Kara Oboeru và Kanji Master N3 gộp chung một lịch ôn ngắt quãng, cộng
+            phòng thi JLPT để đo xem mình đang ở đâu trước ngày thi.
           </p>
 
-          {/* Search Box */}
           <div className="relative max-w-xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm môn học, từ khóa (ví dụ: Nihon IT, Mimi N3, Flashcard)..."
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white/15 transition-all text-sm font-medium shadow-inner"
+              placeholder="Tìm giáo trình (Mimi N3, Kanji Master, JIT401...)"
+              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-white/15 transition-all text-sm font-medium shadow-inner"
             />
             {searchQuery && (
               <button
@@ -157,275 +399,487 @@ export const Homepage: React.FC<HomepageProps> = ({
           </div>
         </div>
 
-        {/* Quick Stats Banner */}
         <div className="relative z-10 mt-8 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-white">{subjectMeta.length}</span>
-            <span className="text-xs text-slate-400 font-medium">Môn học chuyên sâu</span>
+            <span className="text-2xl font-black text-emerald-300">{n3Stats.total}</span>
+            <span className="text-xs text-slate-400 font-medium">Thẻ N3 (từ vựng + Kanji)</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-indigo-300">
-              {subjectMeta.reduce((acc, s) => acc + s.totalLessons, 0)}+
-            </span>
-            <span className="text-xs text-slate-400 font-medium">Bài học & Lý thuyết</span>
+            <span className="text-2xl font-black text-white">{n3Stats.mature}</span>
+            <span className="text-xs text-slate-400 font-medium">Thẻ N3 đã thuộc</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-purple-300">
-              {subjectMeta.reduce((acc, s) => acc + s.totalItems, 0)}+
-            </span>
-            <span className="text-xs text-slate-400 font-medium">Từ vựng & Câu hỏi</span>
+            <span className="text-2xl font-black text-indigo-300">{jlpt.exams.length}</span>
+            <span className="text-xs text-slate-400 font-medium">Đề JLPT đã nhập</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-2xl font-black text-emerald-300">100%</span>
-            <span className="text-xs text-slate-400 font-medium">Hỗ trợ Nút Back trình duyệt</span>
+            <span className="text-2xl font-black text-orange-300">{data.streak.current}</span>
+            <span className="text-xs text-slate-400 font-medium">Ngày học liên tiếp</span>
           </div>
         </div>
       </div>
 
-      {/* Bảng điều khiển học tập: hàng đợi ôn hôm nay, chuỗi ngày, câu sai */}
+      {/* Lộ trình tới ngày thi: trả lời "tôi đang ở đâu trong kế hoạch". Đặt TRÊN khối "Hôm
+          nay" vì nó là bối cảnh; khối "Hôm nay" bên dưới vẫn giữ vai trò "một hành động kế
+          tiếp, không phải một bảng kế hoạch". */}
+      <RoadmapPanel
+        roadmap={roadmap}
+        dailyNewLimit={data.settings.dailyNewLimit}
+        onChangeExamDate={(examDate) => updateSettings({ examDate })}
+        onChangeDailyNewLimit={(dailyNewLimit) => updateSettings({ dailyNewLimit })}
+        onRunTask={runRoadmapTask}
+      />
+
+      {/* Khối "Hôm nay": một CTA duy nhất, đứng trên cùng, không bắt người học so sánh hai
+          lối đi ngang hàng bên dưới (ôn N3 / phòng thi JLPT) — xem lib/todayAction.ts. */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 text-white p-6 md:p-8 shadow-xl">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-6">
+          <div className="w-14 h-14 shrink-0 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
+            {todayAction.kind === 'jlpt-running' && <Timer className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-pending-review' && <AlertTriangle className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-review-due' && <RotateCcw className="w-7 h-7" />}
+            {todayAction.kind === 'n3-due' && <CalendarCheck className="w-7 h-7" />}
+            {todayAction.kind === 'n3-new' && <Sparkles className="w-7 h-7" />}
+            {todayAction.kind === 'jlpt-taste' && <Zap className="w-7 h-7" />}
+            {todayAction.kind === 'all-done' && <PartyPopper className="w-7 h-7" />}
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[11px] font-extrabold uppercase tracking-widest text-indigo-200 mb-1">Hôm nay</p>
+            <h2 className="text-xl md:text-2xl font-extrabold leading-snug">
+              {todayAction.kind === 'jlpt-running' && `Đang làm dở: ${todayAction.examTitle}`}
+              {todayAction.kind === 'jlpt-pending-review' &&
+                `Còn ${todayAction.pendingCount} câu sai chưa mổ xẻ`}
+              {todayAction.kind === 'jlpt-review-due' && `${todayAction.count} câu JLPT đến hạn ôn`}
+              {todayAction.kind === 'n3-due' && `${todayAction.count} thẻ N3 đến hạn ôn`}
+              {todayAction.kind === 'n3-new' &&
+                (todayAction.isNewLearner ? 'Bắt đầu lộ trình N3' : `Học thêm ${todayAction.count} thẻ N3 mới`)}
+              {todayAction.kind === 'jlpt-taste' &&
+                (todayAction.sessionHint === 'full'
+                  ? `Đến lúc làm trọn đề: ${todayAction.examTitle}`
+                  : `Thử nhấm nháp: ${todayAction.examTitle}`)}
+              {todayAction.kind === 'all-done' && 'Bạn đã ôn hết mọi thứ hôm nay!'}
+            </h2>
+            <p className="text-sm text-indigo-100 font-medium mt-1.5 max-w-xl leading-relaxed">
+              {todayAction.kind === 'jlpt-running' &&
+                'Bài đang chờ giữa chừng — ngữ cảnh còn nguyên trong đầu, làm nốt trước khi phải đọc lại đề từ đầu.'}
+              {todayAction.kind === 'jlpt-pending-review' &&
+                `Mổ xẻ "${todayAction.examTitle}" — đây là bước tạo ra học tập thật, "để sau" rất dễ thành "không bao giờ".`}
+              {todayAction.kind === 'jlpt-review-due' &&
+                'Những câu ngữ pháp/đọc hiểu/nghe bạn từng làm nay đã tới lúc ôn lại, đúng lúc sắp quên.'}
+              {todayAction.kind === 'n3-due' &&
+                'Đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.'}
+              {todayAction.kind === 'n3-new' &&
+                (todayAction.isNewLearner
+                  ? 'Từ vựng và Kanji N3 nằm chung một hàng đợi ôn ngắt quãng.'
+                  : 'Không còn thẻ nào đến hạn — học thêm thẻ mới trong lúc chờ.')}
+              {todayAction.kind === 'jlpt-taste' &&
+                (todayAction.sessionHint === 'full'
+                  ? 'Giai đoạn này cần luyện sức bền và phân bổ thời gian, không phải vài câu lẻ — chọn cỡ phiên "Trọn đề" ở phòng chờ.'
+                  : 'Thẻ N3 đã ôn hết hôm nay. Làm thử vài câu (khoảng 5 phút) để đổi món.')}
+              {todayAction.kind === 'all-done' &&
+                'Không còn thẻ N3 nào đến hạn và chưa có đề JLPT nào trong kho. Nghỉ ngơi, hoặc nhập đề đầu tiên.'}
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              if (todayAction.kind === 'jlpt-running') onOpenJlptExam(todayAction.examId);
+              else if (todayAction.kind === 'jlpt-pending-review') onOpenJlptExam(todayAction.examId);
+              else if (todayAction.kind === 'jlpt-review-due') onOpenJlptReview();
+              else if (todayAction.kind === 'n3-due') onStartReview(N3_SCOPE);
+              else if (todayAction.kind === 'n3-new') onStartReview(N3_SCOPE);
+              else if (todayAction.kind === 'jlpt-taste') onOpenJlptExam(todayAction.examId);
+              else onOpenJlptImport();
+            }}
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-indigo-700 text-sm font-extrabold shadow-lg hover:bg-indigo-50 active:scale-95 transition-all cursor-pointer"
+          >
+            <Play size={16} fill="currentColor" />
+            {todayAction.kind === 'jlpt-running' && 'Tiếp tục làm bài'}
+            {todayAction.kind === 'jlpt-pending-review' && 'Mổ xẻ ngay'}
+            {todayAction.kind === 'jlpt-review-due' && 'Ôn ngay'}
+            {todayAction.kind === 'n3-due' && 'Ôn N3 ngay'}
+            {todayAction.kind === 'n3-new' && (todayAction.isNewLearner ? 'Bắt đầu' : 'Học thẻ mới')}
+            {todayAction.kind === 'jlpt-taste' && (todayAction.sessionHint === 'full' ? 'Vào phòng thi' : 'Làm thử')}
+            {todayAction.kind === 'all-done' && 'Nhập đề JLPT'}
+          </button>
+        </div>
+
+        {/* Việc tồn đọng khác — chỉ để biết, không phải một lựa chọn ngang hàng với CTA ở trên. */}
+        {todaySecondary.length > 0 && (
+          <div className="relative z-10 mt-5 pt-4 border-t border-white/15 flex flex-wrap gap-2">
+            {todaySecondary.map((item, i) => (
+              <button
+                key={i}
+                onClick={item.onClick}
+                className="text-xs font-bold text-indigo-100 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full border border-white/15 transition-all cursor-pointer"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bảng điều khiển: hàng đợi ôn N3 hôm nay */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Thẻ CTA ôn theo lịch */}
-        <div className="lg:col-span-2 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
+        <div className="lg:col-span-2 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
           <div className="relative shrink-0">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex flex-col items-center justify-center text-white shadow-lg shadow-indigo-100">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex flex-col items-center justify-center text-white shadow-lg shadow-emerald-100 dark:shadow-none">
               <span className="text-3xl font-black leading-none">
-                {isNewLearner ? firstSessionSize : globalStats.due}
+                {isNewLearner ? firstSessionSize : n3Stats.due}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">thẻ</span>
             </div>
           </div>
 
           <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2 justify-center sm:justify-start">
-              <CalendarCheck className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2 justify-center sm:justify-start">
+              <CalendarCheck className="w-5 h-5 text-emerald-600" />
               {isNewLearner
-                ? 'Bắt đầu học ngay'
-                : globalStats.due > 0
-                ? 'Đến hạn ôn hôm nay'
-                : 'Bạn đã ôn hết hôm nay'}
+                ? 'Bắt đầu lộ trình N3'
+                : n3Stats.due > 0
+                ? 'N3 đến hạn ôn hôm nay'
+                : 'Hôm nay bạn đã ôn hết N3'}
             </h2>
-            <p className="text-xs text-slate-500 font-semibold mt-1 leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-relaxed">
               {isNewLearner
-                ? `Mỗi thẻ bạn học sẽ được lên lịch nhắc lại đúng lúc sắp quên. Phiên đầu tiên gồm ${firstSessionSize} thẻ.`
-                : globalStats.due > 0
-                ? `${globalStats.due} thẻ đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.`
-                : globalStats.newCards > 0
-                ? `Không còn thẻ đến hạn. Bạn có thể học thêm ${globalStats.newCards} thẻ mới.`
-                : 'Tuyệt vời! Hôm nay bạn không còn gì phải ôn.'}
+                ? `Từ vựng và Kanji N3 nằm chung một hàng đợi. Phiên đầu tiên gồm ${firstSessionSize} thẻ.`
+                : n3Stats.due > 0
+                ? `${n3Stats.due} thẻ N3 đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.`
+                : n3Stats.newCards > 0
+                ? `Không còn thẻ N3 đến hạn. Bạn có thể học thêm ${n3Stats.newCards} thẻ mới.`
+                : 'Tuyệt vời! Toàn bộ thẻ N3 đều đã thuộc và chưa tới hạn ôn.'}
+              {n3Stats.newCards > 0 && (
+                <>
+                  {' '}Hôm nay đã học <strong className="text-violet-600 dark:text-violet-400">{newCardsToday}</strong>/{data.settings.dailyNewLimit} thẻ mới;
+                  còn {n3Stats.newCards} thẻ chưa từng nhìn thấy.
+                </>
+              )}
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2 justify-center sm:justify-start">
               <button
-                onClick={() => onStartReview('all')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+                onClick={() => onStartReview(N3_SCOPE)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-100 dark:shadow-none hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer"
               >
                 <Play size={15} fill="currentColor" />
-                {globalStats.due > 0 ? 'Ôn ngay' : 'Học thẻ mới'}
+                {n3Stats.due > 0 ? 'Ôn N3 ngay' : 'Ôn theo lịch'}
               </button>
-              {globalStats.wrong > 0 && (
+              {/* Nút riêng cho phần học mới. Gộp chung với "Ôn N3 ngay" như trước là sai:
+                  một nút mà lúc thì ôn, lúc thì học mới, tuỳ vào một con số người dùng không
+                  nhìn thấy — và trong thực tế nó gần như luôn rơi vào nhánh "ôn". */}
+              <button
+                onClick={() => onStartNewCards(N3_SCOPE)}
+                disabled={newCardsLeftToday === 0 || n3Stats.newCards === 0}
+                title={
+                  n3Stats.newCards === 0
+                    ? 'Đã học qua toàn bộ thẻ N3'
+                    : newCardsLeftToday === 0
+                    ? `Đã đủ ${data.settings.dailyNewLimit} thẻ mới hôm nay`
+                    : undefined
+                }
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-sm font-bold hover:bg-violet-100 dark:hover:bg-violet-900/40 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sprout size={15} />
+                Học từ mới ({newCardsToday}/{data.settings.dailyNewLimit} hôm nay)
+              </button>
+              {n3Stats.wrong > 0 && (
                 <button
                   onClick={onOpenMistakes}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-bold hover:bg-rose-100 active:scale-95 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all cursor-pointer"
                 >
                   <AlertTriangle size={15} />
-                  Sổ tay câu sai ({globalStats.wrong})
+                  Sổ tay câu sai ({n3Stats.wrong})
+                </button>
+              )}
+              {otherDue > 0 && (
+                <button
+                  onClick={() => onStartReview('all')}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer"
+                >
+                  Ôn gộp cả môn khác (+{otherDue})
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Thẻ chỉ số */}
-        <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm grid grid-cols-2 gap-4">
+        <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm grid grid-cols-2 gap-4">
           <div>
-            <p className="text-2xl font-black text-orange-600 flex items-center gap-1.5">
+            <p className="text-2xl font-black text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
               <Flame size={20} className="fill-orange-400 text-orange-500" />
               {data.streak.current}
             </p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Ngày học liên tiếp</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Ngày học liên tiếp</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-indigo-600">{todayStat.reviews}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Lượt ôn hôm nay</p>
+            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{todayStat.reviews}</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Lượt ôn hôm nay</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-emerald-600">{globalStats.mature}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">Thẻ đã thuộc</p>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{n3Stats.mature}</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">Thẻ N3 đã thuộc</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-slate-700">{globalStats.studied}</p>
-            <p className="text-[11px] font-bold text-slate-500 mt-0.5">
-              / {globalStats.total} đã học qua
-            </p>
+            <p className="text-2xl font-black text-slate-700 dark:text-slate-200">{n3Stats.studied}</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">/ {n3Stats.total} thẻ N3 đã học</p>
           </div>
         </div>
       </div>
 
-      {/* Category Filter Tabs */}
+      {/* Phòng thi JLPT — lối vào chính thứ hai, ngang hàng với việc ôn thẻ */}
+      <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 md:p-8 shadow-sm space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <ClipboardList className="w-6 h-6 text-indigo-600" />
+              Phòng thi JLPT
+            </h2>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
+              Làm đề theo cỡ phiên nhỏ (một 問題) hay trọn đề có tính giờ, rồi mổ xẻ từng câu sai và
+              đẩy thẳng vào lịch ôn. Đề nhập một lần dùng chung cho cả nhóm; điểm và lịch sử làm bài
+              là của riêng bạn.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {/* Đường quay lại chỗ người học đã bỏ công viết quy tắc cho từng câu sai — không
+                có lối vào này thì bước 4 của quy trình mổ xẻ chỉ là gõ chữ rồi vứt đi. */}
+            {jlpt.mistakeCount > 0 && (
+              <button
+                onClick={onOpenJlptMistakes}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Sổ tay lỗi JLPT ({jlpt.mistakeCount})
+              </button>
+            )}
+            <button
+              onClick={onOpenJlptImport}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-extrabold shadow-md shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer"
+            >
+              <FileJson className="w-4 h-4" />
+              {jlpt.exams.length > 0 ? 'Quản lý & nhập đề' : 'Nhập đề JLPT đầu tiên'}
+            </button>
+          </div>
+        </div>
+
+        {jlpt.running && (
+          <button
+            onClick={() => onOpenJlptExam(jlpt.running!.examId)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-left hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-300">
+              <Timer className="w-4 h-4" />
+              Đang làm dở: {jlpt.running.examTitle}
+            </span>
+            <span className="text-xs font-extrabold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+              Tiếp tục <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {/* Nộp bài xong mà chưa mổ xẻ hết câu sai là việc dở dang quan trọng nhất: mổ xẻ mới
+            là chỗ tạo ra học tập thật, còn điểm số chỉ là dữ liệu chẩn đoán. Không nhắc ở đây
+            thì "để sau" sẽ thành "không bao giờ". */}
+        {jlpt.pendingReview && (
+          <button
+            onClick={() => onOpenJlptExam(jlpt.pendingReview!.examId)}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-left hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-indigo-900 dark:text-indigo-300">
+              <AlertTriangle className="w-4 h-4" />
+              Còn {jlpt.pendingReview.pendingCount} câu sai chưa mổ xẻ: {jlpt.pendingReview.examTitle}
+            </span>
+            <span className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+              Mổ xẻ <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </button>
+        )}
+
+        {jlpt.last && (
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Lần thi gần nhất: <span className="text-slate-800 dark:text-slate-100 font-bold">{jlpt.last.examTitle}</span>
+            {jlpt.last.percent !== null && (
+              <>
+                {' '}
+                — <span className="text-emerald-600 dark:text-emerald-400 font-black">{jlpt.last.percent}%</span>
+              </>
+            )}
+            {jlpt.last.at > 0 && ` (${new Date(jlpt.last.at).toLocaleDateString('vi-VN')})`}
+            {jlpt.submittedCount > 1 && ` · đã làm ${jlpt.submittedCount} lượt`}
+          </p>
+        )}
+
+        {jlpt.loading ? (
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">Đang đọc kho đề trên máy...</p>
+        ) : jlpt.exams.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-5 text-center space-y-1">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Chưa có đề nào trên máy này</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Đề JLPT được nhập từ file JSON (có sẵn prompt để nhờ AI soạn đề trong màn hình nhập
+              đề). Đăng nhập thì đề tự đồng bộ sang máy khác.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Danh sách đề được sắp theo TÌNH TRẠNG CỦA NGƯỜI HỌC (đang làm dở → còn câu chưa
+                mổ xẻ → chưa làm → đã xong), không theo lúc đề được nhập vào máy như trước —
+                xem EXAM_STATE_ORDER trong useJlptSummary.ts. Mỗi thẻ nói rõ đề đó đang ở đâu,
+                nên không còn phải mở từng đề ra mới biết mình làm tới đâu. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {jlpt.exams.slice(0, 6).map((exam) => {
+                const badge =
+                  exam.state === 'running'
+                    ? { text: 'Đang làm dở', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300', icon: <TimerIcon className="w-3 h-3" /> }
+                    : exam.state === 'pending-review'
+                    ? { text: `${exam.pendingCount} câu chưa mổ xẻ`, cls: 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300', icon: <AlertTriangle className="w-3 h-3" /> }
+                    : exam.state === 'fresh'
+                    ? { text: 'Chưa làm', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300', icon: null }
+                    : { text: 'Đã mổ xẻ xong', cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300', icon: <CheckCircle2 className="w-3 h-3" /> };
+
+                return (
+                  <button
+                    key={exam.id}
+                    onClick={() => onOpenJlptExam(exam.id)}
+                    className={`text-left p-4 rounded-2xl border hover:shadow-md transition-all cursor-pointer bg-white dark:bg-slate-900 group flex flex-col ${
+                      exam.state === 'running' || exam.state === 'pending-review'
+                        ? 'border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-100 dark:ring-indigo-900'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                        {exam.level}
+                      </span>
+                      {!exam.reviewed && (
+                        <span
+                          className="text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                          title="Đề chưa được người kiểm lại — kết quả chỉ để tham khảo"
+                        >
+                          chưa kiểm
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-2 line-clamp-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+                      {exam.title}
+                    </p>
+
+                    <span className={`mt-2 inline-flex w-fit items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${badge.cls}`}>
+                      {badge.icon}
+                      {badge.text}
+                    </span>
+
+                    {/* "Đang làm đến phần nào" — thanh tiến độ của lượt dở, và tên khối tính
+                        giờ (blockLabel chốt sẵn trên attempt, không phải nạp lại nội dung đề). */}
+                    {exam.progress && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                          <span>{exam.lastScopeLabel ?? 'Phiên đang dở'}</span>
+                          <span className="font-mono">
+                            {exam.progress.answered}/{exam.progress.total} câu
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-500 rounded-full"
+                            style={{ width: `${exam.progress.total > 0 ? (exam.progress.answered / exam.progress.total) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {!exam.progress && exam.attemptCount > 0 && (
+                      <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                        Đã làm {exam.attemptCount} lượt
+                        {exam.lastPercent !== null && (
+                          <>
+                            {' · '}
+                            <span className="font-black text-emerald-600 dark:text-emerald-400">{exam.lastPercent}%</span>
+                          </>
+                        )}
+                        {exam.lastScopeLabel && ` · ${exam.lastScopeLabel}`}
+                      </p>
+                    )}
+
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+                      {exam.state === 'running'
+                        ? 'Làm tiếp'
+                        : exam.state === 'pending-review'
+                        ? 'Mổ xẻ'
+                        : exam.state === 'fresh'
+                        ? 'Vào làm'
+                        : 'Làm lại'}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {jlpt.exams.length > 6 && (
+              <button
+                onClick={onOpenJlptImport}
+                className="w-full mt-1 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Xem tất cả {jlpt.exams.length} đề →
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Giáo trình N3 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-indigo-600" />
-            <span>Danh Sách Môn Học</span>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <GraduationCap className="w-6 h-6 text-emerald-600" />
+            <span>Giáo trình N3</span>
           </h2>
-          <span className="text-xs font-semibold text-slate-500">
-            Hiển thị {filteredSubjects.length} môn học
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {n3Stats.studied}/{n3Stats.total} thẻ đã học qua
           </span>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {CATEGORIES.map(category => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === category
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        {n3Matches.length === 0 ? (
+          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center">
+            Không có giáo trình N3 nào khớp từ khoá "{searchQuery}".
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{n3Matches.map(renderSubjectCard)}</div>
+        )}
       </div>
 
-      {/* Subjects Grid */}
-      {filteredSubjects.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 space-y-3">
-          <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 mx-auto flex items-center justify-center">
-            <Search className="w-6 h-6" />
-          </div>
-          <p className="text-slate-700 font-bold">Không tìm thấy môn học phù hợp</p>
-          <p className="text-slate-400 text-xs">Thử tìm kiếm từ khóa khác hoặc chuyển danh mục filtering.</p>
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedCategory('Tất cả');
-            }}
-            className="mt-2 text-xs font-bold text-indigo-600 hover:underline"
-          >
-            Đặt lại bộ lọc
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSubjects.map((subject) => (
-            <div
-              key={subject.id}
-              onClick={() =>
-                subject.isAvailable &&
-                onSelectSubject(subject.id, subject.isFlashcardOnly)
-              }
-              className={`group relative bg-white rounded-2xl p-6 border transition-all duration-300 flex flex-col justify-between ${
-                subject.isAvailable
-                  ? 'border-slate-200/80 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer'
-                  : 'border-slate-200 bg-slate-50/70 opacity-80 cursor-not-allowed'
-              }`}
-            >
-              <div className="space-y-4">
-                {/* Header Icon & Badges */}
-                <div className="flex items-start justify-between gap-2">
-                  <div
-                    className={`p-3 rounded-2xl bg-gradient-to-br ${subject.gradient} text-white shadow-md transition-transform group-hover:scale-105`}
-                  >
-                    {renderIcon(subject.icon)}
-                  </div>
+      {/* Môn khác: vẫn dùng được đầy đủ, nhưng gấp lại để không lấn phần luyện thi */}
+      <div className="space-y-4">
+        <button
+          onClick={() => setShowOthers((v) => !v)}
+          className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-2 text-sm font-extrabold text-slate-700 dark:text-slate-200">
+            <BookOpen className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+            Môn khác: tiếng Nhật IT & tiếng Anh IT ({OTHER_SUBJECTS.length})
+          </span>
+          <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+            {showOthers ? 'Thu gọn' : 'Xem'}
+            <ChevronDown className={`w-4 h-4 transition-transform ${showOthers ? 'rotate-180' : ''}`} />
+          </span>
+        </button>
 
-                  <div className="flex items-center gap-1.5">
-                    {subject.badge && (
-                      <span
-                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                          subject.badge === 'Phổ biến'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : subject.badge === 'Hot'
-                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : subject.badge === 'Mới'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : 'bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        {subject.badge}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Subject Title & Japanese Title */}
-                <div>
-                  <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                    {subject.title}
-                  </h3>
-                  {subject.japaneseTitle && (
-                    <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                      {subject.japaneseTitle}
-                    </p>
-                  )}
-                </div>
-
-                {/* Description */}
-                <p className="text-slate-600 text-xs leading-relaxed line-clamp-3">
-                  {subject.description}
-                </p>
-              </div>
-
-              {/* Tiến độ học của môn này */}
-              {(() => {
-                const st = perSubjectStats[subject.id];
-                if (!st || st.studied === 0) return null;
-                const percent = Math.round((st.mature / st.total) * 100);
-                return (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-                      <span className="flex items-center gap-1">
-                        <Target className="w-3 h-3 text-emerald-500" />
-                        Đã thuộc {percent}%
-                      </span>
-                      {st.due > 0 && (
-                        <span className="text-indigo-600">{st.due} thẻ đến hạn</span>
-                      )}
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Card Footer: Metadata & Action CTA */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
-                  <span className="flex items-center gap-1">
-                    <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
-                    {subject.totalLessons} bài
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    {subject.totalItems} mục
-                  </span>
-                </div>
-
-                {subject.isAvailable ? (
-                  <button className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 group-hover:text-indigo-700 group-hover:translate-x-1 transition-all">
-                    <span>Vào học</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    Sắp ra mắt
-                  </span>
-                )}
-              </div>
-            </div>
+        {showOthers &&
+          (otherMatches.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center">
+              Không có môn nào khớp từ khoá "{searchQuery}".
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{otherMatches.map(renderSubjectCard)}</div>
           ))}
-        </div>
-      )}
+      </div>
 
-      {/* Quản lý dữ liệu tiến độ (không cần tài khoản) */}
+      {/* Quản lý dữ liệu tiến độ */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-800 shadow-lg">
         <div className="space-y-2 text-center md:text-left">
           <h3 className="text-lg font-extrabold text-white flex items-center justify-center md:justify-start gap-2">
@@ -433,16 +887,17 @@ export const Homepage: React.FC<HomepageProps> = ({
             <span>Tiến độ của bạn nằm trên chính máy này</span>
           </h3>
           <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
-            Không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay trong trình
-            duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn học tiếp trên máy khác thì xuất
-            ra file JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
+            Mặc định không cần đăng nhập: lịch ôn, chuỗi ngày học và sổ tay câu sai được lưu ngay
+            trong trình duyệt. Cài về máy để ôn bài cả khi không có mạng. Muốn tự động đồng bộ giữa
+            nhiều máy (ví dụ máy nhà và máy cơ quan), hoặc học chung web với người khác mà tiến độ
+            ai người nấy giữ, thì đăng nhập bằng tài khoản riêng của bạn; không thì cứ xuất ra file
+            JSON rồi nạp lại — bạn tự giữ dữ liệu của mình.
           </p>
-          {dataMessage && (
-            <p className="text-emerald-300 text-xs font-bold pt-1">{dataMessage}</p>
-          )}
+          {dataMessage && <p className="text-emerald-300 text-xs font-bold pt-1">{dataMessage}</p>}
         </div>
 
         <div className="flex flex-wrap gap-2 justify-center shrink-0">
+          <SyncButton />
           <InstallButton />
           <button
             onClick={handleExport}

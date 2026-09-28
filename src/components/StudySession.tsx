@@ -87,7 +87,9 @@ export const StudySession: React.FC<StudySessionProps> = ({
     recordReview,
     getCard,
     buildReviewQueue,
+    buildNewQueue,
     buildMistakeQueue,
+    newCardsToday,
     saveSession,
     clearSession,
     updateSettings,
@@ -123,6 +125,10 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
     if (mode === 'mistakes') {
       return questionsFromKeys(buildMistakeQueue(subjectId));
+    }
+
+    if (mode === 'new') {
+      return questionsFromKeys(buildNewQueue(subjectId));
     }
 
     const aggregated: SessionQuestion[] = [];
@@ -204,6 +210,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
     qTypeFilter,
     selectedSectionIds,
     buildReviewQueue,
+    buildNewQueue,
     buildMistakeQueue,
   ]);
 
@@ -223,7 +230,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
   const autoPlay = data.settings.ttsAutoplay;
   const lang = subjectLang(subjectId === 'all' ? 'nihon-it' : subjectId);
 
-  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signatureRef = useRef<string | null>(null);
 
   // Dựng lại phiên khi người dùng đổi lựa chọn (không phải mỗi lần tiến độ thay đổi).
@@ -243,12 +249,6 @@ export const StudySession: React.FC<StudySessionProps> = ({
     // Chỉ mời khôi phục khi phiên cũ đúng lựa chọn này và đang dở giữa chừng.
     setResumable(saved && saved.signature === signature && saved.index > 0 ? saved : null);
   }, [signature, buildQuestions, data.session]);
-
-  useEffect(() => {
-    return () => {
-      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-    };
-  }, []);
 
   // Ghi lại tiến độ phiên sau mỗi câu để đóng tab giữa chừng vẫn quay lại được.
   useEffect(() => {
@@ -319,19 +319,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
       setWrongAnswers((prev) => [...prev, currentQ]);
     }
 
-    if (currentQ.sectionType === 'vocabulary') {
-      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-      // Chế độ gõ hiện cả đáp án lẫn chữ người học vừa nhập, cần thêm thời gian để đọc.
-      const delay = practiceMode === 'type-reading' ? 2000 : 900;
-      autoNextTimeoutRef.current = setTimeout(() => handleNext(), delay);
-    }
+    // KHÔNG tự chuyển sang thẻ kế tiếp. Trước đây thẻ từ vựng tự nhảy sau 0,9s (2s ở chế độ
+    // gõ cách đọc) — nhưng mặt sau của thẻ mới là chỗ đáng đọc nhất (cách đọc đúng, nghĩa,
+    // giải thích, câu ví dụ, và ở chế độ gõ là cả chữ mình vừa gõ sai). Một đồng hồ đếm
+    // ngược vô hình luôn hoặc quá nhanh với người đọc kỹ, hoặc quá chậm với người đã xong;
+    // để người học tự bấm là cách duy nhất đúng cho cả hai.
   };
 
   const handleNext = () => {
-    if (autoNextTimeoutRef.current) {
-      clearTimeout(autoNextTimeoutRef.current);
-      autoNextTimeoutRef.current = null;
-    }
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsAnswered(false);
@@ -341,15 +336,18 @@ export const StudySession: React.FC<StudySessionProps> = ({
     }
   };
 
-  // Sau khi đã chấm câu trắc nghiệm, Enter hoặc mũi tên phải để đi tiếp.
+  // Sau khi đã chấm (cả trắc nghiệm lẫn thẻ từ vựng), Enter / mũi tên phải / Space để đi tiếp.
+  //
+  // Không sợ đụng phím tắt của VocabularyCard: mọi phím tắt bên đó đều bọc trong `if
+  // (!isGraded)`, và listener này chỉ tồn tại KHI ĐÃ chấm. Chính lần bấm "→" để tự chấm cũng
+  // không kích hoạt nhầm — lúc phím đó được nhấn, `isAnswered` còn false nên listener này
+  // chưa được gắn.
   useEffect(() => {
     if (!isAnswered) return;
-    const q = questions[currentIndex];
-    if (!q || q.sectionType === 'vocabulary') return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'Enter' || e.key === 'ArrowRight') {
+      if (e.key === 'Enter' || e.key === 'ArrowRight' || e.code === 'Space') {
         e.preventDefault();
         handleNext();
       }
@@ -385,13 +383,19 @@ export const StudySession: React.FC<StudySessionProps> = ({
         ? 'Bạn không còn thẻ nào đến hạn ôn. Quay lại sau nhé!'
         : mode === 'mistakes'
         ? 'Sổ tay câu sai đang trống — bạn chưa sai câu nào.'
+        : mode === 'new'
+        ? `Hôm nay bạn đã học ${newCardsToday} thẻ mới — hết hạn mức ${data.settings.dailyNewLimit} thẻ/ngày. Hạ hoặc nâng hạn mức trong phần cài đặt của phiên ôn.`
         : 'Các phần học được chọn hiện tại không chứa dữ liệu câu hỏi.';
     return (
       <div className="w-full max-w-md mx-auto text-center py-16 px-4">
-        <h3 className="text-xl font-bold text-slate-800 mb-2">
-          {mode === 'srs' ? 'Đã ôn hết hôm nay!' : 'Không tìm thấy câu hỏi'}
+        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
+          {mode === 'srs'
+            ? 'Đã ôn hết hôm nay!'
+            : mode === 'new'
+            ? 'Đã đủ thẻ mới cho hôm nay'
+            : 'Không tìm thấy câu hỏi'}
         </h3>
-        <p className="text-slate-500 mb-6">{emptyMessage}</p>
+        <p className="text-slate-500 dark:text-slate-400 mb-6">{emptyMessage}</p>
         <button
           onClick={onBackToSelector}
           className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-md cursor-pointer"
@@ -422,9 +426,11 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
   const modeBadge =
     mode === 'srs'
-      ? { label: 'Ôn theo lịch', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+      ? { label: 'Ôn theo lịch', className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' }
       : mode === 'mistakes'
-      ? { label: 'Sổ tay câu sai', className: 'bg-rose-50 text-rose-700 border-rose-200' }
+      ? { label: 'Sổ tay câu sai', className: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800' }
+      : mode === 'new'
+      ? { label: `Học mới · ${newCardsToday}/${data.settings.dailyNewLimit} hôm nay`, className: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800' }
       : null;
 
   return (
@@ -433,7 +439,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
       <div className="glass-panel sticky top-4 z-40 rounded-2xl p-4 mb-8 flex items-center justify-between shadow-md">
         <button
           onClick={onBackToSelector}
-          className="flex items-center gap-2 py-2 px-3 text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg active:scale-95 transition-all cursor-pointer"
+          className="flex items-center gap-2 py-2 px-3 text-sm font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg active:scale-95 transition-all cursor-pointer"
         >
           <ArrowLeft size={16} />
           <span className="hidden sm:inline">Quay lại</span>
@@ -441,7 +447,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
         {/* Progress Display */}
         <div className="flex-1 max-w-md mx-4">
-          <div className="flex justify-between items-center text-xs font-bold text-slate-500 mb-1">
+          <div className="flex justify-between items-center text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
             <span className="flex items-center gap-1.5">
               Tiến độ
               {modeBadge && (
@@ -454,7 +460,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
               Câu {currentIndex + 1} / {questions.length} ({progressPercent}%)
             </span>
           </div>
-          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
@@ -467,14 +473,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
           <button
             onClick={() => setShowSettingsModal(true)}
             className={`p-2 text-xs font-bold rounded-xl border transition-all cursor-pointer shadow-sm flex items-center gap-1 ${practiceMode === 'write-kanji'
-              ? 'bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-200/60'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
+              ? 'bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-200/60 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700 dark:ring-amber-800/40'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-700'
               }`}
             title="Cài đặt chế độ thẻ"
           >
             <Settings size={15} />
             {practiceMode === 'write-kanji' && (
-              <span className="text-[10px] font-black uppercase text-amber-900 hidden md:inline">
+              <span className="text-[10px] font-black uppercase text-amber-900 dark:text-amber-200 hidden md:inline">
                 Tập viết Kanji
               </span>
             )}
@@ -482,18 +488,18 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
           <button
             onClick={handleShuffleInSession}
-            className="flex items-center gap-1.5 py-1.5 px-3 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 py-1.5 px-3 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-xl active:scale-95 transition-all cursor-pointer shadow-sm"
             title="Trộn ngẫu nhiên câu hỏi trong phần học"
           >
             <Shuffle size={14} className="text-indigo-600" />
             <span className="hidden sm:inline">Trộn câu hỏi</span>
           </button>
 
-          <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 py-1 px-2.5 rounded-lg border border-emerald-100 text-xs font-bold">
+          <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 py-1 px-2.5 rounded-lg border border-emerald-100 dark:border-emerald-800 text-xs font-bold">
             <Check size={14} className="stroke-[3px]" />
             {correctCount}
           </span>
-          <span className="flex items-center gap-1 bg-rose-50 text-rose-700 py-1 px-2.5 rounded-lg border border-rose-100 text-xs font-bold">
+          <span className="flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 py-1 px-2.5 rounded-lg border border-rose-100 dark:border-rose-800 text-xs font-bold">
             <X size={14} className="stroke-[3px]" />
             {incorrectCount}
           </span>
@@ -502,14 +508,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
       {/* Lời mời khôi phục phiên học dở */}
       {resumable && (
-        <div className="mb-6 p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex flex-col sm:flex-row sm:items-center gap-3 justify-between animate-fadeIn">
+        <div className="mb-6 p-4 rounded-2xl bg-indigo-50 border border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800 flex flex-col sm:flex-row sm:items-center gap-3 justify-between animate-fadeIn">
           <div className="flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-white text-indigo-600 border border-indigo-100">
+            <span className="p-2 rounded-xl bg-white text-indigo-600 border border-indigo-100 dark:bg-slate-900 dark:border-indigo-800">
               <History size={18} />
             </span>
             <div>
-              <p className="text-sm font-extrabold text-indigo-900">Bạn có một phiên học đang dở</p>
-              <p className="text-xs font-semibold text-indigo-700/80">
+              <p className="text-sm font-extrabold text-indigo-900 dark:text-indigo-200">Bạn có một phiên học đang dở</p>
+              <p className="text-xs font-semibold text-indigo-700/80 dark:text-indigo-300/80">
                 Dừng ở câu {resumable.index + 1}/{resumable.keys.length} · đúng {resumable.correct}, sai {resumable.incorrect}
               </p>
             </div>
@@ -517,7 +523,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
           <div className="flex gap-2 shrink-0">
             <button
               onClick={handleDismissResume}
-              className="px-4 py-2 rounded-xl bg-white text-slate-600 border border-slate-200 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-white text-slate-600 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               Học lại từ đầu
             </button>
@@ -567,23 +573,26 @@ export const StudySession: React.FC<StudySessionProps> = ({
       {/* Lịch ôn tiếp theo do SRS tính ra */}
       {isAnswered && currentCard && (
         <div className="flex justify-center -mt-2 mb-2 animate-fadeIn">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-600">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300">
             <CalendarClock size={13} className="text-indigo-500" />
             {formatInterval(currentCard)}
           </span>
         </div>
       )}
 
-      {/* Lower Navigation Footer */}
-      {isAnswered && currentQuestion.sectionType !== 'vocabulary' && (
-        <div className="mt-6 flex justify-center animate-bounce">
+      {/* Lower Navigation Footer — hiện cho cả thẻ từ vựng: không còn tự nhảy thẻ nữa. */}
+      {isAnswered && (
+        <div className="mt-6 flex flex-col items-center gap-2">
           <button
             onClick={handleNext}
-            className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-extrabold shadow-lg shadow-indigo-100 flex items-center gap-2 active:scale-95 transition-all text-base cursor-pointer"
+            className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-extrabold shadow-lg shadow-indigo-100 dark:shadow-none flex items-center gap-2 active:scale-95 transition-all text-base cursor-pointer"
           >
             {currentIndex === questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'}
             <ArrowRight size={18} />
           </button>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            Đọc kỹ mặt sau rồi bấm — hoặc nhấn Enter / Space / →
+          </span>
         </div>
       )}
 
@@ -594,27 +603,27 @@ export const StudySession: React.FC<StudySessionProps> = ({
           onClick={() => setShowSettingsModal(false)}
         >
           <div
-            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100 dark:bg-slate-800 dark:border-slate-800 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-950/40 dark:border-indigo-800">
                   <SlidersHorizontal size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-800">
+                  <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
                     Cài Đặt Chế Độ Thẻ Học
                   </h3>
-                  <p className="text-xs font-bold text-slate-400 mt-0.5">
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                     Chọn chế độ hiển thị phù hợp với mục tiêu ôn tập
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="p-2 rounded-2xl bg-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
+                className="p-2 rounded-2xl bg-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -629,23 +638,23 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   setShowSettingsModal(false);
                 }}
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${practiceMode === 'default'
-                  ? 'bg-indigo-50/50 border-indigo-300 ring-2 ring-indigo-200/60 shadow-xs'
-                  : 'bg-slate-50/50 hover:bg-white border-slate-200'
+                  ? 'bg-indigo-50/50 border-indigo-300 ring-2 ring-indigo-200/60 shadow-xs dark:bg-indigo-950/40 dark:border-indigo-700 dark:ring-indigo-800/60'
+                  : 'bg-slate-50/50 hover:bg-white border-slate-200 dark:bg-slate-900/50 dark:hover:bg-slate-800 dark:border-slate-700'
                   }`}
               >
-                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'default' ? 'bg-indigo-600 text-white' : 'border border-slate-300'}`}>
+                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'default' ? 'bg-indigo-600 text-white' : 'border border-slate-300 dark:border-slate-600'}`}>
                   <Check size={12} strokeWidth={3} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-extrabold text-slate-800">
+                  <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
                     Mặc Định (Xem Chữ Hán trước)
                   </h4>
-                  <p className="text-xs text-slate-500 font-semibold mt-0.5 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5 leading-relaxed">
                     Mặt trước hiển thị Chữ Hán (`頭`). Lật thẻ để xem cách đọc & nghĩa tiếng Việt.
                   </p>
-                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-slate-200/80 inline-flex items-center gap-2">
-                    <span className="text-base font-black text-slate-800">頭</span>
-                    <span className="text-xs text-slate-400 font-semibold">➡️ [あたま] - Cái đầu</span>
+                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-slate-200/80 dark:text-slate-200 dark:bg-slate-900 dark:border-slate-700/80 inline-flex items-center gap-2">
+                    <span className="text-base font-black text-slate-800 dark:text-slate-100">頭</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">➡️ [あたま] - Cái đầu</span>
                   </div>
                 </div>
               </div>
@@ -657,23 +666,23 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   setShowSettingsModal(false);
                 }}
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${practiceMode === 'write-kanji'
-                  ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-200/60 shadow-xs'
-                  : 'bg-slate-50/50 hover:bg-white border-slate-200'
+                  ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-200/60 shadow-xs dark:bg-amber-950/40 dark:border-amber-700 dark:ring-amber-800/60'
+                  : 'bg-slate-50/50 hover:bg-white border-slate-200 dark:bg-slate-900/50 dark:hover:bg-slate-800 dark:border-slate-700'
                   }`}
               >
-                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'write-kanji' ? 'bg-amber-600 text-white' : 'border border-slate-300'}`}>
+                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'write-kanji' ? 'bg-amber-600 text-white' : 'border border-slate-300 dark:border-slate-600'}`}>
                   <Check size={12} strokeWidth={3} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                  <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                     <span>✍️ Tập Viết Kanji (Chỉ hiện Cách đọc, Ẩn Kanji & Nghĩa)</span>
                   </h4>
-                  <p className="text-xs text-slate-500 font-semibold mt-0.5 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5 leading-relaxed">
                     Mặt trước thẻ CHỈ hiển thị duy nhất Cách đọc (`あたま`). Ẩn cả Chữ Hán lẫn Nghĩa tiếng Việt để bạn tập trung viết chữ Hán ra giấy!
                   </p>
-                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-amber-200 inline-flex items-center gap-2">
-                    <span className="text-sm font-black text-rose-600">あたま</span>
-                    <span className="text-xs text-slate-400 font-semibold">➡️ Lật thẻ: <strong className="text-slate-800 font-black">頭 (Cái đầu)</strong></span>
+                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-amber-200 dark:text-slate-200 dark:bg-slate-900 dark:border-amber-800 inline-flex items-center gap-2">
+                    <span className="text-sm font-black text-rose-600 dark:text-rose-400">あたま</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">➡️ Lật thẻ: <strong className="text-slate-800 dark:text-slate-100 font-black">頭 (Cái đầu)</strong></span>
                   </div>
                 </div>
               </div>
@@ -685,28 +694,28 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   setShowSettingsModal(false);
                 }}
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${practiceMode === 'type-reading'
-                  ? 'bg-violet-50/70 border-violet-300 ring-2 ring-violet-200/60 shadow-xs'
-                  : 'bg-slate-50/50 hover:bg-white border-slate-200'
+                  ? 'bg-violet-50/70 border-violet-300 ring-2 ring-violet-200/60 shadow-xs dark:bg-violet-950/40 dark:border-violet-700 dark:ring-violet-800/60'
+                  : 'bg-slate-50/50 hover:bg-white border-slate-200 dark:bg-slate-900/50 dark:hover:bg-slate-800 dark:border-slate-700'
                   }`}
               >
-                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'type-reading' ? 'bg-violet-600 text-white' : 'border border-slate-300'}`}>
+                <div className={`mt-0.5 p-1 rounded-full ${practiceMode === 'type-reading' ? 'bg-violet-600 text-white' : 'border border-slate-300 dark:border-slate-600'}`}>
                   <Check size={12} strokeWidth={3} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                  <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                     <Keyboard size={14} className="text-violet-600" />
                     <span>Gõ Cách Đọc (Tự chấm)</span>
                   </h4>
-                  <p className="text-xs text-slate-500 font-semibold mt-0.5 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5 leading-relaxed">
                     Nhìn Chữ Hán rồi gõ lại cách đọc, ứng dụng tự chấm đúng/sai. Gõ được cả kana lẫn
                     romaji nên không cần cài bộ gõ tiếng Nhật. Thẻ nào không có cách đọc bằng kana
                     sẽ tự dùng chế độ mặc định.
                   </p>
-                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-violet-200 inline-flex items-center gap-2">
-                    <span className="text-base font-black text-slate-800">頭</span>
-                    <span className="text-xs text-slate-400 font-semibold">
-                      ➡️ gõ <strong className="text-violet-700 font-black">atama</strong> hoặc{' '}
-                      <strong className="text-violet-700 font-black">あたま</strong>
+                  <div className="mt-2 text-xs font-bold text-slate-700 bg-white p-2 rounded-xl border border-violet-200 dark:text-slate-200 dark:bg-slate-900 dark:border-violet-800 inline-flex items-center gap-2">
+                    <span className="text-base font-black text-slate-800 dark:text-slate-100">頭</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">
+                      ➡️ gõ <strong className="text-violet-700 dark:text-violet-300 font-black">atama</strong> hoặc{' '}
+                      <strong className="text-violet-700 dark:text-violet-300 font-black">あたま</strong>
                     </span>
                   </div>
                 </div>
@@ -714,13 +723,13 @@ export const StudySession: React.FC<StudySessionProps> = ({
             </div>
 
             {/* Cài đặt trắc nghiệm */}
-            <div className="pt-4 border-t border-slate-100">
-              <label className="flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <label className="flex items-start justify-between gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 cursor-pointer">
                 <span>
-                  <span className="text-xs font-extrabold text-slate-800 block">
+                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-100 block">
                     Đảo thứ tự đáp án trắc nghiệm
                   </span>
-                  <span className="text-[11px] font-semibold text-slate-500 leading-relaxed block mt-0.5">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-relaxed block mt-0.5">
                     Tránh học vẹt theo vị trí. Đề thi và câu hỏi bằng ảnh luôn giữ nguyên thứ tự gốc.
                   </span>
                 </span>
@@ -735,14 +744,14 @@ export const StudySession: React.FC<StudySessionProps> = ({
 
             {/* Cài đặt phát âm */}
             {ttsSupported && (
-              <div className="flex flex-col gap-3 pt-4 border-t border-slate-100">
-                <h4 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
+              <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                   <Volume2 size={16} className="text-sky-600" />
                   Phát âm ({lang === 'ja' ? 'tiếng Nhật' : 'tiếng Anh'})
                 </h4>
 
-                <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 cursor-pointer">
-                  <span className="text-xs font-bold text-slate-700">
+                <label className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700 cursor-pointer">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
                     Tự đọc to khi hiện thẻ mới
                   </span>
                   <input
@@ -753,10 +762,10 @@ export const StudySession: React.FC<StudySessionProps> = ({
                   />
                 </label>
 
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-700">Tốc độ đọc</span>
-                    <span className="text-xs font-mono font-bold text-sky-700">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Tốc độ đọc</span>
+                    <span className="text-xs font-mono font-bold text-sky-700 dark:text-sky-300">
                       {data.settings.ttsRate.toFixed(1)}x
                     </span>
                   </div>
@@ -776,7 +785,7 @@ export const StudySession: React.FC<StudySessionProps> = ({
             {/* Footer */}
             <button
               onClick={() => setShowSettingsModal(false)}
-              className="w-full py-3 rounded-2xl bg-indigo-600 text-white font-black text-xs shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-all cursor-pointer text-center"
+              className="w-full py-3 rounded-2xl bg-indigo-600 text-white font-black text-xs shadow-md shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all cursor-pointer text-center"
             >
               Áp Dụng & Đóng
             </button>

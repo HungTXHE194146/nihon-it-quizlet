@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react';
 import type { Lesson } from '../data/lessons';
-import {
-  loadSubjectLessons,
-  loadAllSubjects,
-  isSubjectLoaded,
-  areAllSubjectsLoaded,
-  getLoadedLessons,
-  getAllLoadedLessons,
-} from '../data/subjectLoader';
+import { loadScopeLessons, isScopeLoaded, getLoadedScopeLessons } from '../data/subjectLoader';
 
+/** `target` là một phạm vi: mã môn, `'n3'` (gộp các môn N3) hay `'all'`. */
 function readCache(target: string): Lesson[] | null {
-  if (target === 'all') return areAllSubjectsLoaded() ? getAllLoadedLessons() : null;
-  return isSubjectLoaded(target) ? getLoadedLessons(target) : null;
+  return isScopeLoaded(target) ? getLoadedScopeLessons(target) : null;
 }
 
 /**
- * Nạp dữ liệu bài học của một môn ("all" = mọi môn) và cho biết đang tải hay chưa.
+ * Nạp dữ liệu bài học của một phạm vi ("n3" = nhánh N3, "all" = mọi môn) và cho biết đang
+ * tải hay chưa.
  *
  * Trả về ngay từ cache nếu môn đó đã được nạp trước đó, nhờ vậy chuyển qua lại
  * giữa các trang không nháy màn hình chờ.
@@ -62,7 +56,7 @@ export function useSubjectData(target: string | null) {
     setLoading(true);
     setFailed(false);
 
-    const promise = target === 'all' ? loadAllSubjects() : loadSubjectLessons(target);
+    const promise = loadScopeLessons(target);
     promise
       .then((result) => {
         if (cancelled) return;

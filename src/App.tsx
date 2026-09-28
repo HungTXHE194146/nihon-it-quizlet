@@ -5,11 +5,12 @@ import { useHashRoute } from './hooks/useHashRoute';
 import { Homepage } from './components/Homepage';
 import { StudySession } from './components/StudySession';
 import { TheoryViewer } from './components/TheoryViewer';
-import { FakePaywallModal } from './components/FakePaywallModal';
 import { PWAPrompt } from './components/PWAPrompt';
+import { ThemeToggle } from './components/ThemeToggle';
 import { useProgress } from './hooks/useProgress';
+import { useAuth } from './hooks/useAuth';
 import { useSubjectData } from './hooks/useSubjectData';
-import { GraduationCap, Github, ChevronRight, Crown, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
+import { GraduationCap, Github, ChevronRight, ArrowLeft, Home, Flame, AlertTriangle, Loader2 } from 'lucide-react';
 
 // Các màn hình chỉ dùng ở một nhánh route được nạp động để nhẹ lần tải đầu.
 // Riêng KanjiMasterN3Selector còn kéo theo bảng chữ Kanji, càng nên tách riêng.
@@ -17,29 +18,44 @@ const LessonSelector = lazy(() => import('./components/LessonSelector').then((m)
 const MimiN3Selector = lazy(() => import('./components/MimiN3Selector').then((m) => ({ default: m.MimiN3Selector })));
 const JFE301Selector = lazy(() => import('./components/JFE301Selector').then((m) => ({ default: m.JFE301Selector })));
 const KanjiMasterN3Selector = lazy(() => import('./components/KanjiMasterN3Selector').then((m) => ({ default: m.KanjiMasterN3Selector })));
+const EngGrade9Selector = lazy(() => import('./components/EngGrade9Selector').then((m) => ({ default: m.EngGrade9Selector })));
+const TryN3Selector = lazy(() => import('./components/TryN3Selector').then((m) => ({ default: m.TryN3Selector })));
 const ExamSession = lazy(() => import('./components/ExamSession').then((m) => ({ default: m.ExamSession })));
 const MistakeNotebook = lazy(() => import('./components/MistakeNotebook').then((m) => ({ default: m.MistakeNotebook })));
+const JlptImportScreen = lazy(() => import('./components/jlpt/JlptImportScreen').then((m) => ({ default: m.JlptImportScreen })));
+const JlptExamRunner = lazy(() => import('./components/jlpt/JlptExamRunner').then((m) => ({ default: m.JlptExamRunner })));
+const JlptReviewSession = lazy(() => import('./components/jlpt/JlptReviewSession').then((m) => ({ default: m.JlptReviewSession })));
 
 const ScreenLoader = () => (
   <div className="w-full py-24 flex flex-col items-center justify-center gap-3">
     <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" />
-    <p className="text-sm font-bold text-slate-500">Đang tải dữ liệu bài học...</p>
+    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Đang tải dữ liệu bài học...</p>
   </div>
 );
 
 function App() {
   const { route, navigate, goBack } = useHashRoute();
   const { data, persistent } = useProgress();
+  const { authenticated, user } = useAuth();
+
+  /**
+   * Các màn hình khôi phục dữ liệu RIÊNG của người dùng (phiên học dở, bài thi dở) phải
+   * chờ biết mình là ai rồi mới được dựng.
+   *
+   * Lượt render đầu tiên luôn diễn ra trước khi /api/auth/status trả lời, nên nếu dựng
+   * ngay thì màn hình đọc khoá của "khách", khởi tạo state một lần bằng dữ liệu đó rồi
+   * lưu đè ngược lại vào khoá của tài khoản — người đang thi dở mở lại đúng đường dẫn
+   * phòng thi sẽ mất bài. Đổi khoá không tự dựng lại state, nên ngoài việc chờ còn phải
+   * `key` theo danh tính để đăng nhập/đăng xuất giữa chừng thì dựng lại từ đầu.
+   */
+  const identityReady = authenticated !== null;
+  const identityKey = user?.id ?? 'guest';
 
   // State for selected sections in current active subject
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([
     'lesson-11-vocabulary',
     'lesson-11-multiple-choice',
   ]);
-
-  // Troll Paywall state
-  const [isPaywallOpen, setIsPaywallOpen] = useState<boolean>(false);
-  const [isVipUnlocked, setIsVipUnlocked] = useState<boolean>(false);
 
   // Resolve current active subject
   const activeSubjectId =
@@ -48,7 +64,9 @@ function App() {
     route.page === 'study' ||
     route.page === 'exam'
       ? route.subjectId
-      : 'nihon-it';
+      // Web lấy N3 làm trục chính nên môn mặc định (chỉ dùng cho breadcrumb ở các trang
+      // không gắn với môn nào) là môn N3 đầu tiên, không còn là môn IT.
+      : subjectMeta[0].id;
 
   const currentSubject: SubjectMeta = findSubjectMeta(activeSubjectId) || subjectMeta[0];
 
@@ -58,7 +76,12 @@ function App() {
    */
   const requiredSubject =
     route.page === 'mistakes'
-      ? 'all'
+      // Tab câu sai đề JLPT đọc thẳng từ IndexedDB, không đụng tới bài học của các môn —
+      // bắt nó chờ tải gần 1 MB dữ liệu từ vựng chỉ để đọc lại ghi chú là vô lý. Bấm sang
+      // tab thẻ SRS sẽ đổi URL, và lúc đó mới nạp.
+      ? route.tab === 'jlpt'
+        ? null
+        : 'all'
       : route.page === 'subject' || route.page === 'study' || route.page === 'exam'
       ? route.subjectId
       : null;
@@ -69,14 +92,6 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [route]);
-
-  const handleStartSession = () => {
-    if (!isVipUnlocked) {
-      setIsPaywallOpen(true);
-    } else {
-      startStudyRoute();
-    }
-  };
 
   const startStudyRoute = () => {
     const queryStr = selectedSectionIds.length > 0 ? `?sections=${selectedSectionIds.join(',')}` : '';
@@ -109,28 +124,17 @@ function App() {
     [data.cards]
   );
 
-  const handlePaywallSuccess = () => {
-    setIsVipUnlocked(true);
-    setIsPaywallOpen(false);
-    startStudyRoute();
-  };
-
-  const handlePaywallClose = () => {
-    setIsPaywallOpen(false);
-    startStudyRoute();
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between">
       {/* Premium Header & Responsive Navbar */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/60 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* Global Back button if not on Home */}
             {route.page !== 'home' && (
               <button
                 onClick={goBack}
-                className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition-all cursor-pointer mr-1"
+                className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition-all cursor-pointer mr-1"
                 title="Quay lại (Back)"
               >
                 <ArrowLeft size={18} />
@@ -141,91 +145,91 @@ function App() {
               className="flex items-center gap-2 cursor-pointer group"
               onClick={() => navigate('/')}
             >
-              <span className="p-2 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-100 group-hover:scale-105 transition-transform">
+              <span className="p-2 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-100 dark:shadow-none group-hover:scale-105 transition-transform">
                 <GraduationCap size={20} />
               </span>
-              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
                 NihonIT
               </span>
             </div>
 
             {/* Dynamic Breadcrumb Navigation Indicator */}
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 text-xs font-bold text-slate-500">
+            <div className="hidden sm:flex items-center gap-1.5 ml-2 text-xs font-bold text-slate-500 dark:text-slate-400">
               {route.page === 'home' ? (
                 <>
-                  <ChevronRight size={14} className="text-slate-400" />
-                  <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100 flex items-center gap-1">
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 flex items-center gap-1">
                     <Home size={12} />
                     Trang chủ
                   </span>
                 </>
               ) : route.page === 'subject' ? (
                 <>
-                  <ChevronRight size={14} className="text-slate-400" />
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
                   <span
-                    className="hover:underline cursor-pointer text-slate-600"
+                    className="hover:underline cursor-pointer text-slate-600 dark:text-slate-300"
                     onClick={() => navigate('/')}
                   >
                     Trang chủ
                   </span>
-                  <ChevronRight size={14} className="text-slate-400" />
-                  <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100">
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800">
                     {currentSubject.title}
                   </span>
                 </>
               ) : route.page === 'theory' ? (
                 <>
-                  <ChevronRight size={14} className="text-slate-400" />
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
                   <span
-                    className="hover:underline cursor-pointer text-slate-600"
+                    className="hover:underline cursor-pointer text-slate-600 dark:text-slate-300"
                     onClick={() => navigate(`/subject/${currentSubject.id}`)}
                   >
                     {currentSubject.title}
                   </span>
-                  <ChevronRight size={14} className="text-slate-400" />
-                  <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100">
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800">
                     Lý thuyết Bài {route.lessonId}
                   </span>
                 </>
               ) : route.page === 'mistakes' ? (
                 <>
-                  <ChevronRight size={14} className="text-slate-400" />
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
                   <span
-                    className="hover:underline cursor-pointer text-slate-600"
+                    className="hover:underline cursor-pointer text-slate-600 dark:text-slate-300"
                     onClick={() => navigate('/')}
                   >
                     Trang chủ
                   </span>
-                  <ChevronRight size={14} className="text-slate-400" />
-                  <span className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded-lg border border-rose-100">
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <span className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded-lg border border-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
                     Sổ tay câu sai
                   </span>
                 </>
               ) : route.page === 'exam' ? (
                 <>
-                  <ChevronRight size={14} className="text-slate-400" />
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
                   <span
-                    className="hover:underline cursor-pointer text-slate-600"
+                    className="hover:underline cursor-pointer text-slate-600 dark:text-slate-300"
                     onClick={() => navigate(`/subject/${currentSubject.id}`)}
                   >
                     {currentSubject.title}
                   </span>
-                  <ChevronRight size={14} className="text-slate-400" />
-                  <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg border border-blue-100">
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg border border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
                     Phòng thi
                   </span>
                 </>
               ) : route.page === 'study' ? (
                 <>
-                  <ChevronRight size={14} className="text-slate-400" />
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
                   <span
-                    className="hover:underline cursor-pointer text-slate-600"
+                    className="hover:underline cursor-pointer text-slate-600 dark:text-slate-300"
                     onClick={() => navigate(`/subject/${currentSubject.id}`)}
                   >
                     {currentSubject.title}
                   </span>
-                  <ChevronRight size={14} className="text-slate-400" />
-                  <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg border border-purple-100">
+                  <ChevronRight size={14} className="text-slate-400 dark:text-slate-600" />
+                  <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg border border-purple-100 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
                     Luyện tập
                   </span>
                 </>
@@ -233,11 +237,11 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+          <div className="flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
             {/* Chuỗi ngày học liên tiếp */}
             {data.streak.current > 0 && (
               <span
-                className="hidden sm:flex items-center gap-1 py-1.5 px-3 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-xs font-black"
+                className="hidden sm:flex items-center gap-1 py-1.5 px-3 rounded-full bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-xs font-black"
                 title={`Chuỗi dài nhất: ${data.streak.longest} ngày`}
               >
                 <Flame size={14} className="fill-orange-400 text-orange-500" />
@@ -249,7 +253,7 @@ function App() {
             {mistakeCount > 0 && route.page !== 'mistakes' && (
               <button
                 onClick={() => navigate('/mistakes')}
-                className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-black hover:bg-rose-100 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 text-xs font-black hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all cursor-pointer"
                 title="Sổ tay câu sai"
               >
                 <AlertTriangle size={13} />
@@ -257,28 +261,17 @@ function App() {
               </button>
             )}
 
-            {/* VIP Status Button */}
-            <button
-              onClick={() => setIsPaywallOpen(true)}
-              className={`py-1.5 px-3 rounded-full text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
-                isVipUnlocked
-                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 shadow-amber-200 ring-2 ring-amber-300'
-                  : 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300 animate-pulse'
-              }`}
-            >
-              <Crown size={14} className={isVipUnlocked ? 'fill-amber-950' : 'text-amber-700'} />
-              <span>{isVipUnlocked ? 'VIP Pro Ultra Max' : 'Nâng cấp VIP (5k)'}</span>
-            </button>
-
-            <span className="hidden md:inline bg-indigo-50 text-indigo-700 py-1 px-3 rounded-full text-xs font-bold">
-              Multi-Subject
+            <span className="hidden md:inline bg-emerald-50 text-emerald-700 py-1 px-3 rounded-full text-xs font-bold dark:bg-emerald-950/40 dark:text-emerald-300">
+              JLPT N3
             </span>
+
+            <ThemeToggle />
 
             <a
               href="https://github.com"
               target="_blank"
               rel="noreferrer"
-              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition-all"
+              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:text-slate-500 dark:hover:text-indigo-400 dark:hover:bg-slate-800 rounded-xl transition-all"
               title="GitHub Repository"
             >
               <Github size={18} />
@@ -289,7 +282,7 @@ function App() {
 
       {/* Cảnh báo khi trình duyệt chặn lưu trữ: tiến độ sẽ mất khi đóng tab */}
       {!persistent && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-xs font-bold px-4 py-2 text-center">
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200 text-xs font-bold px-4 py-2 text-center">
           Trình duyệt đang chặn lưu trữ cục bộ (chế độ ẩn danh?). Tiến độ học sẽ không được giữ lại
           sau khi đóng tab.
         </div>
@@ -301,8 +294,8 @@ function App() {
 
         {dataFailed && (
           <div className="w-full max-w-md mx-auto text-center py-20 px-4">
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Không tải được dữ liệu bài học</h3>
-            <p className="text-slate-500 mb-6 text-sm">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Không tải được dữ liệu bài học</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm">
               Có thể mạng bị gián đoạn. Thử tải lại trang nhé.
             </p>
             <button
@@ -320,7 +313,12 @@ function App() {
           <Homepage
             onSelectSubject={(subjectId) => navigate(`/subject/${subjectId}`)}
             onStartReview={(subjectId) => navigate(`/subject/${subjectId}/study?mode=srs`)}
+            onStartNewCards={(subjectId) => navigate(`/subject/${subjectId}/study?mode=new`)}
             onOpenMistakes={() => navigate('/mistakes')}
+            onOpenJlptMistakes={() => navigate('/mistakes?tab=jlpt')}
+            onOpenJlptImport={() => navigate('/jlpt/import')}
+            onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
+            onOpenJlptReview={() => navigate('/jlpt/review')}
           />
         )}
 
@@ -363,15 +361,36 @@ function App() {
           />
         )}
 
-        {route.page === 'subject' && 
-          currentSubject.id !== 'mimi-n3-goi' && 
-          currentSubject.id !== 'jfe301' && 
-          currentSubject.id !== 'kanji-master-n3' && (
+        {route.page === 'subject' && currentSubject.id === 'eng-grade9-hw' && (
+          <EngGrade9Selector
+            onStartBySections={(sections) =>
+              navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
+            }
+            onBackToHome={() => navigate('/')}
+          />
+        )}
+
+        {route.page === 'subject' && currentSubject.id === 'try-n3' && (
+          <TryN3Selector
+            lessons={activeLessons}
+            onStartBySections={(sections) =>
+              navigate(`/subject/${currentSubject.id}/study?sections=${sections.join(',')}`)
+            }
+            onBackToHome={() => navigate('/')}
+          />
+        )}
+
+        {route.page === 'subject' &&
+          currentSubject.id !== 'mimi-n3-goi' &&
+          currentSubject.id !== 'jfe301' &&
+          currentSubject.id !== 'kanji-master-n3' &&
+          currentSubject.id !== 'eng-grade9-hw' &&
+          currentSubject.id !== 'try-n3' && (
           <LessonSelector
             lessons={activeLessons}
             selectedSectionIds={selectedSectionIds}
             setSelectedSectionIds={setSelectedSectionIds}
-            onStartSession={handleStartSession}
+            onStartSession={startStudyRoute}
             onViewTheory={(lessonId) =>
               navigate(`/subject/${currentSubject.id}/theory/${lessonId}`)
             }
@@ -388,8 +407,10 @@ function App() {
           />
         )}
 
-        {route.page === 'study' && (
+        {route.page === 'study' && !identityReady && <ScreenLoader />}
+        {route.page === 'study' && identityReady && (
           <StudySession
+            key={identityKey}
             subjectId={route.subjectId}
             mode={route.mode}
             selectedSectionIds={route.sections && route.sections.length > 0 ? route.sections : selectedSectionIds}
@@ -401,8 +422,10 @@ function App() {
           />
         )}
 
-        {route.page === 'exam' && (
+        {route.page === 'exam' && !identityReady && <ScreenLoader />}
+        {route.page === 'exam' && identityReady && (
           <ExamSession
+            key={identityKey}
             subjectId={route.subjectId}
             lessons={activeLessons}
             examTags={route.examTags}
@@ -414,11 +437,30 @@ function App() {
 
         {route.page === 'mistakes' && (
           <MistakeNotebook
+            tab={route.tab}
+            onChangeTab={(tab) => navigate(tab === 'jlpt' ? '/mistakes?tab=jlpt' : '/mistakes')}
             onBackToHome={() => navigate('/')}
             onStartReview={(subjectId) =>
               navigate(`/subject/${subjectId}/study?mode=mistakes`)
             }
+            onOpenJlptExam={(examId) => navigate(`/jlpt/exam/${examId}`)}
+            onOpenJlptImport={() => navigate('/jlpt/import')}
+            onOpenJlptReview={() => navigate('/jlpt/review')}
           />
+        )}
+
+        {route.page === 'jlpt-import' && (
+          <JlptImportScreen onBackToHome={() => navigate('/')} onStartExam={(examId) => navigate(`/jlpt/exam/${examId}`)} />
+        )}
+
+        {route.page === 'jlpt-exam' && !identityReady && <ScreenLoader />}
+        {route.page === 'jlpt-exam' && identityReady && (
+          <JlptExamRunner key={identityKey} examId={route.examId} onExit={() => navigate('/jlpt/import')} />
+        )}
+
+        {route.page === 'jlpt-review' && !identityReady && <ScreenLoader />}
+        {route.page === 'jlpt-review' && identityReady && (
+          <JlptReviewSession key={identityKey} onExit={() => navigate('/')} />
         )}
         </Suspense>
         )}
@@ -427,21 +469,14 @@ function App() {
       {/* Thông báo của Service Worker: sẵn sàng offline / có bản mới */}
       <PWAPrompt />
 
-      {/* Troll Paywall Modal */}
-      <FakePaywallModal
-        isOpen={isPaywallOpen}
-        onClose={handlePaywallClose}
-        onSuccess={handlePaywallSuccess}
-      />
-
       {/* Modern Footer */}
-      <footer className="bg-white border-t border-slate-200/60 py-6 text-center text-xs text-slate-400 font-medium">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200/60 dark:border-slate-700/60 py-6 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} NihonIT. Nền tảng ôn tập Tiếng Nhật & CNTT Đa môn.</p>
+          <p>© {new Date().getFullYear()} NihonIT. Luyện thi JLPT N3 — từ vựng, Kanji và đề thi thử.</p>
           <div className="flex gap-4">
-            <span className="hover:text-slate-600 cursor-help">Điều khoản</span>
-            <span className="hover:text-slate-600 cursor-help">Bảo mật</span>
-            <span className="hover:text-slate-600 cursor-help">Hỗ trợ</span>
+            <span className="hover:text-slate-600 dark:hover:text-slate-300 cursor-help">Điều khoản</span>
+            <span className="hover:text-slate-600 dark:hover:text-slate-300 cursor-help">Bảo mật</span>
+            <span className="hover:text-slate-600 dark:hover:text-slate-300 cursor-help">Hỗ trợ</span>
           </div>
         </div>
       </footer>

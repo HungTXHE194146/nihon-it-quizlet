@@ -33,20 +33,20 @@ export const PWAPrompt: React.FC = () => {
   if (needRefresh) {
     return (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md animate-fadeIn">
-        <div className="bg-white rounded-2xl border border-indigo-200 shadow-2xl p-4 flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 dark:border-indigo-800 shadow-2xl p-4 flex items-center gap-3">
+          <span className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300 shrink-0">
             <RefreshCw size={18} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-extrabold text-slate-800">Đã có phiên bản mới</p>
-            <p className="text-xs font-semibold text-slate-500">
+            <p className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Đã có phiên bản mới</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               Cập nhật khi bạn học xong, tiến độ không bị mất.
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setNeedRefresh(false)}
-              className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               aria-label="Để sau"
             >
               <X size={16} />
@@ -66,19 +66,19 @@ export const PWAPrompt: React.FC = () => {
   if (offlineReady && !dismissedOffline) {
     return (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md animate-fadeIn">
-        <div className="bg-white rounded-2xl border border-emerald-200 shadow-2xl p-4 flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-2xl p-4 flex items-center gap-3">
+          <span className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 shrink-0">
             <WifiOff size={18} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-extrabold text-slate-800">Đã sẵn sàng học offline</p>
-            <p className="text-xs font-semibold text-slate-500">
+            <p className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Đã sẵn sàng học offline</p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               Bài học đã lưu vào máy, mất mạng vẫn ôn được.
             </p>
           </div>
           <button
             onClick={() => setDismissedOffline(true)}
-            className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0"
             aria-label="Đóng"
           >
             <X size={16} />

@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 
-/** Chế độ của một phiên luyện tập. */
-export type StudyMode = 'normal' | 'srs' | 'mistakes';
+/**
+ * Chế độ của một phiên luyện tập.
+ *
+ * `new` = CHỈ thẻ chưa từng học. Tách khỏi `srs` vì hàng đợi `srs` luôn phải phục vụ thẻ đến
+ * hạn trước; khi số thẻ đến hạn lớn (rất dễ xảy ra vì thẻ vừa sai được hẹn lại sau 10 phút),
+ * phần học mới thực tế không bao giờ tới lượt nếu không có lối đi riêng.
+ */
+export type StudyMode = 'normal' | 'srs' | 'mistakes' | 'new';
 
 export type AppRoute =
   | { page: 'home' }
@@ -15,7 +21,10 @@ export type AppRoute =
       mode: StudyMode;
     }
   | { page: 'exam'; subjectId: string; examTags: string[]; qType: string; durationMin: number }
-  | { page: 'mistakes' };
+  | { page: 'mistakes'; tab: 'srs' | 'jlpt' }
+  | { page: 'jlpt-import' }
+  | { page: 'jlpt-exam'; examId: string }
+  | { page: 'jlpt-review' };
 
 function parseHash(hash: string): AppRoute {
   // Chuẩn hoá hash, ví dụ "#/subject/nihon-it/theory/16" -> "/subject/nihon-it/theory/16"
@@ -30,9 +39,25 @@ function parseHash(hash: string): AppRoute {
   const segments = pathPart.split('/').filter(Boolean);
   const params = new URLSearchParams(queryPart || '');
 
-  // #/mistakes — sổ tay câu sai gộp mọi môn
+  // #/mistakes?tab=jlpt — sổ tay câu sai gộp mọi môn; tab nằm trên URL để dẫn thẳng vào
+  // đúng loại sổ tay từ trang chủ (và để bấm Back quay lại đúng tab đang xem).
   if (segments[0] === 'mistakes') {
-    return { page: 'mistakes' };
+    return { page: 'mistakes', tab: params.get('tab') === 'jlpt' ? 'jlpt' : 'srs' };
+  }
+
+  // #/jlpt/import — nhập đề JLPT từ JSON/file ngoài vào
+  if (segments[0] === 'jlpt' && segments[1] === 'import') {
+    return { page: 'jlpt-import' };
+  }
+
+  // #/jlpt/exam/:examId — làm một đề JLPT đã nhập
+  if (segments[0] === 'jlpt' && segments[1] === 'exam' && segments[2]) {
+    return { page: 'jlpt-exam', examId: segments[2] };
+  }
+
+  // #/jlpt/review — ôn lại câu hỏi JLPT đến hạn (ticket 005)
+  if (segments[0] === 'jlpt' && segments[1] === 'review') {
+    return { page: 'jlpt-review' };
   }
 
   // #/subject/:subjectId  (subjectId có thể là "all" cho phiên gộp mọi môn)
@@ -78,7 +103,7 @@ function parseHash(hash: string): AppRoute {
 
       const rawMode = params.get('mode');
       const mode: StudyMode =
-        rawMode === 'srs' || rawMode === 'mistakes' ? rawMode : 'normal';
+        rawMode === 'srs' || rawMode === 'mistakes' || rawMode === 'new' ? rawMode : 'normal';
 
       return { page: 'study', subjectId, sections, range, mode };
     }

@@ -13,6 +13,20 @@
     <!-- Preconnect for Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script>
+      // Set .dark trước khi bất kỳ thứ gì được vẽ, để tránh nháy sáng->tối khi tải trang.
+      // Phải khớp logic với src/hooks/useTheme.tsx (cùng khoá localStorage, cùng fallback).
+      (function () {
+        try {
+          var raw = localStorage.getItem('nihonit:v1:theme');
+          var theme = raw ? JSON.parse(raw) : null;
+          if (theme !== 'light' && theme !== 'dark') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          if (theme === 'dark') document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
