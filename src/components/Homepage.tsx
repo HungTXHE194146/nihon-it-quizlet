@@ -62,6 +62,20 @@ interface HomepageProps {
 const N3_SUBJECTS = subjectsOfTrack('n3');
 const OTHER_SUBJECTS = subjectsOfTrack('it');
 
+/**
+ * Nhãn ngắn cho 3 thẻ ôn tách riêng (Từ vựng/Kanji/Ngữ pháp) bên dưới khối "Hôm nay".
+ *
+ * Trước đây `n3Stats = statsFor(N3_SCOPE)` gộp cả 3 môn N3 thành một khối "Ôn N3 ngay" duy
+ * nhất — tiện cho "không phải nghĩ" (ticket 004) nhưng không tách được mình đang yếu ở đâu.
+ * Không đụng vào khối "Hôm nay" hay N3_SCOPE: chỉ thêm một lối vào tường minh hơn, đứng cạnh
+ * lối đi gộp cũ, đúng tinh thần ticket 004 ("không nhất thiết phải xoá... vẫn có việc riêng").
+ */
+const N3_SHORT_LABELS: Record<string, string> = {
+  'mimi-n3-goi': 'Từ vựng',
+  'kanji-master-n3': 'Kanji',
+  'try-n3': 'Ngữ pháp',
+};
+
 function matchesQuery(subject: SubjectMeta, query: string): boolean {
   const q = query.toLowerCase().trim();
   if (!q) return true;
@@ -522,91 +536,81 @@ export const Homepage: React.FC<HomepageProps> = ({
         )}
       </div>
 
-      {/* Bảng điều khiển: hàng đợi ôn N3 hôm nay */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col sm:flex-row items-center gap-6">
-          <div className="relative shrink-0">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex flex-col items-center justify-center text-white shadow-lg shadow-emerald-100 dark:shadow-none">
-              <span className="text-3xl font-black leading-none">
-                {isNewLearner ? firstSessionSize : n3Stats.due}
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">thẻ</span>
-            </div>
-          </div>
+      {/* Ôn theo từng nhóm: Từ vựng / Kanji / Ngữ pháp tách riêng, mỗi nhóm một hàng đợi SRS
+          độc lập (statsFor/onStartReview/onStartNewCards đã nhận thẳng subjectId thật, không
+          cần scope ảo mới). Khối "Hôm nay" ở trên vẫn là điểm bắt đầu một-hành-động-duy-nhất
+          (ticket 004); đây là lối vào cho người muốn tự chọn học nhóm nào, học riêng từng nhóm
+          thay vì gộp cả ba vào một hàng đợi như "Ôn N3 ngay" trước đây. */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <CalendarCheck className="w-6 h-6 text-emerald-600" />
+          <span>Ôn Theo Từng Nhóm</span>
+        </h2>
 
-          <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2 justify-center sm:justify-start">
-              <CalendarCheck className="w-5 h-5 text-emerald-600" />
-              {isNewLearner
-                ? 'Bắt đầu lộ trình N3'
-                : n3Stats.due > 0
-                ? 'N3 đến hạn ôn hôm nay'
-                : 'Hôm nay bạn đã ôn hết N3'}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1 leading-relaxed">
-              {isNewLearner
-                ? `Từ vựng và Kanji N3 nằm chung một hàng đợi. Phiên đầu tiên gồm ${firstSessionSize} thẻ.`
-                : n3Stats.due > 0
-                ? `${n3Stats.due} thẻ N3 đã tới lịch nhắc lại. Ôn đúng lúc sắp quên là cách nhớ lâu nhất.`
-                : n3Stats.newCards > 0
-                ? `Không còn thẻ N3 đến hạn. Bạn có thể học thêm ${n3Stats.newCards} thẻ mới.`
-                : 'Tuyệt vời! Toàn bộ thẻ N3 đều đã thuộc và chưa tới hạn ôn.'}
-              {n3Stats.newCards > 0 && (
-                <>
-                  {' '}Hôm nay đã học <strong className="text-violet-600 dark:text-violet-400">{newCardsToday}</strong>/{data.settings.dailyNewLimit} thẻ mới;
-                  còn {n3Stats.newCards} thẻ chưa từng nhìn thấy.
-                </>
-              )}
-            </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {N3_SUBJECTS.map((subject) => {
+            const st = perSubjectStats[subject.id];
+            const isNewGroup = st.studied === 0;
+            const firstSize = Math.min(data.settings.dailyNewLimit, st.total);
+            const count = isNewGroup ? firstSize : st.due;
+            const label = N3_SHORT_LABELS[subject.id] ?? subject.title;
 
-            <div className="mt-4 flex flex-wrap gap-2 justify-center sm:justify-start">
-              <button
-                onClick={() => onStartReview(N3_SCOPE)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold shadow-md shadow-emerald-100 dark:shadow-none hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer"
+            return (
+              <div
+                key={subject.id}
+                className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5 shadow-sm flex flex-col gap-3"
               >
-                <Play size={15} fill="currentColor" />
-                {n3Stats.due > 0 ? 'Ôn N3 ngay' : 'Ôn theo lịch'}
-              </button>
-              {/* Nút riêng cho phần học mới. Gộp chung với "Ôn N3 ngay" như trước là sai:
-                  một nút mà lúc thì ôn, lúc thì học mới, tuỳ vào một con số người dùng không
-                  nhìn thấy — và trong thực tế nó gần như luôn rơi vào nhánh "ôn". */}
-              <button
-                onClick={() => onStartNewCards(N3_SCOPE)}
-                disabled={newCardsLeftToday === 0 || n3Stats.newCards === 0}
-                title={
-                  n3Stats.newCards === 0
-                    ? 'Đã học qua toàn bộ thẻ N3'
-                    : newCardsLeftToday === 0
-                    ? `Đã đủ ${data.settings.dailyNewLimit} thẻ mới hôm nay`
-                    : undefined
-                }
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-sm font-bold hover:bg-violet-100 dark:hover:bg-violet-900/40 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Sprout size={15} />
-                Học từ mới ({newCardsToday}/{data.settings.dailyNewLimit} hôm nay)
-              </button>
-              {n3Stats.wrong > 0 && (
-                <button
-                  onClick={onOpenMistakes}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all cursor-pointer"
-                >
-                  <AlertTriangle size={15} />
-                  Sổ tay câu sai ({n3Stats.wrong})
-                </button>
-              )}
-              {otherDue > 0 && (
-                <button
-                  onClick={() => onStartReview('all')}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer"
-                >
-                  Ôn gộp cả môn khác (+{otherDue})
-                </button>
-              )}
-            </div>
-          </div>
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${subject.gradient} text-white flex items-center justify-center shadow-md shrink-0`}
+                  >
+                    {renderIcon(subject.icon)}
+                  </span>
+                  <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{count}</span>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100">{label}</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5 leading-relaxed">
+                    {isNewGroup
+                      ? `Chưa học thẻ nào. Phiên đầu tiên gồm ${firstSize} thẻ.`
+                      : st.due > 0
+                      ? `${st.due} thẻ đến hạn ôn hôm nay.`
+                      : st.newCards > 0
+                      ? `Đã ôn hết, còn ${st.newCards} thẻ mới có thể học.`
+                      : 'Đã ôn hết mục trong nhóm này.'}
+                  </p>
+                </div>
+
+                <div className="mt-auto flex flex-wrap gap-2">
+                  <button
+                    onClick={() => onStartReview(subject.id)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-extrabold shadow-sm hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Play size={13} fill="currentColor" />
+                    {st.due > 0 ? 'Ôn ngay' : isNewGroup || st.newCards > 0 ? 'Học thẻ mới' : 'Đã xong'}
+                  </button>
+                  {!isNewGroup && st.newCards > 0 && (
+                    <button
+                      onClick={() => onStartNewCards(subject.id)}
+                      disabled={newCardsLeftToday === 0}
+                      title={newCardsLeftToday === 0 ? `Đã đủ ${data.settings.dailyNewLimit} thẻ mới hôm nay` : undefined}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 text-xs font-bold hover:bg-violet-100 dark:hover:bg-violet-900/40 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Sprout size={13} />
+                      Mới
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
+      </div>
 
-        <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm grid grid-cols-2 gap-4">
+      {/* Thẻ chỉ số chung N3 + lối tắt sổ tay câu sai / ôn gộp môn khác */}
+      <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
           <div>
             <p className="text-2xl font-black text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
               <Flame size={20} className="fill-orange-400 text-orange-500" />
@@ -626,6 +630,26 @@ export const Homepage: React.FC<HomepageProps> = ({
             <p className="text-2xl font-black text-slate-700 dark:text-slate-200">{n3Stats.studied}</p>
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">/ {n3Stats.total} thẻ N3 đã học</p>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 justify-center shrink-0">
+          {n3Stats.wrong > 0 && (
+            <button
+              onClick={onOpenMistakes}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-sm font-bold hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all cursor-pointer"
+            >
+              <AlertTriangle size={15} />
+              Sổ tay câu sai ({n3Stats.wrong})
+            </button>
+          )}
+          {otherDue > 0 && (
+            <button
+              onClick={() => onStartReview('all')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer"
+            >
+              Ôn gộp cả môn khác (+{otherDue})
+            </button>
+          )}
         </div>
       </div>
 
